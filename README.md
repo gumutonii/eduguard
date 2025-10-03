@@ -277,5 +277,9 @@ For support, email support@eduguard.com or create an issue in this repository.
 - Academic advisors for guidance and feedback
 
 ---
+## Demo video
+
+https://youtu.be/oNuvGJMJltY
+
 
 **EduGuard** - Empowering Education Through Data-Driven Insights
