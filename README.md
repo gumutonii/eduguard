@@ -279,5 +279,3 @@ For support, email support@eduguard.com or create an issue in this repository.
 ---
 
 **EduGuard** - Empowering Education Through Data-Driven Insights
-
-*Built with ❤️ for educational excellence*
