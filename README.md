@@ -7,6 +7,8 @@
 
 A comprehensive, data-driven platform designed to help educational institutions proactively identify and prevent student dropout through advanced analytics, early warning systems, and automated intervention management.
 
+### [Figma UI Design](https://www.figma.com/design/hACT4bbmrQ3VqLkud1xntM/EduGuard?node-id=0-1&t=AuO482VYgGrCe8xM-1)
+
 ## 🎯 Project Overview
 
 EduGuard addresses the critical challenge of student dropout in educational systems, particularly in rural and peri-urban schools in Rwanda. By leveraging socio-economic data, academic performance metrics, and attendance patterns, the platform provides educators with actionable insights to intervene before students drop out.
