@@ -7,7 +7,9 @@
 
 A comprehensive, data-driven platform designed to help educational institutions proactively identify and prevent student dropout through advanced analytics, early warning systems, and automated intervention management.
 
-### [Figma UI Design](https://www.figma.com/design/hACT4bbmrQ3VqLkud1xntM/EduGuard?node-id=0-1&t=AuO482VYgGrCe8xM-1)
+### Figma UI Design: [Click Here](https://www.figma.com/design/hACT4bbmrQ3VqLkud1xntM/EduGuard?node-id=0-1&t=AuO482VYgGrCe8xM-1)
+
+### Demo video: [Click Here](https://youtu.be/oNuvGJMJltY)
 
 ## 🎯 Project Overview
 
@@ -279,9 +281,6 @@ For support, email support@eduguard.com or create an issue in this repository.
 - Academic advisors for guidance and feedback
 
 ---
-## Demo video
-
-https://youtu.be/oNuvGJMJltY
 
 
 **EduGuard** - Empowering Education Through Data-Driven Insights
