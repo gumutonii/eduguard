@@ -11,6 +11,8 @@ A comprehensive, data-driven platform designed to help educational institutions 
 
 ### Demo video: [Click Here](https://youtu.be/oNuvGJMJltY)
 
+### GitHub Repository: [Click Here](https://github.com/gumutonii/eduguard)
+
 ## 🎯 Project Overview
 
 EduGuard addresses the critical challenge of student dropout in educational systems, particularly in rural and peri-urban schools in Rwanda. By leveraging socio-economic data, academic performance metrics, and attendance patterns, the platform provides educators with actionable insights to intervene before students drop out.
