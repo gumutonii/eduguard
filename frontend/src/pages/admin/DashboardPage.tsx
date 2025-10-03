@@ -14,6 +14,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { Link } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
+import { apiClient } from '@/lib/api'
 import type { 
   DashboardStats, 
   AtRiskOverview, 
@@ -21,30 +22,6 @@ import type {
   PerformanceTrend, 
   InterventionPipeline 
 } from '@/types'
-
-// API client
-const apiClient = {
-  getDashboardStats: async () => {
-    const response = await fetch('/api/dashboard/stats')
-    return response.json()
-  },
-  getAtRiskOverview: async () => {
-    const response = await fetch('/api/dashboard/at-risk-overview')
-    return response.json()
-  },
-  getAttendanceTrend: async (days: number = 30) => {
-    const response = await fetch(`/api/dashboard/attendance-trend?days=${days}`)
-    return response.json()
-  },
-  getPerformanceTrend: async (days: number = 30) => {
-    const response = await fetch(`/api/dashboard/performance-trend?days=${days}`)
-    return response.json()
-  },
-  getInterventionPipeline: async () => {
-    const response = await fetch('/api/dashboard/intervention-pipeline')
-    return response.json()
-  }
-}
 
 export function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -108,15 +85,15 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Dashboard</h1>
-          <p className="text-neutral-600">Monitor student progress and identify at-risk students</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Dashboard</h1>
+          <p className="text-sm sm:text-base text-neutral-600">Monitor student progress and identify at-risk students</p>
         </div>
-        <Link to="/students">
-          <Button variant="primary">
+        <Link to="/students" className="w-full sm:w-auto">
+          <Button variant="primary" className="w-full sm:w-auto">
             <UsersIcon className="h-4 w-4 mr-2" />
             View Students
           </Button>
@@ -161,7 +138,7 @@ export function DashboardPage() {
       </Card>
 
       {/* Charts Grid */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
         {/* Attendance Trend */}
         <Card>
           <CardHeader>

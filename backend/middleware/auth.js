@@ -112,32 +112,6 @@ const canAccessStudent = async (req, res, next) => {
       return next();
     }
 
-    // Parents can access their own children
-    if (user.role === 'PARENT') {
-      const Student = require('../models/Student');
-      const student = await Student.findById(studentId);
-      
-      if (!student) {
-        return res.status(404).json({
-          success: false,
-          message: 'Student not found'
-        });
-      }
-
-      // Check if student is child of parent
-      const isChild = student.guardianContacts.some(contact => 
-        contact.email.toLowerCase() === user.email.toLowerCase()
-      );
-
-      if (!isChild) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied to this student'
-        });
-      }
-
-      return next();
-    }
 
     res.status(403).json({
       success: false,

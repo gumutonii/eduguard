@@ -8,7 +8,9 @@ import {
   BellIcon,
   MagnifyingGlassIcon,
   ChevronLeftIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  EnvelopeIcon,
+  DevicePhoneMobileIcon
 } from '@heroicons/react/24/outline'
 import type { NotificationHistory } from '@/types'
 
@@ -62,13 +64,13 @@ export function NotificationsPage() {
   const getChannelIcon = (channel: string) => {
     switch (channel) {
       case 'EMAIL':
-        return '📧'
+        return <EnvelopeIcon className="h-4 w-4" />
       case 'SMS':
-        return '📱'
+        return <DevicePhoneMobileIcon className="h-4 w-4" />
       case 'PUSH':
-        return '🔔'
+        return <BellIcon className="h-4 w-4" />
       default:
-        return '📧'
+        return <EnvelopeIcon className="h-4 w-4" />
     }
   }
 

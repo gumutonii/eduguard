@@ -24,14 +24,9 @@ import { TeacherStudentsPage } from '@/pages/teacher/TeacherStudentsPage'
 import { TeacherStudentDetailPage } from '@/pages/teacher/TeacherStudentDetailPage'
 import { TeacherNotificationsPage } from '@/pages/teacher/TeacherNotificationsPage'
 import { TeacherSettingsPage } from '@/pages/teacher/TeacherSettingsPage'
+import { StudentRegistrationPage } from '@/pages/teacher/StudentRegistrationPage'
 
 
-// Parent pages
-import { ParentDashboardPage } from '@/pages/parent/ParentDashboardPage'
-import { ParentReportPage } from '@/pages/parent/ParentReportPage'
-import { ParentNotificationsPage } from '@/pages/parent/ParentNotificationsPage'
-import { ParentSettingsPage } from '@/pages/parent/ParentSettingsPage'
-import { ParentPage } from '@/pages/ParentPage'
 
 function App() {
   const { isAuthenticated, user } = useAuthStore()
@@ -77,6 +72,7 @@ function App() {
           <Route path="/dashboard" element={<TeacherDashboardPage />} />
           <Route path="/students" element={<TeacherStudentsPage />} />
           <Route path="/students/:id" element={<TeacherStudentDetailPage />} />
+          <Route path="/students/register" element={<StudentRegistrationPage />} />
           <Route path="/notifications" element={<TeacherNotificationsPage />} />
           <Route path="/profile" element={<TeacherSettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -86,20 +82,6 @@ function App() {
   }
 
 
-  if (user?.role === 'PARENT') {
-    return (
-      <AppLayout>
-        <Routes>
-          <Route path="/dashboard" element={<ParentDashboardPage />} />
-          <Route path="/report" element={<ParentReportPage />} />
-          <Route path="/notifications" element={<ParentNotificationsPage />} />
-          <Route path="/profile" element={<ParentSettingsPage />} />
-          <Route path="/parent" element={<ParentPage />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </AppLayout>
-    )
-  }
 
   // Default fallback
   return (

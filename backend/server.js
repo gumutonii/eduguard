@@ -10,6 +10,7 @@ const userRoutes = require('./routes/users');
 const studentRoutes = require('./routes/students');
 const dashboardRoutes = require('./routes/dashboard');
 const notificationRoutes = require('./routes/notifications');
+const parentNotificationRoutes = require('./routes/parentNotifications');
 const schoolRoutes = require('./routes/schools');
 
 const app = express();
@@ -46,6 +47,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/notifications/parent', parentNotificationRoutes);
 app.use('/api/schools', schoolRoutes);
 
 // Health check endpoint

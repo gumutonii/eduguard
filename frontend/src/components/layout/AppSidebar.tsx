@@ -31,13 +31,7 @@ const getNavigation = (role: string) => {
       return [
         { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
         { name: 'Students', href: '/students', icon: UserGroupIcon },
-        { name: 'Notifications', href: '/notifications', icon: BellIcon },
-        { name: 'Profile', href: '/profile', icon: Cog6ToothIcon },
-      ]
-    case 'PARENT':
-      return [
-        { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-        { name: 'Report', href: '/report', icon: DocumentTextIcon },
+        { name: 'Register Student', href: '/students/register', icon: UserPlusIcon },
         { name: 'Notifications', href: '/notifications', icon: BellIcon },
         { name: 'Profile', href: '/profile', icon: Cog6ToothIcon },
       ]

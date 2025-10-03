@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -12,34 +12,17 @@ import {
   ClipboardDocumentListIcon,
   PhoneIcon,
   EnvelopeIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  ArrowLeftIcon,
+  MapPinIcon,
+  HomeIcon,
+  AcademicCapIcon,
+  CalendarIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
+import { apiClient } from '@/lib/api'
 import type { Student, Attendance, Performance, RiskFlag, Intervention } from '@/types'
-
-// API client
-const apiClient = {
-  getStudent: async (id: string) => {
-    const response = await fetch(`/api/students/${id}`)
-    return response.json()
-  },
-  getStudentAttendance: async (id: string) => {
-    const response = await fetch(`/api/attendance?studentId=${id}`)
-    return response.json()
-  },
-  getStudentPerformance: async (id: string) => {
-    const response = await fetch(`/api/performance?studentId=${id}`)
-    return response.json()
-  },
-  getStudentRiskFlags: async (id: string) => {
-    const response = await fetch(`/api/risk-flags?studentId=${id}`)
-    return response.json()
-  },
-  getStudentInterventions: async (id: string) => {
-    const response = await fetch(`/api/interventions?studentId=${id}`)
-    return response.json()
-  }
-}
 
 const tabs = [
   { id: 'overview', name: 'Overview', icon: UserIcon },
@@ -413,20 +396,20 @@ export function TeacherStudentDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Student Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="h-16 w-16 bg-primary-100 rounded-full flex items-center justify-center">
-            <span className="text-2xl font-medium text-primary-600">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
+        <div className="flex items-center space-x-3 sm:space-x-4">
+          <div className="h-12 w-12 sm:h-16 sm:w-16 bg-primary-100 rounded-full flex items-center justify-center">
+            <span className="text-lg sm:text-2xl font-medium text-primary-600">
               {student.firstName.charAt(0)}{student.lastName.charAt(0)}
             </span>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">
+            <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">
               {student.firstName} {student.lastName}
             </h1>
-            <p className="text-neutral-600">
+            <p className="text-sm sm:text-base text-neutral-600">
               Student ID: {student._id.slice(-8)} • {student.classroomId} • {student.gender === 'M' ? 'Male' : 'Female'}
             </p>
           </div>
@@ -438,21 +421,22 @@ export function TeacherStudentDetailPage() {
 
       {/* Tab Navigation */}
       <div className="border-b border-neutral-200">
-        <nav className="-mb-px flex space-x-8">
+        <nav className="-mb-px flex space-x-4 sm:space-x-8 overflow-x-auto">
           {tabs.map((tab) => {
             const Icon = tab.icon
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'border-primary-500 text-primary-600'
                     : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
                 }`}
               >
-                <Icon className="h-5 w-5 mr-2" />
-                {tab.name}
+                <Icon className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">{tab.name}</span>
+                <span className="sm:hidden">{tab.name.split(' ')[0]}</span>
               </button>
             )
           })}

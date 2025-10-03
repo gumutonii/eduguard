@@ -13,6 +13,7 @@ import {
   UserGroupIcon
 } from '@heroicons/react/24/outline'
 import { Link } from 'react-router-dom'
+import { apiClient } from '@/lib/api'
 import type { 
   DashboardStats, 
   AtRiskOverview, 
@@ -23,30 +24,6 @@ import type {
   RiskFlag,
   Intervention
 } from '@/types'
-
-// API client
-const apiClient = {
-  getTeacherDashboardStats: async () => {
-    const response = await fetch('/api/teacher/dashboard/stats')
-    return response.json()
-  },
-  getTeacherClasses: async () => {
-    const response = await fetch('/api/teacher/classes')
-    return response.json()
-  },
-  getTeacherAtRiskStudents: async () => {
-    const response = await fetch('/api/teacher/at-risk-students')
-    return response.json()
-  },
-  getTeacherLowScoreAlerts: async () => {
-    const response = await fetch('/api/teacher/low-score-alerts')
-    return response.json()
-  },
-  getTeacherInterventions: async () => {
-    const response = await fetch('/api/teacher/interventions')
-    return response.json()
-  }
-}
 
 export function TeacherDashboardPage() {
   const { data: classes, isLoading: classesLoading } = useQuery({
@@ -91,15 +68,15 @@ export function TeacherDashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Teacher Dashboard</h1>
-          <p className="text-neutral-600">Monitor your students and manage your classes</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Teacher Dashboard</h1>
+          <p className="text-sm sm:text-base text-neutral-600">Monitor your students and manage your classes</p>
         </div>
-        <Link to="/students">
-          <Button variant="primary">
+        <Link to="/students" className="w-full sm:w-auto">
+          <Button variant="primary" className="w-full sm:w-auto">
             <UsersIcon className="h-4 w-4 mr-2" />
             View Students
           </Button>
@@ -115,7 +92,7 @@ export function TeacherDashboardPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {classes?.data?.map((classItem: any) => (
               <div key={classItem.id} className="p-4 border border-neutral-200 rounded-xl">
                 <div className="flex items-center justify-between mb-2">
@@ -146,7 +123,11 @@ export function TeacherDashboardPage() {
         <CardContent>
           <div className="space-y-3">
             {atRiskStudents?.data?.slice(0, 5).map((student: any) => (
-              <div key={student._id} className="flex items-center justify-between p-3 border border-neutral-200 rounded-xl">
+              <div 
+                key={student._id} 
+                className="flex items-center justify-between p-3 border border-neutral-200 rounded-xl hover:bg-neutral-50 cursor-pointer transition-colors"
+                onClick={() => window.location.href = `/students/${student._id}?tab=risk`}
+              >
                 <div className="flex items-center space-x-3">
                   <div className="h-10 w-10 bg-primary-100 rounded-full flex items-center justify-center">
                     <span className="text-sm font-medium text-primary-600">
@@ -163,7 +144,11 @@ export function TeacherDashboardPage() {
                     {student.riskLevel}
                   </Badge>
                   <Link to={`/students/${student._id}?tab=risk`}>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       View
                     </Button>
                   </Link>
@@ -192,7 +177,11 @@ export function TeacherDashboardPage() {
         <CardContent>
           <div className="space-y-3">
             {lowScoreAlerts?.data?.slice(0, 5).map((alert: any) => (
-              <div key={alert._id} className="flex items-center justify-between p-3 border border-yellow-200 bg-yellow-50 rounded-xl">
+              <div 
+                key={alert._id} 
+                className="flex items-center justify-between p-3 border border-yellow-200 bg-yellow-50 rounded-xl hover:bg-yellow-100 cursor-pointer transition-colors"
+                onClick={() => window.location.href = `/students/${alert.student._id}?tab=performance`}
+              >
                 <div className="flex items-center space-x-3">
                   <div className="h-10 w-10 bg-yellow-100 rounded-full flex items-center justify-center">
                     <span className="text-sm font-medium text-yellow-600">
@@ -205,7 +194,11 @@ export function TeacherDashboardPage() {
                   </div>
                 </div>
                 <Link to={`/students/${alert.student._id}?tab=performance`}>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     View
                   </Button>
                 </Link>
@@ -233,7 +226,11 @@ export function TeacherDashboardPage() {
         <CardContent>
           <div className="space-y-3">
             {interventions?.data?.slice(0, 5).map((intervention: any) => (
-              <div key={intervention._id} className="flex items-center justify-between p-3 border border-neutral-200 rounded-xl">
+              <div 
+                key={intervention._id} 
+                className="flex items-center justify-between p-3 border border-neutral-200 rounded-xl hover:bg-neutral-50 cursor-pointer transition-colors"
+                onClick={() => window.location.href = `/students/${intervention.student._id}?tab=interventions`}
+              >
                 <div className="flex items-center space-x-3">
                   <div className="h-10 w-10 bg-purple-100 rounded-full flex items-center justify-center">
                     <span className="text-sm font-medium text-purple-600">
@@ -253,7 +250,11 @@ export function TeacherDashboardPage() {
                     {intervention.status}
                   </Badge>
                   <Link to={`/students/${intervention.student._id}?tab=interventions`}>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       View
                     </Button>
                   </Link>

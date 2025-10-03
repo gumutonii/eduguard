@@ -95,7 +95,7 @@ export function PrivacyPolicy() {
                 <p className="text-neutral-700">
                   Our service is designed for educational institutions and their authorized users. 
                   We do not knowingly collect personal information from children under 13 without 
-                  parental consent. Student data is collected and used solely for educational purposes 
+                  appropriate consent. Student data is collected and used solely for educational purposes 
                   and in compliance with applicable educational privacy laws.
                 </p>
               </section>

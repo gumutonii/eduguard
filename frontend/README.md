@@ -4,14 +4,13 @@ A comprehensive React + TypeScript frontend for the EduGuard Proactive Dropout P
 
 ## Features
 
-- **Role-based Access**: Admin, Teacher, and Parent portals
+- **Role-based Access**: Admin and Teacher portals
 - **Student Management**: Comprehensive student profiles and tracking
 - **Attendance Tracking**: Daily attendance with patterns and alerts
 - **Performance Monitoring**: Academic performance tracking and analysis
 - **Risk Management**: Early warning system with automated risk flags
 - **Intervention Tracking**: Structured intervention management
 - **Reports & Analytics**: Comprehensive reporting and data export
-- **Parent Communication**: Notification system for parents
 
 ## Tech Stack
 

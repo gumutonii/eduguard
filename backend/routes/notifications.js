@@ -254,52 +254,5 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Parent-specific notification routes
-// @route   GET /api/parent/messages
-// @desc    Get parent messages
-// @access  Private (Parent)
-router.get('/parent/messages', authenticateToken, async (req, res) => {
-  try {
-    if (req.user.role !== 'PARENT') {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied'
-      });
-    }
-
-    // Mock parent messages
-    const messages = [
-      {
-        _id: 'msg1',
-        title: 'Attendance Alert',
-        message: 'Your child Emma has missed 3 days this month. Please ensure regular attendance.',
-        type: 'WARNING',
-        childName: 'Emma Wilson',
-        childId: 'child1',
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        _id: 'msg2',
-        title: 'Parent-Teacher Meeting',
-        message: 'Scheduled meeting on Friday at 3:00 PM to discuss Alex\'s progress.',
-        type: 'INFO',
-        childName: 'Alex Wilson',
-        childId: 'child2',
-        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
-      }
-    ];
-
-    res.json({
-      success: true,
-      data: messages
-    });
-  } catch (error) {
-    console.error('Get parent messages error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch parent messages'
-    });
-  }
-});
 
 module.exports = router;

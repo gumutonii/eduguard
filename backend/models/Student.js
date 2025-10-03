@@ -7,6 +7,11 @@ const studentSchema = new mongoose.Schema({
     trim: true,
     maxlength: [50, 'First name cannot exceed 50 characters']
   },
+  middleName: {
+    type: String,
+    trim: true,
+    maxlength: [50, 'Middle name cannot exceed 50 characters']
+  },
   lastName: {
     type: String,
     required: [true, 'Last name is required'],
@@ -15,8 +20,14 @@ const studentSchema = new mongoose.Schema({
   },
   gender: {
     type: String,
-    enum: ['M', 'F', 'Other'],
+    enum: ['M', 'F'],
     required: [true, 'Gender is required']
+  },
+  age: {
+    type: Number,
+    required: [true, 'Age is required'],
+    min: [3, 'Age must be at least 3'],
+    max: [25, 'Age cannot exceed 25']
   },
   dob: {
     type: Date,
@@ -37,6 +48,72 @@ const studentSchema = new mongoose.Schema({
     ref: 'User',
     required: [true, 'Assigned teacher ID is required']
   },
+  // Rwanda-specific address information
+  address: {
+    district: {
+      type: String,
+      required: [true, 'District is required'],
+      trim: true
+    },
+    sector: {
+      type: String,
+      required: [true, 'Sector is required'],
+      trim: true
+    },
+    cell: {
+      type: String,
+      required: [true, 'Cell is required'],
+      trim: true
+    },
+    village: {
+      type: String,
+      required: [true, 'Village is required'],
+      trim: true
+    }
+  },
+  
+  // Socio-economic information for dropout risk assessment
+  socioEconomic: {
+    ubudeheLevel: {
+      type: Number,
+      required: [true, 'Ubudehe level is required'],
+      enum: [1, 2, 3, 4],
+      default: 4
+    },
+    hasParents: {
+      type: Boolean,
+      required: [true, 'Parent status is required'],
+      default: true
+    },
+    guardianType: {
+      type: String,
+      enum: ['Parent', 'Sibling', 'Relative', 'Other'],
+      required: function() {
+        return !this.socioEconomic?.hasParents;
+      }
+    },
+    parentJob: {
+      type: String,
+      trim: true
+    },
+    familyConflict: {
+      type: Boolean,
+      required: [true, 'Family conflict status is required'],
+      default: false
+    },
+    numberOfSiblings: {
+      type: Number,
+      required: [true, 'Number of siblings is required'],
+      min: [0, 'Number of siblings cannot be negative'],
+      max: [20, 'Number of siblings cannot exceed 20']
+    },
+    parentEducationLevel: {
+      type: String,
+      enum: ['None', 'Primary', 'Secondary', 'University', 'Other'],
+      required: [true, 'Parent education level is required']
+    }
+  },
+
   guardianContacts: [{
     name: {
       type: String,
@@ -45,19 +122,28 @@ const studentSchema = new mongoose.Schema({
     },
     relation: {
       type: String,
-      enum: ['Father', 'Mother', 'Guardian', 'Other'],
+      enum: ['Father', 'Mother', 'Guardian', 'Sibling', 'Relative', 'Other'],
       required: true
     },
     phone: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
+      match: [/^[\+]?[1-9][\d]{0,15}$/, 'Please enter a valid phone number']
     },
     email: {
       type: String,
-      required: true,
       lowercase: true,
+      trim: true,
+      match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+    },
+    job: {
+      type: String,
       trim: true
+    },
+    educationLevel: {
+      type: String,
+      enum: ['None', 'Primary', 'Secondary', 'University', 'Other']
     },
     isPrimary: {
       type: Boolean,
@@ -140,25 +226,19 @@ studentSchema.index({ assignedTeacherId: 1 });
 studentSchema.index({ riskLevel: 1 });
 studentSchema.index({ isActive: 1 });
 studentSchema.index({ 'guardianContacts.email': 1 });
+studentSchema.index({ 'address.district': 1, schoolId: 1 });
+studentSchema.index({ 'socioEconomic.ubudeheLevel': 1, schoolId: 1 });
+studentSchema.index({ 'socioEconomic.familyConflict': 1, schoolId: 1 });
+studentSchema.index({ 'socioEconomic.hasParents': 1, schoolId: 1 });
+studentSchema.index({ age: 1, schoolId: 1 });
 
 // Virtual for full name
 studentSchema.virtual('fullName').get(function() {
-  return `${this.firstName} ${this.lastName}`;
+  const middleName = this.middleName ? ` ${this.middleName}` : '';
+  return `${this.firstName}${middleName} ${this.lastName}`;
 });
 
-// Virtual for age
-studentSchema.virtual('age').get(function() {
-  const today = new Date();
-  const birthDate = new Date(this.dob);
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  
-  return age;
-});
+// Note: Age is now a real field in the schema, no virtual needed
 
 // Method to get primary guardian
 studentSchema.methods.getPrimaryGuardian = function() {

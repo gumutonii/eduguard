@@ -16,8 +16,6 @@ router.get('/stats', authenticateToken, async (req, res) => {
     // Role-based filtering
     if (user.role === 'TEACHER') {
       query.assignedTeacherId = user._id;
-    } else if (user.role === 'PARENT') {
-      query['guardianContacts.email'] = user.email;
     }
 
     const totalStudents = await Student.countDocuments(query);
@@ -71,8 +69,6 @@ router.get('/at-risk-overview', authenticateToken, async (req, res) => {
     // Role-based filtering
     if (user.role === 'TEACHER') {
       query.assignedTeacherId = user._id;
-    } else if (user.role === 'PARENT') {
-      query['guardianContacts.email'] = user.email;
     }
 
     const highRisk = await Student.countDocuments({ ...query, riskLevel: 'HIGH' });
@@ -110,8 +106,6 @@ router.get('/attendance-trend', authenticateToken, async (req, res) => {
     // Role-based filtering
     if (user.role === 'TEACHER') {
       query.assignedTeacherId = user._id;
-    } else if (user.role === 'PARENT') {
-      query['guardianContacts.email'] = user.email;
     }
 
     // Mock attendance trend data (in real app, this would come from attendance records)
@@ -158,8 +152,6 @@ router.get('/performance-trend', authenticateToken, async (req, res) => {
     // Role-based filtering
     if (user.role === 'TEACHER') {
       query.assignedTeacherId = user._id;
-    } else if (user.role === 'PARENT') {
-      query['guardianContacts.email'] = user.email;
     }
 
     // Mock performance trend data
@@ -206,8 +198,6 @@ router.get('/intervention-pipeline', authenticateToken, async (req, res) => {
     // Role-based filtering
     if (user.role === 'TEACHER') {
       query.assignedTeacherId = user._id;
-    } else if (user.role === 'PARENT') {
-      query['guardianContacts.email'] = user.email;
     }
 
     // Mock intervention data (in real app, this would come from intervention records)
@@ -319,50 +309,5 @@ router.get('/teacher/at-risk-students', authenticateToken, async (req, res) => {
   }
 });
 
-// Parent-specific dashboard routes
-// @route   GET /api/parent/children
-// @desc    Get parent's children
-// @access  Private (Parent)
-router.get('/parent/children', authenticateToken, async (req, res) => {
-  try {
-    if (req.user.role !== 'PARENT') {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied'
-      });
-    }
-
-    const children = await Student.find({
-      'guardianContacts.email': req.user.email,
-      isActive: true
-    })
-    .select('firstName lastName classroomId riskLevel riskFlags')
-    .populate('assignedTeacherId', 'name email');
-
-    const childrenData = children.map(child => ({
-      _id: child._id,
-      firstName: child.firstName,
-      lastName: child.lastName,
-      classroomId: child.classroomId,
-      attendanceStreak: Math.floor(Math.random() * 20) + 5, // Mock data
-      lastTermScore: Math.floor(Math.random() * 30) + 70, // Mock data
-      alerts: child.riskFlags.filter(flag => !flag.isResolved).map(flag => ({
-        type: flag.severity === 'HIGH' ? 'WARNING' : 'INFO',
-        message: flag.description
-      }))
-    }));
-
-    res.json({
-      success: true,
-      data: childrenData
-    });
-  } catch (error) {
-    console.error('Get parent children error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch children'
-    });
-  }
-});
 
 module.exports = router;

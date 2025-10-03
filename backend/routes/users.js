@@ -97,7 +97,7 @@ router.put('/:id', [
   authenticateToken,
   body('name').optional().trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters long'),
   body('phone').optional().isMobilePhone().withMessage('Please provide a valid phone number'),
-  body('role').optional().isIn(['ADMIN', 'TEACHER', 'PARENT']).withMessage('Invalid role')
+  body('role').optional().isIn(['ADMIN', 'TEACHER']).withMessage('Invalid role')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);

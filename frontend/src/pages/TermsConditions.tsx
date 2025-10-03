@@ -40,7 +40,7 @@ export function TermsConditions() {
                 <ul className="list-disc list-inside text-neutral-700 space-y-2">
                   <li>Student progress monitoring and analytics</li>
                   <li>Risk assessment and early warning systems</li>
-                  <li>Communication tools for teachers, parents, and administrators</li>
+                  <li>Communication tools for teachers and administrators</li>
                   <li>Reporting and intervention management</li>
                 </ul>
               </section>

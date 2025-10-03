@@ -25,9 +25,6 @@ router.get('/', authenticateToken, async (req, res) => {
     // Role-based filtering
     if (req.user.role === 'TEACHER') {
       query.assignedTeacherId = req.user._id;
-    } else if (req.user.role === 'PARENT') {
-      // Parents can only see their children
-      query['guardianContacts.email'] = req.user.email;
     }
 
     // Additional filters
@@ -111,17 +108,38 @@ router.get('/:id', authenticateToken, canAccessStudent, async (req, res) => {
 router.post('/', [
   authenticateToken,
   authorize('ADMIN', 'TEACHER'),
+  // Personal information validation
   body('firstName').trim().isLength({ min: 2 }).withMessage('First name must be at least 2 characters long'),
+  body('middleName').optional().trim().isLength({ max: 50 }).withMessage('Middle name cannot exceed 50 characters'),
   body('lastName').trim().isLength({ min: 2 }).withMessage('Last name must be at least 2 characters long'),
-  body('gender').isIn(['M', 'F', 'Other']).withMessage('Invalid gender'),
+  body('gender').isIn(['M', 'F']).withMessage('Invalid gender'),
+  body('age').isInt({ min: 3, max: 25 }).withMessage('Age must be between 3 and 25'),
   body('dob').isISO8601().withMessage('Valid date of birth is required'),
   body('classroomId').notEmpty().withMessage('Classroom ID is required'),
-  body('assignedTeacherId').isMongoId().withMessage('Valid assigned teacher ID is required'),
+  
+  // Address validation
+  body('address.district').notEmpty().withMessage('District is required'),
+  body('address.sector').notEmpty().withMessage('Sector is required'),
+  body('address.cell').notEmpty().withMessage('Cell is required'),
+  body('address.village').notEmpty().withMessage('Village is required'),
+  
+  // Socio-economic validation
+  body('socioEconomic.ubudeheLevel').isInt({ min: 1, max: 4 }).withMessage('Ubudehe level must be between 1 and 4'),
+  body('socioEconomic.hasParents').isBoolean().withMessage('Has parents must be a boolean'),
+  body('socioEconomic.guardianType').optional().isIn(['Parent', 'Sibling', 'Relative', 'Other']).withMessage('Invalid guardian type'),
+  body('socioEconomic.parentJob').optional().trim().isLength({ max: 100 }).withMessage('Parent job cannot exceed 100 characters'),
+  body('socioEconomic.familyConflict').isBoolean().withMessage('Family conflict must be a boolean'),
+  body('socioEconomic.numberOfSiblings').isInt({ min: 0, max: 20 }).withMessage('Number of siblings must be between 0 and 20'),
+  body('socioEconomic.parentEducationLevel').isIn(['None', 'Primary', 'Secondary', 'University', 'Other']).withMessage('Invalid parent education level'),
+  
+  // Guardian contacts validation
   body('guardianContacts').isArray({ min: 1 }).withMessage('At least one guardian contact is required'),
   body('guardianContacts.*.name').trim().notEmpty().withMessage('Guardian name is required'),
-  body('guardianContacts.*.relation').isIn(['Father', 'Mother', 'Guardian', 'Other']).withMessage('Invalid relation'),
-  body('guardianContacts.*.phone').isMobilePhone().withMessage('Valid phone number is required'),
-  body('guardianContacts.*.email').isEmail().withMessage('Valid email is required')
+  body('guardianContacts.*.relation').isIn(['Father', 'Mother', 'Guardian', 'Sibling', 'Relative', 'Other']).withMessage('Invalid relation'),
+  body('guardianContacts.*.phone').matches(/^[\+]?[1-9][\d]{0,15}$/).withMessage('Valid phone number is required'),
+  body('guardianContacts.*.email').optional().isEmail().withMessage('Valid email is required'),
+  body('guardianContacts.*.job').optional().trim().isLength({ max: 100 }).withMessage('Job cannot exceed 100 characters'),
+  body('guardianContacts.*.educationLevel').optional().isIn(['None', 'Primary', 'Secondary', 'University', 'Other']).withMessage('Invalid education level')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -135,12 +153,43 @@ router.post('/', [
 
     const studentData = {
       ...req.body,
-      schoolId: req.user.schoolId
+      schoolId: req.user.schoolId,
+      assignedTeacherId: req.user.role === 'TEACHER' ? req.user._id : req.body.assignedTeacherId
     };
 
     // Ensure at least one guardian is primary
     if (!studentData.guardianContacts.some(contact => contact.isPrimary)) {
       studentData.guardianContacts[0].isPrimary = true;
+    }
+
+    // Calculate risk level based on socio-economic factors
+    let riskScore = 0;
+    
+    // Ubudehe level scoring (higher level = lower risk)
+    riskScore += (5 - studentData.socioEconomic.ubudeheLevel) * 2;
+    
+    // Family factors
+    if (!studentData.socioEconomic.hasParents) riskScore += 3;
+    if (studentData.socioEconomic.familyConflict) riskScore += 2;
+    if (studentData.socioEconomic.numberOfSiblings > 5) riskScore += 1;
+    
+    // Parent education level
+    const educationScore = {
+      'None': 3,
+      'Primary': 2,
+      'Secondary': 1,
+      'University': 0,
+      'Other': 1
+    };
+    riskScore += educationScore[studentData.socioEconomic.parentEducationLevel] || 1;
+    
+    // Determine risk level
+    if (riskScore >= 8) {
+      studentData.riskLevel = 'HIGH';
+    } else if (riskScore >= 5) {
+      studentData.riskLevel = 'MEDIUM';
+    } else {
+      studentData.riskLevel = 'LOW';
     }
 
     const student = new Student(studentData);

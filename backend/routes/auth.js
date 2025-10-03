@@ -15,7 +15,7 @@ router.post('/register', [
   body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters long'),
   body('name').trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters long'),
-  body('role').isIn(['ADMIN', 'TEACHER', 'PARENT']).withMessage('Invalid role'),
+  body('role').isIn(['ADMIN', 'TEACHER']).withMessage('Invalid role'),
   body('schoolId').isMongoId().withMessage('Valid school ID is required'),
   body('phone').optional().isMobilePhone().withMessage('Please provide a valid phone number')
 ], async (req, res) => {

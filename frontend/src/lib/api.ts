@@ -158,6 +158,21 @@ class ApiClient {
     }>('/dashboard/intervention-pipeline')
   }
 
+  // Teacher-specific dashboard methods
+  async getTeacherClasses() {
+    return this.request<{
+      success: boolean
+      data: any
+    }>('/dashboard/teacher/classes')
+  }
+
+  async getTeacherAtRiskStudents() {
+    return this.request<{
+      success: boolean
+      data: any
+    }>('/dashboard/teacher/at-risk-students')
+  }
+
   // Students methods
   async getStudents(params: {
     page?: number
@@ -210,20 +225,6 @@ class ApiClient {
     }>(`/notifications?${searchParams.toString()}`)
   }
 
-  // Teacher-specific methods
-  async getTeacherClasses() {
-    return this.request<{
-      success: boolean
-      data: any[]
-    }>('/dashboard/teacher/classes')
-  }
-
-  async getTeacherAtRiskStudents() {
-    return this.request<{
-      success: boolean
-      data: any[]
-    }>('/dashboard/teacher/at-risk-students')
-  }
 
   async getTeacherLowScoreAlerts() {
     return this.request<{
@@ -239,33 +240,100 @@ class ApiClient {
     }>('/dashboard/teacher/interventions')
   }
 
-  // Parent-specific methods
-  async getParentChildren() {
+  // Parent notification methods
+  async sendParentRiskAlert(data: {
+    studentId: string
+    riskLevel: string
+    riskDescription: string
+  }) {
     return this.request<{
       success: boolean
-      data: any[]
-    }>('/dashboard/parent/children')
+      message: string
+      data: any
+    }>('/notifications/parent/risk-alert', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
   }
 
-  async getParentMessages() {
+  async sendParentAttendanceAlert(data: {
+    studentId: string
+    attendanceData: {
+      absentDays: number
+      period: string
+      attendanceRate: number
+    }
+  }) {
     return this.request<{
       success: boolean
-      data: any[]
-    }>('/notifications/parent/messages')
+      message: string
+      data: any
+    }>('/notifications/parent/attendance-alert', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
   }
 
-  async getChildAttendance(childId: string) {
+  async sendParentPerformanceAlert(data: {
+    studentId: string
+    performanceData: {
+      declineReason: string
+      currentAverage: number
+    }
+  }) {
+    return this.request<{
+      success: boolean
+      message: string
+      data: any
+    }>('/notifications/parent/performance-alert', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async getStudentGuardianContacts(studentId: string) {
+    return this.request<{
+      success: boolean
+      data: {
+        studentName: string
+        guardianContacts: Array<{
+          name: string
+          relation: string
+          phone?: string
+          email?: string
+          isPrimary?: boolean
+        }>
+      }
+    }>(`/notifications/parent/student/${studentId}/contacts`)
+  }
+
+
+  async getStudentAttendance(studentId: string) {
     return this.request<{
       success: boolean
       data: any
-    }>(`/dashboard/parent/children/${childId}/attendance`)
+    }>(`/attendance?studentId=${studentId}`)
   }
 
-  async getChildPerformance(childId: string) {
+  async getStudentPerformance(studentId: string) {
     return this.request<{
       success: boolean
       data: any
-    }>(`/dashboard/parent/children/${childId}/performance`)
+    }>(`/performance?studentId=${studentId}`)
+  }
+
+  async getStudentRiskFlags(studentId: string) {
+    return this.request<{
+      success: boolean
+      data: any
+    }>(`/risk-flags?studentId=${studentId}`)
+  }
+
+  async getStudentInterventions(studentId: string) {
+    return this.request<{
+      success: boolean
+      data: any
+    }>(`/interventions?studentId=${studentId}`)
   }
 
   // Schools methods

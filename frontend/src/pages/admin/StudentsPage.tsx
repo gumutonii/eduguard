@@ -3,29 +3,20 @@ import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { 
   MagnifyingGlassIcon,
   PlusIcon,
   UserGroupIcon,
   ChevronLeftIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline'
+import { apiClient } from '@/lib/api'
 import type { Student, StudentFilters } from '@/types'
 
-// Mock API client - replace with actual implementation
-const apiClient = {
-  getStudents: async (filters: any) => {
-    const params = new URLSearchParams()
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) params.append(key, value.toString())
-    })
-    const response = await fetch(`/api/students?${params}`)
-    return response.json()
-  }
-}
-
 export function StudentsPage() {
+  const navigate = useNavigate()
   const [filters, setFilters] = useState<StudentFilters & { page: number }>({
     search: '',
     classroomId: '',
@@ -46,16 +37,20 @@ export function StudentsPage() {
     setFilters({ ...filters, page: newPage })
   }
 
+  const handleStudentClick = (studentId: string) => {
+    navigate(`/students/${studentId}`)
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Students</h1>
-          <p className="text-neutral-600">Manage student information and track their progress</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Students</h1>
+          <p className="text-sm sm:text-base text-neutral-600">Manage student information and track their progress</p>
         </div>
-        <Link to="/students/new">
-          <Button variant="primary">
+        <Link to="/students/register" className="w-full sm:w-auto">
+          <Button variant="primary" className="w-full sm:w-auto">
             <PlusIcon className="h-4 w-4 mr-2" />
             Add Student
           </Button>
@@ -65,7 +60,7 @@ export function StudentsPage() {
       {/* Filters */}
       <Card>
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">
                 Search
@@ -148,31 +143,35 @@ export function StudentsPage() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
                 <table className="min-w-full divide-y divide-neutral-200">
                   <thead className="bg-neutral-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                         Student
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                         Gender
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                         Class
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                         Risk Level
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-neutral-200">
                     {students.map((student: Student) => (
-                      <tr key={student._id} className="hover:bg-neutral-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                      <tr 
+                        key={student._id} 
+                        className="hover:bg-neutral-50 cursor-pointer transition-colors"
+                        onClick={() => handleStudentClick(student._id)}
+                      >
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="h-10 w-10 bg-primary-100 rounded-full flex items-center justify-center">
                               <span className="text-sm font-medium text-primary-600">
@@ -195,15 +194,29 @@ export function StudentsPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
                           {student.classroomId}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <Badge variant="low">Low Risk</Badge>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                          <Badge 
+                            variant={
+                              student.riskLevel === 'HIGH' ? 'destructive' : 
+                              student.riskLevel === 'MEDIUM' ? 'warning' : 'low'
+                            }
+                          >
+                            {student.riskLevel || 'LOW'} Risk
+                          </Badge>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <Link to={`/students/${student._id}`}>
-                            <Button variant="outline" size="sm">
-                              View Details
-                            </Button>
-                          </Link>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleStudentClick(student._id)
+                            }}
+                            className="flex items-center gap-2"
+                          >
+                            <EyeIcon className="h-4 w-4" />
+                            View Details
+                          </Button>
                         </td>
                       </tr>
                     ))}

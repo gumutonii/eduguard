@@ -18,11 +18,6 @@ pages/
 │   ├── TeacherStudentDetailPage.tsx
 │   ├── TeacherNotificationsPage.tsx
 │   └── TeacherSettingsPage.tsx
-├── parent/          # Parent-specific pages
-│   ├── ParentDashboardPage.tsx
-│   ├── ParentReportPage.tsx
-│   ├── ParentNotificationsPage.tsx
-│   └── ParentSettingsPage.tsx
 ├── auth/            # Authentication pages
 │   ├── LoginPage.tsx
 │   ├── RegisterPage.tsx
@@ -36,9 +31,8 @@ The application uses role-based routing in `App.tsx`:
 
 - **ADMIN**: Full access to all admin features (dashboard, students, notifications, profile)
 - **TEACHER**: Access to teacher-specific features (dashboard, students, notifications, profile)
-- **PARENT**: Parent portal access (dashboard, report, notifications, profile)
 
-**Note**: Students do not have user accounts or dashboard access. Student data is managed by admins and teachers, and parents can view their children's information.
+**Note**: Students do not have user accounts or dashboard access. Student data is managed by admins and teachers.
 
 ## Navigation by Role
 

@@ -77,33 +77,6 @@ const seedData = async () => {
       console.log(`✅ Teacher ${teacherData.name} created`);
     }
 
-    // Create parent users
-    const parents = [
-      {
-        email: 'parent1@example.com',
-        password: 'parent123',
-        name: 'John Wilson',
-        role: 'PARENT',
-        schoolId: school._id,
-        phone: '+15550004'
-      },
-      {
-        email: 'parent2@example.com',
-        password: 'parent123',
-        name: 'Lisa Smith',
-        role: 'PARENT',
-        schoolId: school._id,
-        phone: '+15550005'
-      }
-    ];
-
-    const createdParents = [];
-    for (const parentData of parents) {
-      const parent = new User(parentData);
-      await parent.save();
-      createdParents.push(parent);
-      console.log(`✅ Parent ${parentData.name} created`);
-    }
 
     // Create students
     const students = [
@@ -210,8 +183,6 @@ const seedData = async () => {
     console.log('Admin: admin@eduguard.com / admin123');
     console.log('Teacher 1: teacher1@eduguard.com / teacher123');
     console.log('Teacher 2: teacher2@eduguard.com / teacher123');
-    console.log('Parent 1: parent1@example.com / parent123');
-    console.log('Parent 2: parent2@example.com / parent123');
     console.log('\n🔗 Frontend URL: http://localhost:5173');
     console.log('🔗 Backend URL: http://localhost:3000/api');
 

@@ -9,7 +9,10 @@ import {
   BuildingOfficeIcon,
   MapPinIcon,
   EnvelopeIcon,
-  PhoneIcon
+  PhoneIcon,
+  UserIcon,
+  AcademicCapIcon,
+  UserGroupIcon
 } from '@heroicons/react/24/outline'
 import { apiClient } from '@/lib/api'
 
@@ -113,10 +116,10 @@ export function UserApprovalPage() {
 
   const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'ADMIN': return '👨‍💼'
-      case 'TEACHER': return '👨‍🏫'
-      case 'PARENT': return '👨‍👩‍👧‍👦'
-      default: return '👤'
+      case 'ADMIN': return <UserIcon className="h-5 w-5" />
+      case 'TEACHER': return <AcademicCapIcon className="h-5 w-5" />
+      case 'PARENT': return <UserGroupIcon className="h-5 w-5" />
+      default: return <UserIcon className="h-5 w-5" />
     }
   }
 

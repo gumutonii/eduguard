@@ -14,17 +14,18 @@ export function LandingPage() {
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+          <div className="flex justify-between items-center py-4 sm:py-6">
             <div className="flex items-center">
-              <ShieldCheckIcon className="h-8 w-8 text-primary-600" />
-              <h1 className="ml-2 text-2xl font-bold text-neutral-900">EduGuard</h1>
+              <ShieldCheckIcon className="h-6 w-6 sm:h-8 sm:w-8 text-primary-600" />
+              <h1 className="ml-2 text-xl sm:text-2xl font-bold text-neutral-900">EduGuard</h1>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <Link to="/auth/login">
-                <Button variant="ghost">Sign In</Button>
+                <Button variant="ghost" size="sm" className="hidden sm:inline-flex">Sign In</Button>
+                <Button variant="ghost" size="sm" className="sm:hidden">Login</Button>
               </Link>
               <Link to="/auth/register">
-                <Button variant="primary">Get Started</Button>
+                <Button variant="primary" size="sm">Get Started</Button>
               </Link>
             </div>
           </div>
@@ -32,25 +33,25 @@ export function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="py-20">
+      <section className="py-12 sm:py-16 lg:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-4xl font-bold text-neutral-900 sm:text-5xl lg:text-6xl">
+            <h1 className="text-3xl font-bold text-neutral-900 sm:text-4xl md:text-5xl lg:text-6xl">
               Prevent School Dropouts
               <span className="block text-primary-600">Before They Happen</span>
             </h1>
-            <p className="mt-6 text-xl text-neutral-600 max-w-3xl mx-auto">
+            <p className="mt-4 sm:mt-6 text-lg sm:text-xl text-neutral-600 max-w-3xl mx-auto px-4">
               EduGuard is a proactive system that identifies at-risk students early, 
               tracks their progress, and triggers interventions to keep them in school.
             </p>
-            <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/auth/register">
-                <Button size="lg" variant="primary">
+            <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4">
+              <Link to="/auth/register" className="w-full sm:w-auto">
+                <Button size="lg" variant="primary" className="w-full sm:w-auto">
                   Start Protecting Students
                 </Button>
               </Link>
-              <Link to="/auth/login">
-                <Button size="lg" variant="outline">
+              <Link to="/auth/login" className="w-full sm:w-auto">
+                <Button size="lg" variant="outline" className="w-full sm:w-auto">
                   Sign In to Dashboard
                 </Button>
               </Link>
@@ -60,16 +61,16 @@ export function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-neutral-50">
+      <section className="py-12 sm:py-16 lg:py-20 bg-neutral-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold text-neutral-900">Early Warning System</h2>
-            <p className="mt-4 text-lg text-neutral-600">
+            <h2 className="text-2xl sm:text-3xl font-bold text-neutral-900">Early Warning System</h2>
+            <p className="mt-4 text-base sm:text-lg text-neutral-600 max-w-2xl mx-auto">
               Track key indicators and get alerts before students drop out
             </p>
           </div>
           
-          <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-12 sm:mt-16 grid grid-cols-1 gap-6 sm:gap-8 sm:grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardContent className="text-center">
                 <UserGroupIcon className="h-12 w-12 text-primary-600 mx-auto" />
@@ -168,14 +169,14 @@ export function LandingPage() {
 
       {/* Footer */}
       <footer className="bg-neutral-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
             <div className="flex items-center">
-              <ShieldCheckIcon className="h-8 w-8 text-primary-600" />
-              <h1 className="ml-2 text-xl font-bold text-white">EduGuard</h1>
+              <ShieldCheckIcon className="h-6 w-6 sm:h-8 sm:w-8 text-primary-600" />
+              <h1 className="ml-2 text-lg sm:text-xl font-bold text-white">EduGuard</h1>
             </div>
-            <p className="text-neutral-400">
-              © 2024 EduGuard. All rights reserved.
+            <p className="text-sm sm:text-base text-neutral-400 text-center sm:text-right">
+              © 2025 EduGuard. All rights reserved.
             </p>
           </div>
         </div>

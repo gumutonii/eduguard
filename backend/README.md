@@ -5,7 +5,7 @@ A comprehensive backend API for the EduGuard Proactive Dropout Prevention System
 ## 🚀 Features
 
 - **Authentication & Authorization**: JWT-based auth with role-based access control
-- **User Management**: Admin, Teacher, and Parent user roles
+- **User Management**: Admin and Teacher user roles with automated parent notifications
 - **Student Management**: Complete student lifecycle with risk tracking
 - **Dashboard Analytics**: Real-time statistics and insights
 - **Notification System**: Multi-channel communication (Email, SMS, Push)
@@ -121,6 +121,12 @@ FRONTEND_URL=http://localhost:5173
 - `PUT /api/notifications/:id/status` - Update notification status
 - `DELETE /api/notifications/:id` - Delete notification (Admin)
 
+### Parent Notifications
+- `POST /api/notifications/parent/risk-alert` - Send risk alert to parents
+- `POST /api/notifications/parent/attendance-alert` - Send attendance alert to parents
+- `POST /api/notifications/parent/performance-alert` - Send performance alert to parents
+- `GET /api/notifications/parent/student/:studentId/contacts` - Get student guardian contacts
+
 ## 👥 User Roles
 
 ### Admin
@@ -133,12 +139,13 @@ FRONTEND_URL=http://localhost:5173
 - Classroom management
 - Student monitoring
 - Risk assessment
-- Parent communication
+- Parent notification triggers
 
-### Parent
-- Child information access
-- Progress monitoring
-- Communication with school
+### Parent Notifications
+- Automated email alerts when students are at risk
+- SMS notifications for critical alerts
+- No dashboard access required
+- Contact information from student registration
 
 ## 🔒 Security Features
 
