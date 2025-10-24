@@ -17,68 +17,18 @@ router.get('/', authenticateToken, async (req, res) => {
       search 
     } = req.query;
 
-    // Mock notification data (in real app, this would come from notification records)
-    const mockNotifications = [
-      {
-        _id: '1',
-        studentId: 'student1',
-        recipient: 'parent@example.com',
-        channel: 'EMAIL',
-        template: 'attendance_alert',
-        status: 'SENT',
-        sentAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        deliveredAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 5 * 60 * 1000).toISOString()
-      },
-      {
-        _id: '2',
-        studentId: 'student2',
-        recipient: '+1234567890',
-        channel: 'SMS',
-        template: 'performance_alert',
-        status: 'DELIVERED',
-        sentAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        deliveredAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000 + 2 * 60 * 1000).toISOString()
-      },
-      {
-        _id: '3',
-        studentId: 'student3',
-        recipient: 'teacher@school.com',
-        channel: 'PUSH',
-        template: 'risk_alert',
-        status: 'PENDING',
-        sentAt: new Date().toISOString()
-      }
-    ];
-
-    let filteredNotifications = mockNotifications;
-
-    // Apply filters
-    if (status) {
-      filteredNotifications = filteredNotifications.filter(n => n.status === status);
-    }
-    if (channel) {
-      filteredNotifications = filteredNotifications.filter(n => n.channel === channel);
-    }
-    if (search) {
-      filteredNotifications = filteredNotifications.filter(n => 
-        n.recipient.toLowerCase().includes(search.toLowerCase()) ||
-        n.template.toLowerCase().includes(search.toLowerCase())
-      );
-    }
-
-    // Pagination
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedNotifications = filteredNotifications.slice(startIndex, endIndex);
+    // Return empty notifications array for now
+    // In a real implementation, this would query a notifications collection
+    const notifications = [];
 
     res.json({
       success: true,
-      data: paginatedNotifications,
+      data: notifications,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total: filteredNotifications.length,
-        pages: Math.ceil(filteredNotifications.length / limit)
+        total: 0,
+        pages: 0
       }
     });
   } catch (error) {
@@ -97,27 +47,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Mock notification data
-    const notification = {
-      _id: id,
-      studentId: 'student1',
-      recipient: 'parent@example.com',
-      channel: 'EMAIL',
-      template: 'attendance_alert',
-      status: 'SENT',
-      sentAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      deliveredAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 5 * 60 * 1000).toISOString(),
-      content: 'Your child has missed 3 consecutive days. Please contact the school.',
-      metadata: {
-        studentName: 'John Doe',
-        className: 'Grade 10A',
-        attendanceRate: 85
-      }
-    };
-
-    res.json({
-      success: true,
-      data: notification
+    // Return 404 for now since we have no notifications
+    res.status(404).json({
+      success: false,
+      message: 'Notification not found'
     });
   } catch (error) {
     console.error('Get notification error:', error);

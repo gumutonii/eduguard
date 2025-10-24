@@ -17,6 +17,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { apiClient } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { getDistricts, getSectorsByDistrict, getCellsBySector, getVillagesByCell } from '@/lib/rwandaData'
 
 // Validation schema for student registration
 const studentRegistrationSchema = z.object({
@@ -26,7 +27,6 @@ const studentRegistrationSchema = z.object({
   gender: z.enum(['M', 'F'], { required_error: 'Gender is required' }),
   age: z.number().min(3, 'Age must be at least 3').max(25, 'Age cannot exceed 25'),
   dob: z.string().min(1, 'Date of birth is required'),
-  classroomId: z.string().min(1, 'Class is required'),
   
   // Address information
   address: z.object({
@@ -61,20 +61,13 @@ const studentRegistrationSchema = z.object({
 
 type StudentRegistrationForm = z.infer<typeof studentRegistrationSchema>
 
-// Rwanda districts for dropdown
-const rwandaDistricts = [
-  'Kigali City', 'Gasabo', 'Kicukiro', 'Nyarugenge',
-  'Bugesera', 'Gatsibo', 'Kayonza', 'Kirehe', 'Ngoma', 'Nyagatare', 'Rwamagana',
-  'Burera', 'Gakenke', 'Gicumbi', 'Musanze', 'Rulindo',
-  'Gisagara', 'Huye', 'Kamonyi', 'Muhanga', 'Nyamagabe', 'Nyanza', 'Nyaruguru', 'Ruhango',
-  'Karongi', 'Ngororero', 'Nyabihu', 'Nyamasheke', 'Rubavu', 'Rusizi', 'Rutsiro'
-]
+// Rwanda districts for dropdown - using dynamic data
 
 export function StudentRegistrationPage() {
   const { user } = useAuthStore()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState(false)
-  const [districts, setDistricts] = useState(rwandaDistricts)
+  const [districts, setDistricts] = useState(getDistricts())
   const [sectors, setSectors] = useState<string[]>([])
   const [cells, setCells] = useState<string[]>([])
   const [villages, setVillages] = useState<string[]>([])
@@ -118,36 +111,39 @@ export function StudentRegistrationPage() {
   const selectedSector = watch('address.sector')
   const selectedCell = watch('address.cell')
 
-  // Mock Irembo API integration for address details
+  // Rwanda administrative structure integration
   useEffect(() => {
     if (selectedDistrict) {
-      // Mock sectors based on district
-      const mockSectors = [
-        'Sector 1', 'Sector 2', 'Sector 3', 'Sector 4', 'Sector 5'
-      ]
-      setSectors(mockSectors)
+      const districtSectors = getSectorsByDistrict(selectedDistrict)
+      setSectors(districtSectors)
+      // Clear dependent fields
+      setValue('address.sector', '')
+      setValue('address.cell', '')
+      setValue('address.village', '')
+      setCells([])
+      setVillages([])
     }
-  }, [selectedDistrict])
+  }, [selectedDistrict, setValue])
 
   useEffect(() => {
-    if (selectedSector) {
-      // Mock cells based on sector
-      const mockCells = [
-        'Cell 1', 'Cell 2', 'Cell 3', 'Cell 4'
-      ]
-      setCells(mockCells)
+    if (selectedDistrict && selectedSector) {
+      const sectorCells = getCellsBySector(selectedDistrict, selectedSector)
+      setCells(sectorCells)
+      // Clear dependent fields
+      setValue('address.cell', '')
+      setValue('address.village', '')
+      setVillages([])
     }
-  }, [selectedSector])
+  }, [selectedDistrict, selectedSector, setValue])
 
   useEffect(() => {
-    if (selectedCell) {
-      // Mock villages based on cell
-      const mockVillages = [
-        'Village 1', 'Village 2', 'Village 3'
-      ]
-      setVillages(mockVillages)
+    if (selectedDistrict && selectedSector && selectedCell) {
+      const cellVillages = getVillagesByCell(selectedDistrict, selectedSector, selectedCell)
+      setVillages(cellVillages)
+      // Clear dependent field
+      setValue('address.village', '')
     }
-  }, [selectedCell])
+  }, [selectedDistrict, selectedSector, selectedCell, setValue])
 
   const onSubmit = async (data: StudentRegistrationForm) => {
     setIsSubmitting(true)
@@ -325,19 +321,6 @@ export function StudentRegistrationPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Class *
-                </label>
-                <input
-                  {...register('classroomId')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="e.g., P1A, P2B, S1A, S2B"
-                />
-                {errors.classroomId && (
-                  <p className="mt-1 text-sm text-red-600">{errors.classroomId.message}</p>
-                )}
-              </div>
             </CardContent>
           </Card>
 

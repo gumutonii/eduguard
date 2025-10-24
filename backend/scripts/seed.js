@@ -2,9 +2,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
-const School = require('../models/School');
 const User = require('../models/User');
-const Student = require('../models/Student');
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/eduguard');
@@ -14,58 +12,111 @@ const seedData = async () => {
     console.log('🌱 Starting database seeding...');
 
     // Clear existing data
-    await School.deleteMany({});
     await User.deleteMany({});
-    await Student.deleteMany({});
 
-    // Create school
-    const school = new School({
-      name: 'EduGuard Demo School',
-      address: {
-        street: '123 Education Street',
-        city: 'Learning City',
-        state: 'CA',
-        zipCode: '90210',
-        country: 'USA'
-      },
-      contact: {
-        phone: '+1-555-0123',
-        email: 'info@eduguard-demo.edu',
-        website: 'https://eduguard-demo.edu'
-      }
-    });
-    await school.save();
-    console.log('✅ School created');
-
-    // Create admin user
-    const admin = new User({
+    // Create Super Admin user
+    const superAdmin = new User({
       email: 'admin@eduguard.com',
       password: 'admin123',
-      name: 'System Administrator',
-      role: 'ADMIN',
-      schoolId: school._id,
-      phone: '+15550001'
+      name: 'EduGuard Super Admin',
+      role: 'SUPER_ADMIN',
+      phone: '+250788000000',
+      schoolName: 'EduGuard System',
+      schoolDistrict: 'Kigali City',
+      schoolSector: 'Nyarugenge',
+      isApproved: true,
+      isActive: true,
+      emailVerified: true
     });
-    await admin.save();
-    console.log('✅ Admin user created');
+    await superAdmin.save();
+    console.log('✅ Super Admin user created');
+
+    // Create admin users
+    const admins = [
+      {
+        email: 'headmaster@school1.edu',
+        password: 'admin123',
+        name: 'Dr. Jean Baptiste',
+        role: 'ADMIN',
+        phone: '+250788111111',
+        schoolName: 'Ecole Secondaire de Kigali',
+        schoolDistrict: 'Kigali City',
+        schoolSector: 'Nyarugenge',
+        schoolPhone: '+250788222222',
+        schoolEmail: 'info@school1.edu',
+        isApproved: true,
+        isActive: true
+      },
+      {
+        email: 'director@school2.edu',
+        password: 'admin123',
+        name: 'Mrs. Marie Claire',
+        role: 'ADMIN',
+        phone: '+250788333333',
+        schoolName: 'Ecole Primaire de Butare',
+        schoolDistrict: 'Huye',
+        schoolSector: 'Butare',
+        schoolPhone: '+250788444444',
+        schoolEmail: 'info@school2.edu',
+        isApproved: true,
+        isActive: true
+      }
+    ];
+
+    const createdAdmins = [];
+    for (const adminData of admins) {
+      const admin = new User(adminData);
+      await admin.save();
+      createdAdmins.push(admin);
+      console.log(`✅ Admin ${adminData.name} created`);
+    }
 
     // Create teacher users
     const teachers = [
       {
-        email: 'teacher1@eduguard.com',
+        email: 'teacher1@school1.edu',
         password: 'teacher123',
-        name: 'Sarah Johnson',
+        name: 'Mr. Paul Nkurunziza',
         role: 'TEACHER',
-        schoolId: school._id,
-        phone: '+15550002'
+        phone: '+250788555555',
+        schoolName: 'Ecole Secondaire de Kigali',
+        schoolDistrict: 'Kigali City',
+        schoolSector: 'Nyarugenge',
+        className: 'S6 PCB',
+        classGrade: 'S6',
+        classSection: 'PCB',
+        isApproved: true,
+        isActive: true
       },
       {
-        email: 'teacher2@eduguard.com',
+        email: 'teacher2@school1.edu',
         password: 'teacher123',
-        name: 'Michael Chen',
+        name: 'Ms. Grace Mukamana',
         role: 'TEACHER',
-        schoolId: school._id,
-        phone: '+15550003'
+        phone: '+250788666666',
+        schoolName: 'Ecole Secondaire de Kigali',
+        schoolDistrict: 'Kigali City',
+        schoolSector: 'Nyarugenge',
+        className: 'P6 A',
+        classGrade: 'P6',
+        classSection: 'A',
+        isApproved: true,
+        isActive: true
+      },
+      {
+        email: 'teacher3@school2.edu',
+        password: 'teacher123',
+        name: 'Mr. Jean Claude',
+        role: 'TEACHER',
+        phone: '+250788777777',
+        schoolName: 'Ecole Primaire de Butare',
+        schoolDistrict: 'Huye',
+        schoolSector: 'Butare',
+        className: 'P5 B',
+        classGrade: 'P5',
+        classSection: 'B',
+        isApproved: false, // Pending approval
+        isActive: true
       }
     ];
 
@@ -77,119 +128,17 @@ const seedData = async () => {
       console.log(`✅ Teacher ${teacherData.name} created`);
     }
 
-
-    // Create students
-    const students = [
-      {
-        firstName: 'Emma',
-        lastName: 'Wilson',
-        gender: 'F',
-        dob: new Date('2008-03-15'),
-        schoolId: school._id,
-        classroomId: 'Grade 10A',
-        assignedTeacherId: createdTeachers[0]._id,
-        guardianContacts: [{
-          name: 'John Wilson',
-          relation: 'Father',
-          phone: '+15550004',
-          email: 'parent1@example.com',
-          isPrimary: true
-        }],
-        riskLevel: 'LOW',
-        riskFlags: []
-      },
-      {
-        firstName: 'Alex',
-        lastName: 'Wilson',
-        gender: 'M',
-        dob: new Date('2009-07-22'),
-        schoolId: school._id,
-        classroomId: 'Grade 8B',
-        assignedTeacherId: createdTeachers[1]._id,
-        guardianContacts: [{
-          name: 'John Wilson',
-          relation: 'Father',
-          phone: '+15550004',
-          email: 'parent1@example.com',
-          isPrimary: true
-        }],
-        riskLevel: 'MEDIUM',
-        riskFlags: [{
-          type: 'ATTENDANCE',
-          description: 'Multiple absences in the last month',
-          severity: 'MEDIUM',
-          createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-          isResolved: false
-        }]
-      },
-      {
-        firstName: 'Sophia',
-        lastName: 'Smith',
-        gender: 'F',
-        dob: new Date('2007-11-08'),
-        schoolId: school._id,
-        classroomId: 'Grade 10A',
-        assignedTeacherId: createdTeachers[0]._id,
-        guardianContacts: [{
-          name: 'Lisa Smith',
-          relation: 'Mother',
-          phone: '+15550005',
-          email: 'parent2@example.com',
-          isPrimary: true
-        }],
-        riskLevel: 'HIGH',
-        riskFlags: [{
-          type: 'PERFORMANCE',
-          description: 'Significant drop in mathematics grades',
-          severity: 'HIGH',
-          createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-          isResolved: false
-        }, {
-          type: 'ATTENDANCE',
-          description: 'Frequent tardiness',
-          severity: 'MEDIUM',
-          createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
-          isResolved: false
-        }]
-      },
-      {
-        firstName: 'James',
-        lastName: 'Brown',
-        gender: 'M',
-        dob: new Date('2008-05-12'),
-        schoolId: school._id,
-        classroomId: 'Grade 10B',
-        assignedTeacherId: createdTeachers[1]._id,
-        guardianContacts: [{
-          name: 'Robert Brown',
-          relation: 'Father',
-          phone: '+15550006',
-          email: 'robert.brown@example.com',
-          isPrimary: true
-        }],
-        riskLevel: 'LOW',
-        riskFlags: []
-      }
-    ];
-
-    for (const studentData of students) {
-      const student = new Student(studentData);
-      await student.save();
-      console.log(`✅ Student ${studentData.firstName} ${studentData.lastName} created`);
-    }
-
     console.log('\n🎉 Database seeding completed successfully!');
-    console.log('\n📋 Test Credentials:');
-    console.log('Admin: admin@eduguard.com / admin123');
-    console.log('Teacher 1: teacher1@eduguard.com / teacher123');
-    console.log('Teacher 2: teacher2@eduguard.com / teacher123');
-    console.log('\n🔗 Frontend URL: http://localhost:5173');
-    console.log('🔗 Backend URL: http://localhost:3000/api');
+    console.log(`📊 Created:`);
+    console.log(`   - 1 Super Admin`);
+    console.log(`   - ${createdAdmins.length} Admins`);
+    console.log(`   - ${createdTeachers.length} Teachers`);
 
   } catch (error) {
-    console.error('❌ Seeding failed:', error);
+    console.error('❌ Error seeding database:', error);
   } finally {
-    mongoose.connection.close();
+    await mongoose.disconnect();
+    console.log('✅ Disconnected from MongoDB');
   }
 };
 

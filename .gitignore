@@ -140,6 +140,12 @@ temp/
 dist/
 build/
 
+# Development files
+*.tsbuildinfo
+logs/
+scripts/populateSchools.js
+start.sh
+
 # Database files
 *.db
 *.sqlite

@@ -49,12 +49,6 @@ export function StudentsPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Students</h1>
           <p className="text-sm sm:text-base text-neutral-600">Manage student information and track their progress</p>
         </div>
-        <Link to="/students/register" className="w-full sm:w-auto">
-          <Button variant="primary" className="w-full sm:w-auto">
-            <PlusIcon className="h-4 w-4 mr-2" />
-            Add Student
-          </Button>
-        </Link>
       </div>
 
       {/* Filters */}
@@ -197,11 +191,11 @@ export function StudentsPage() {
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                           <Badge 
                             variant={
-                              student.riskLevel === 'HIGH' ? 'destructive' : 
-                              student.riskLevel === 'MEDIUM' ? 'warning' : 'low'
+                              (student as any).riskLevel === 'HIGH' ? 'error' : 
+                              (student as any).riskLevel === 'MEDIUM' ? 'warning' : 'low'
                             }
                           >
-                            {student.riskLevel || 'LOW'} Risk
+                            {(student as any).riskLevel || 'LOW'} Risk
                           </Badge>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

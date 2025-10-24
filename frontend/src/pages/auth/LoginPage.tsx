@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { AuthHeader } from '@/components/layout/AuthHeader'
 import { SimpleFooter } from '@/components/layout/SimpleFooter'
 import { useAuthStore } from '@/stores/auth'
+import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -20,6 +21,7 @@ type LoginForm = z.infer<typeof loginSchema>
 export function LoginPage() {
   const navigate = useNavigate()
   const { login, isLoading, error, clearError } = useAuthStore()
+  const [showPassword, setShowPassword] = useState(false)
 
   const {
     register,
@@ -92,7 +94,7 @@ export function LoginPage() {
                   type="email"
                   autoComplete="email"
                   className="mt-1 input"
-                  placeholder="test@example.com"
+                  placeholder="myemail@example.com"
                 />
                 {errors.email && (
                   <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
@@ -103,13 +105,26 @@ export function LoginPage() {
                 <label htmlFor="password" className="block text-sm font-medium text-neutral-700">
                   Password
                 </label>
-                <input
-                  {...register('password')}
-                  type="password"
-                  autoComplete="current-password"
-                  className="mt-1 input"
-                  placeholder="password"
-                />
+                <div className="relative">
+                  <input
+                    {...register('password')}
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    className="mt-1 input pr-10"
+                    placeholder="password"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeSlashIcon className="h-5 w-5 text-neutral-400 hover:text-neutral-600" />
+                    ) : (
+                      <EyeIcon className="h-5 w-5 text-neutral-400 hover:text-neutral-600" />
+                    )}
+                  </button>
+                </div>
                 {errors.password && (
                   <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
                 )}

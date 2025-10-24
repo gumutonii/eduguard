@@ -1,264 +1,307 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Link, useNavigate } from 'react-router-dom'
+import { Badge } from '@/components/ui/Badge'
 import { 
+  UserGroupIcon, 
+  AcademicCapIcon,
+  ExclamationTriangleIcon,
   MagnifyingGlassIcon,
+  FunnelIcon,
+  EyeIcon,
   PlusIcon,
-  UserGroupIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  EyeIcon
+  UserPlusIcon
 } from '@heroicons/react/24/outline'
+import { Link } from 'react-router-dom'
 import { apiClient } from '@/lib/api'
-import type { Student, StudentFilters } from '@/types'
+import { useState } from 'react'
 
 export function TeacherStudentsPage() {
-  const navigate = useNavigate()
-  const [filters, setFilters] = useState<StudentFilters & { page: number }>({
-    search: '',
-    classroomId: '',
-    gender: undefined,
-    riskLevel: undefined,
-    page: 1,
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filterRisk, setFilterRisk] = useState('all')
+
+  const { data: studentsData, isLoading: studentsLoading, error: studentsError } = useQuery({
+    queryKey: ['teacher-students', searchTerm, filterRisk],
+    queryFn: () => apiClient.getStudents({ search: searchTerm, riskLevel: filterRisk === 'all' ? undefined : filterRisk }),
   })
 
-  const { data: studentsResponse, isLoading } = useQuery({
-    queryKey: ['students', filters],
-    queryFn: () => apiClient.getStudents(filters),
+  const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
+    queryKey: ['teacher-dashboard'],
+    queryFn: () => apiClient.getTeacherDashboard(),
   })
 
-  const students = studentsResponse?.data || []
-  const pagination = studentsResponse?.pagination
-
-  const handlePageChange = (newPage: number) => {
-    setFilters({ ...filters, page: newPage })
+  if (studentsLoading || dashboardLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">My Students</h1>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        </div>
+      </div>
+    )
   }
 
-  const handleStudentClick = (studentId: string) => {
-    navigate(`/students/${studentId}`)
+  if (studentsError) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">My Students</h1>
+        </div>
+        <Card>
+          <CardContent className="text-center py-12">
+            <UserGroupIcon className="mx-auto h-12 w-12 text-red-400" />
+            <h3 className="mt-4 text-lg font-medium text-gray-900">Error loading students</h3>
+            <p className="mt-2 text-gray-600">Failed to fetch student data. Please try again.</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  const students = studentsData?.data || []
+  const dashboard = dashboardData?.data || {}
+
+  const getRiskColor = (riskLevel: string) => {
+    switch (riskLevel) {
+      case 'CRITICAL': return 'bg-red-100 text-red-800'
+      case 'HIGH': return 'bg-orange-100 text-orange-800'
+      case 'MEDIUM': return 'bg-yellow-100 text-yellow-800'
+      case 'LOW': return 'bg-green-100 text-green-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getRiskDisplayName = (riskLevel: string) => {
+    switch (riskLevel) {
+      case 'CRITICAL': return 'Critical'
+      case 'HIGH': return 'High'
+      case 'MEDIUM': return 'Medium'
+      case 'LOW': return 'Low'
+      default: return 'Unknown'
+    }
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Students</h1>
-          <p className="text-sm sm:text-base text-neutral-600">Manage student information and track their progress</p>
+          <h1 className="text-2xl font-bold text-gray-900">My Students</h1>
+          <p className="text-gray-600">Manage students in your class</p>
         </div>
-        <Link to="/students/register" className="w-full sm:w-auto">
-          <Button variant="primary" className="w-full sm:w-auto">
-            <PlusIcon className="h-4 w-4 mr-2" />
-            Add Student
-          </Button>
-        </Link>
+        <div className="flex items-center space-x-3">
+          <Link to="/students/register">
+            <Button>
+              <PlusIcon className="h-4 w-4 mr-2" />
+              Register Student
+            </Button>
+          </Link>
+          <div className="text-sm text-gray-500">
+            {students.length} students
+          </div>
+        </div>
       </div>
 
-      {/* Filters */}
+      {/* Class Overview Cards */}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+            <UserGroupIcon className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboard.totalStudents || 0}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">At Risk Students</CardTitle>
+            <ExclamationTriangleIcon className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboard.atRiskStudents || 0}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
+            <AcademicCapIcon className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboard.attendanceRate || 0}%</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Interventions</CardTitle>
+            <ExclamationTriangleIcon className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboard.totalInterventions || 0}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search and Filter */}
       <Card>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">
-                Search
-              </label>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
               <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search students..."
-                  className="pl-10 input"
-                  value={filters.search}
-                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                  placeholder="Search students by name..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="input pl-10"
                 />
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">
-                Class
-              </label>
+            <div className="flex items-center space-x-2">
+              <FunnelIcon className="h-4 w-4 text-gray-400" />
               <select
+                value={filterRisk}
+                onChange={(e) => setFilterRisk(e.target.value)}
                 className="input"
-                value={filters.classroomId}
-                onChange={(e) => setFilters({ ...filters, classroomId: e.target.value })}
               >
-                <option value="">All Classes</option>
-                <option value="class-1">P5A</option>
-                <option value="class-2">P5B</option>
-                <option value="class-3">P6A</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">
-                Gender
-              </label>
-              <select
-                className="input"
-                value={filters.gender || ''}
-                onChange={(e) => setFilters({ ...filters, gender: e.target.value === '' ? undefined : e.target.value as 'M' | 'F' })}
-              >
-                <option value="">All Genders</option>
-                <option value="M">Male</option>
-                <option value="F">Female</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">
-                Risk Level
-              </label>
-              <select
-                className="input"
-                value={filters.riskLevel || ''}
-                onChange={(e) => setFilters({ ...filters, riskLevel: e.target.value === '' ? undefined : e.target.value as 'LOW' | 'MEDIUM' | 'HIGH' })}
-              >
-                <option value="">All Risk Levels</option>
-                <option value="LOW">Low Risk</option>
-                <option value="MEDIUM">Medium Risk</option>
-                <option value="HIGH">High Risk</option>
+                <option value="all">All Risk Levels</option>
+                <option value="CRITICAL">Critical</option>
+                <option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="LOW">Low</option>
               </select>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Students Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <UserGroupIcon className="h-5 w-5 mr-2" />
-            Students ({pagination?.total || 0})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="h-16 bg-neutral-200 rounded-xl"></div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto -mx-4 sm:mx-0">
-                <table className="min-w-full divide-y divide-neutral-200">
-                  <thead className="bg-neutral-50">
-                    <tr>
-                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                        Student
-                      </th>
-                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                        Gender
-                      </th>
-                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                        Class
-                      </th>
-                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                        Risk Level
-                      </th>
-                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-neutral-200">
-                    {students.map((student: Student) => (
-                      <tr 
-                        key={student._id} 
-                        className="hover:bg-neutral-50 cursor-pointer transition-colors"
-                        onClick={() => handleStudentClick(student._id)}
-                      >
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="h-10 w-10 bg-primary-100 rounded-full flex items-center justify-center">
-                              <span className="text-sm font-medium text-primary-600">
-                                {student.firstName.charAt(0)}{student.lastName.charAt(0)}
-                              </span>
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-neutral-900">
-                                {student.firstName} {student.lastName}
-                              </div>
-                              <div className="text-sm text-neutral-500">
-                                {student.guardianContacts[0]?.name}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
-                          {student.gender === 'M' ? 'Male' : 'Female'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
-                          {student.classroomId}
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                          <Badge 
-                            variant={
-                              student.riskLevel === 'HIGH' ? 'destructive' : 
-                              student.riskLevel === 'MEDIUM' ? 'warning' : 'low'
-                            }
-                          >
-                            {student.riskLevel || 'LOW'} Risk
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleStudentClick(student._id)
-                            }}
-                            className="flex items-center gap-2"
-                          >
-                            <EyeIcon className="h-4 w-4" />
-                            View Details
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination */}
-              {pagination && pagination.pages > 1 && (
-                <div className="flex items-center justify-between mt-6">
-                  <div className="text-sm text-neutral-700">
-                    Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
+      {/* Students List */}
+      {students.length === 0 ? (
+        <Card>
+          <CardContent className="text-center py-12">
+            <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-4 text-lg font-medium text-gray-900">No students found</h3>
+            <p className="mt-2 text-gray-600">
+              {searchTerm || filterRisk !== 'all' 
+                ? 'No students match your search criteria.' 
+                : 'No students have been registered in your class yet.'}
+            </p>
+            <Link to="/students/register" className="mt-4 inline-block">
+              <Button>
+                <UserPlusIcon className="h-4 w-4 mr-2" />
+                Register First Student
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-6">
+          {students.map((student, index) => (
+            <Card key={student._id || index}>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                      <UserGroupIcon className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">
+                        {student.firstName} {student.lastName}
+                      </CardTitle>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <Badge className="bg-blue-100 text-blue-800">
+                          {student.gender}
+                        </Badge>
+                        <Badge className="bg-gray-100 text-gray-800">
+                          Age: {student.age}
+                        </Badge>
+                        <Badge className={getRiskColor(student.riskLevel)}>
+                          {getRiskDisplayName(student.riskLevel)} Risk
+                        </Badge>
+                      </div>
+                    </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(pagination.page - 1)}
-                      disabled={pagination.page === 1}
-                    >
-                      <ChevronLeftIcon className="h-4 w-4" />
-                      Previous
-                    </Button>
-                    <span className="text-sm text-neutral-700">
-                      Page {pagination.page} of {pagination.pages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(pagination.page + 1)}
-                      disabled={pagination.page === pagination.pages}
-                    >
-                      Next
-                      <ChevronRightIcon className="h-4 w-4" />
-                    </Button>
+                    <Link to={`/students/${student._id}`}>
+                      <Button size="sm" variant="outline">
+                        <EyeIcon className="h-4 w-4" />
+                      </Button>
+                    </Link>
                   </div>
                 </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">Class Information</h4>
+                      <div className="text-sm text-gray-600">
+                        <p>Class: {student.classroomId || 'Not assigned'}</p>
+                        <p>School: {student.schoolName}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">Guardian Contacts</h4>
+                      <div className="text-sm text-gray-600">
+                        {student.guardianContacts && student.guardianContacts.length > 0 ? (
+                          student.guardianContacts.map((guardian: any, idx: number) => (
+                            <p key={idx}>
+                              {guardian.name} ({guardian.relation})
+                              {guardian.phone && ` - ${guardian.phone}`}
+                            </p>
+                          ))
+                        ) : (
+                          <p>No guardian contacts</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {student.socioEconomic && (
+                    <div className="border-t pt-4">
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">Socio-Economic Information</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">Ubudehe Level:</span>
+                          <p className="font-medium">{student.socioEconomic.ubudeheLevel || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Parents:</span>
+                          <p className="font-medium">{student.socioEconomic.hasParents ? 'Yes' : 'No'}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Siblings:</span>
+                          <p className="font-medium">{student.socioEconomic.numberOfSiblings || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Conflict:</span>
+                          <p className="font-medium">{student.socioEconomic.familyConflict ? 'Yes' : 'No'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="border-t pt-4">
+                    <div className="flex justify-between">
+                      <Link to={`/students/${student._id}`}>
+                        <Button size="sm">View Details</Button>
+                      </Link>
+                      <div className="text-sm text-gray-500">
+                        Last updated: {new Date(student.updatedAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

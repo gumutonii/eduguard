@@ -310,4 +310,112 @@ router.get('/teacher/at-risk-students', authenticateToken, async (req, res) => {
 });
 
 
+// @route   GET /api/dashboard/system-stats
+// @desc    Get system-wide statistics (Super Admin only)
+// @access  Private (Super Admin)
+router.get('/system-stats', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Super Admin only.'
+      });
+    }
+
+    // Get total users by role
+    const totalUsers = await User.countDocuments();
+    const superAdmins = await User.countDocuments({ role: 'SUPER_ADMIN' });
+    const admins = await User.countDocuments({ role: 'ADMIN' });
+    const teachers = await User.countDocuments({ role: 'TEACHER' });
+    const activeUsers = await User.countDocuments({ isActive: true });
+    const pendingApprovals = await User.countDocuments({ isApproved: false });
+
+    // Get total students
+    const totalStudents = await Student.countDocuments();
+
+    // Get unique schools (from user data)
+    const schools = await User.distinct('schoolName', { schoolName: { $exists: true, $ne: null } });
+
+    res.json({
+      success: true,
+      data: {
+        totalUsers,
+        totalSchools: schools.length,
+        totalStudents,
+        pendingApprovals,
+        activeUsers,
+        userRoles: {
+          superAdmin: superAdmins,
+          admin: admins,
+          teacher: teachers
+        }
+      }
+    });
+  } catch (error) {
+    console.error('System stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch system statistics'
+    });
+  }
+});
+
+// @route   GET /api/dashboard/risk-summary
+// @desc    Get system-wide risk summary (Super Admin only)
+// @access  Private (Super Admin)
+router.get('/risk-summary', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Super Admin only.'
+      });
+    }
+
+    const RiskFlag = require('../models/RiskFlag');
+    const Student = require('../models/Student');
+
+    // Get risk flags summary
+    const riskFlags = await RiskFlag.find({ isActive: true });
+    const students = await Student.find({ isActive: true });
+
+    const riskSummary = {
+      totalRisks: riskFlags.length,
+      criticalRisks: riskFlags.filter(r => r.severity === 'CRITICAL').length,
+      highRisks: riskFlags.filter(r => r.severity === 'HIGH').length,
+      mediumRisks: riskFlags.filter(r => r.severity === 'MEDIUM').length,
+      lowRisks: riskFlags.filter(r => r.severity === 'LOW').length,
+      bySchool: []
+    };
+
+    // Get risks by school
+    const schools = await User.distinct('schoolName', { schoolName: { $exists: true, $ne: null } });
+    
+    for (const schoolName of schools) {
+      const schoolRisks = riskFlags.filter(r => r.schoolName === schoolName);
+      const schoolStudents = students.filter(s => s.schoolName === schoolName);
+      const atRiskStudents = schoolStudents.filter(s => ['MEDIUM', 'HIGH'].includes(s.riskLevel));
+      
+      riskSummary.bySchool.push({
+        schoolName,
+        totalRisks: schoolRisks.length,
+        atRiskStudents: atRiskStudents.length,
+        totalStudents: schoolStudents.length,
+        riskRate: schoolStudents.length > 0 ? Math.round((atRiskStudents.length / schoolStudents.length) * 100) : 0
+      });
+    }
+
+    res.json({
+      success: true,
+      data: riskSummary
+    });
+  } catch (error) {
+    console.error('Risk summary error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch risk summary'
+    });
+  }
+});
+
 module.exports = router;

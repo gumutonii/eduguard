@@ -73,7 +73,7 @@ export function TeacherDashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Teacher Dashboard</h1>
-          <p className="text-sm sm:text-base text-neutral-600">Monitor your students and manage your classes</p>
+          <p className="text-sm sm:text-base text-neutral-600">Monitor Your Students And Manage Your Classes</p>
         </div>
         <Link to="/students" className="w-full sm:w-auto">
           <Button variant="primary" className="w-full sm:w-auto">

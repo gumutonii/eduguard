@@ -11,17 +11,26 @@ const studentRoutes = require('./routes/students');
 const dashboardRoutes = require('./routes/dashboard');
 const notificationRoutes = require('./routes/notifications');
 const parentNotificationRoutes = require('./routes/parentNotifications');
-const schoolRoutes = require('./routes/schools');
+const attendanceRoutes = require('./routes/attendance');
+const performanceRoutes = require('./routes/performance');
+const riskFlagsRoutes = require('./routes/riskFlags');
+const interventionsRoutes = require('./routes/interventions');
+const classesRoutes = require('./routes/classes');
+const settingsRoutes = require('./routes/settings');
+const messagesRoutes = require('./routes/messages');
+const reportsRoutes = require('./routes/reports');
+const testRoutes = require('./routes/test');
+const schoolsRoutes = require('./routes/schools');
 
 const app = express();
 
 // Security middleware
 app.use(helmet());
 
-// Rate limiting
+// Rate limiting (more lenient for development)
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 1000, // limit each IP to 1000 requests per windowMs
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api/', limiter);
@@ -29,7 +38,10 @@ app.use('/api/', limiter);
 // CORS configuration
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200
 }));
 
 // Body parsing middleware
@@ -48,7 +60,16 @@ app.use('/api/students', studentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/notifications/parent', parentNotificationRoutes);
-app.use('/api/schools', schoolRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/performance', performanceRoutes);
+app.use('/api/risk-flags', riskFlagsRoutes);
+app.use('/api/interventions', interventionsRoutes);
+app.use('/api/classes', classesRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/messages', messagesRoutes);
+app.use('/api/reports', reportsRoutes);
+app.use('/api/test', testRoutes);
+app.use('/api/schools', schoolsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

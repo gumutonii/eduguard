@@ -24,34 +24,25 @@ import type {
 } from '@/types'
 
 export function DashboardPage() {
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['dashboard-stats'],
-    queryFn: () => apiClient.getDashboardStats(),
+  // Use comprehensive dashboard endpoint
+  const { data: dashboardReport, isLoading } = useQuery({
+    queryKey: ['dashboard-report'],
+    queryFn: () => apiClient.getDashboardReport(),
   })
 
-  const { data: atRiskData, isLoading: atRiskLoading } = useQuery({
-    queryKey: ['at-risk-overview'],
-    queryFn: () => apiClient.getAtRiskOverview(),
+  const { data: interventionSummary, isLoading: interventionLoading } = useQuery({
+    queryKey: ['intervention-summary'],
+    queryFn: () => apiClient.getInterventionSummary(),
   })
 
-  const { data: attendanceTrend, isLoading: attendanceLoading } = useQuery({
-    queryKey: ['attendance-trend'],
-    queryFn: () => apiClient.getAttendanceTrend(30),
+  const { data: riskSummary, isLoading: riskLoading } = useQuery({
+    queryKey: ['risk-summary'],
+    queryFn: () => apiClient.getRiskSummary(),
   })
 
-  const { data: performanceTrend, isLoading: performanceLoading } = useQuery({
-    queryKey: ['performance-trend'],
-    queryFn: () => apiClient.getPerformanceTrend(30),
-  })
+  const loading = isLoading || interventionLoading || riskLoading
 
-  const { data: interventionData, isLoading: interventionLoading } = useQuery({
-    queryKey: ['intervention-pipeline'],
-    queryFn: () => apiClient.getInterventionPipeline(),
-  })
-
-  const isLoading = statsLoading || atRiskLoading || attendanceLoading || performanceLoading || interventionLoading
-
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -70,11 +61,12 @@ export function DashboardPage() {
     )
   }
 
-  const dashboardStats = stats?.data
-  const atRiskOverview = atRiskData?.data
-  const attendanceData = attendanceTrend?.data
-  const performanceData = performanceTrend?.data
-  const interventionPipeline = interventionData?.data
+  const report = dashboardReport?.data
+  const students = report?.students || {}
+  const risks = riskSummary?.data || report?.risks || {}
+  const interventions = interventionSummary?.data || report?.interventions || {}
+  const attendance = report?.attendance || {}
+  const messages = report?.messages || {}
 
   const COLORS = {
     high: '#ef4444',
@@ -89,47 +81,146 @@ export function DashboardPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Dashboard</h1>
-          <p className="text-sm sm:text-base text-neutral-600">Monitor student progress and identify at-risk students</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Admin Dashboard</h1>
+          <p className="text-sm sm:text-base text-neutral-600">Monitor Student Progress And Identify At-Risk Students</p>
         </div>
-        <Link to="/students" className="w-full sm:w-auto">
-          <Button variant="primary" className="w-full sm:w-auto">
-            <UsersIcon className="h-4 w-4 mr-2" />
-            View Students
-          </Button>
+        <div className="flex gap-2">
+          <Link to="/students" className="w-full sm:w-auto">
+            <Button variant="primary" className="w-full sm:w-auto">
+              <UsersIcon className="h-4 w-4 mr-2" />
+              View Students
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Link to="/students">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-neutral-600">Total Students</p>
+                  <p className="text-3xl font-bold text-neutral-900">{students.total || 0}</p>
+                </div>
+                <UsersIcon className="h-12 w-12 text-blue-500 opacity-75" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/students?riskLevel=HIGH">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-neutral-600">High Risk</p>
+                  <p className="text-3xl font-bold text-red-600">{students.highRisk || 0}</p>
+                </div>
+                <ExclamationTriangleIcon className="h-12 w-12 text-red-500 opacity-75" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/students">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-neutral-600">Attendance Rate</p>
+                  <p className="text-3xl font-bold text-green-600">{attendance.rate || 0}%</p>
+                </div>
+                <ClipboardDocumentCheckIcon className="h-12 w-12 text-green-500 opacity-75" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/students">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-neutral-600">Active Interventions</p>
+                  <p className="text-3xl font-bold text-purple-600">{interventions.inProgress || 0}</p>
+                </div>
+                <BellIcon className="h-12 w-12 text-purple-500 opacity-75" />
+              </div>
+            </CardContent>
+          </Card>
         </Link>
       </div>
 
-      {/* At-Risk Overview */}
+      {/* Risk Overview */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <ExclamationTriangleIcon className="h-5 w-5 mr-2 text-red-600" />
-            At-Risk Overview
+            Risk Flags Overview
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div className="text-center">
-              <div className="text-3xl font-bold text-red-600">{atRiskOverview?.high || 0}</div>
-              <div className="text-sm text-neutral-600">High Risk</div>
+              <div className="text-2xl font-bold text-red-600">{risks.critical || 0}</div>
+              <div className="text-sm text-neutral-600">Critical</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-yellow-600">{atRiskOverview?.medium || 0}</div>
-              <div className="text-sm text-neutral-600">Medium Risk</div>
+              <div className="text-2xl font-bold text-orange-600">{risks.high || 0}</div>
+              <div className="text-sm text-neutral-600">High</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-green-600">{atRiskOverview?.low || 0}</div>
-              <div className="text-sm text-neutral-600">Low Risk</div>
+              <div className="text-2xl font-bold text-yellow-600">{risks.medium || 0}</div>
+              <div className="text-sm text-neutral-600">Medium</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-neutral-900">{atRiskOverview?.total || 0}</div>
-              <div className="text-sm text-neutral-600">Total At-Risk</div>
+              <div className="text-2xl font-bold text-green-600">{risks.low || 0}</div>
+              <div className="text-sm text-neutral-600">Low</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-neutral-900">{risks.total || 0}</div>
+              <div className="text-sm text-neutral-600">Total Active</div>
             </div>
           </div>
-          <div className="mt-4">
-            <Link to="/students?risk=high">
+          <div className="mt-6">
+            <div className="text-sm font-medium text-neutral-700 mb-2">By Type</div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+              <div className="text-center p-2 bg-neutral-50 rounded">
+                <div className="font-bold text-neutral-900">{risks.byType?.attendance || 0}</div>
+                <div className="text-xs text-neutral-600">Attendance</div>
+              </div>
+              <div className="text-center p-2 bg-neutral-50 rounded">
+                <div className="font-bold text-neutral-900">{risks.byType?.performance || 0}</div>
+                <div className="text-xs text-neutral-600">Performance</div>
+              </div>
+              <div className="text-center p-2 bg-neutral-50 rounded">
+                <div className="font-bold text-neutral-900">{risks.byType?.behavior || 0}</div>
+                <div className="text-xs text-neutral-600">Behavior</div>
+              </div>
+              <div className="text-center p-2 bg-neutral-50 rounded">
+                <div className="font-bold text-neutral-900">{risks.byType?.socioeconomic || 0}</div>
+                <div className="text-xs text-neutral-600">Socioeconomic</div>
+              </div>
+              <div className="text-center p-2 bg-neutral-50 rounded">
+                <div className="font-bold text-neutral-900">{risks.byType?.combined || 0}</div>
+                <div className="text-xs text-neutral-600">Combined</div>
+              </div>
+              <div className="text-center p-2 bg-neutral-50 rounded">
+                <div className="font-bold text-neutral-900">{risks.byType?.other || 0}</div>
+                <div className="text-xs text-neutral-600">Other</div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <Link to="/students" className="flex-1">
               <Button variant="outline" className="w-full">
+                Manage Risk Flags
+              </Button>
+            </Link>
+            <Link to="/students?riskLevel=HIGH" className="flex-1">
+              <Button variant="primary" className="w-full">
                 View High Risk Students
               </Button>
             </Link>
@@ -137,62 +228,76 @@ export function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Charts Grid */}
+      {/* Attendance & Messages Grid */}
       <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
-        {/* Attendance Trend */}
+        {/* Attendance Summary */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
               <ClipboardDocumentCheckIcon className="h-5 w-5 mr-2 text-blue-600" />
-              Attendance Trend (Last 30 Days)
+              Attendance Summary (Last 30 Days)
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={attendanceData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="rate" stroke={COLORS.primary} strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-neutral-600">Total Records</span>
+                <span className="text-lg font-bold">{attendance.total || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-neutral-600">Present</span>
+                <span className="text-lg font-bold text-green-600">{attendance.present || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-neutral-600">Absent</span>
+                <span className="text-lg font-bold text-red-600">{attendance.absent || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-neutral-600">Attendance Rate</span>
+                <span className="text-lg font-bold text-blue-600">{attendance.rate || 0}%</span>
+              </div>
             </div>
-            <div className="mt-4">
-              <Link to="/students?tab=attendance">
+            <div className="mt-6">
+              <Link to="/students">
                 <Button variant="outline" className="w-full">
-                  View Attendance Details
+                  View Attendance Records
                 </Button>
               </Link>
             </div>
           </CardContent>
         </Card>
 
-        {/* Performance Trend */}
+        {/* Message Statistics */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
-              <ChartBarIcon className="h-5 w-5 mr-2 text-green-600" />
-              Performance Trend (Last 30 Days)
+              <BellIcon className="h-5 w-5 mr-2 text-purple-600" />
+              Parent Messages (Last 30 Days)
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={performanceData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="average" stroke={COLORS.accent} strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-neutral-600">Total Sent</span>
+                <span className="text-lg font-bold">{messages.total || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-neutral-600">Delivered</span>
+                <span className="text-lg font-bold text-green-600">{messages.delivered || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-neutral-600">Failed</span>
+                <span className="text-lg font-bold text-red-600">{messages.failed || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-neutral-600">Pending</span>
+                <span className="text-lg font-bold text-yellow-600">{messages.pending || 0}</span>
+              </div>
             </div>
-            <div className="mt-4">
-              <Link to="/students?tab=performance">
+            <div className="mt-6">
+              <Link to="/notifications">
                 <Button variant="outline" className="w-full">
-                  View Performance Details
+                  View Message History
                 </Button>
               </Link>
             </div>
@@ -204,33 +309,42 @@ export function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
-            <BellIcon className="h-5 w-5 mr-2 text-purple-600" />
+            <ChartBarIcon className="h-5 w-5 mr-2 text-purple-600" />
             Intervention Pipeline
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
             <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600">{interventionPipeline?.planned || 0}</div>
+              <div className="text-2xl font-bold text-blue-600">{interventions.planned || 0}</div>
               <div className="text-sm text-neutral-600">Planned</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-yellow-600">{interventionPipeline?.inProgress || 0}</div>
+              <div className="text-2xl font-bold text-yellow-600">{interventions.inProgress || 0}</div>
               <div className="text-sm text-neutral-600">In Progress</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-green-600">{interventionPipeline?.completed || 0}</div>
+              <div className="text-2xl font-bold text-green-600">{interventions.completed || 0}</div>
               <div className="text-sm text-neutral-600">Completed</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-neutral-900">{interventionPipeline?.total || 0}</div>
+              <div className="text-2xl font-bold text-red-600">{interventions.overdue || 0}</div>
+              <div className="text-sm text-neutral-600">Overdue</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-neutral-900">{interventions.total || 0}</div>
               <div className="text-sm text-neutral-600">Total</div>
             </div>
           </div>
-          <div className="mt-4">
-            <Link to="/students?tab=interventions">
+          <div className="mt-6 flex gap-2">
+            <Link to="/students" className="flex-1">
               <Button variant="outline" className="w-full">
-                View Intervention Details
+                Active Interventions
+              </Button>
+            </Link>
+            <Link to="/students" className="flex-1">
+              <Button variant="primary" className="w-full">
+                All Interventions
               </Button>
             </Link>
           </div>
@@ -243,29 +357,41 @@ export function DashboardPage() {
           <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <Link to="/students">
-              <Button variant="outline" className="w-full h-20 flex flex-col">
-                <UsersIcon className="h-6 w-6 mb-2" />
-                View Students
+              <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center">
+                <UsersIcon className="h-6 w-6 mb-1" />
+                <span className="text-xs">Students</span>
               </Button>
             </Link>
-            <Link to="/students?tab=attendance">
-              <Button variant="outline" className="w-full h-20 flex flex-col">
-                <ClipboardDocumentCheckIcon className="h-6 w-6 mb-2" />
-                Attendance
+            <Link to="/students">
+              <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center">
+                <ClipboardDocumentCheckIcon className="h-6 w-6 mb-1" />
+                <span className="text-xs">Attendance</span>
               </Button>
             </Link>
-            <Link to="/students?tab=performance">
-              <Button variant="outline" className="w-full h-20 flex flex-col">
-                <ChartBarIcon className="h-6 w-6 mb-2" />
-                Performance
+            <Link to="/students">
+              <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center">
+                <ChartBarIcon className="h-6 w-6 mb-1" />
+                <span className="text-xs">Performance</span>
               </Button>
             </Link>
-            <Link to="/students?tab=interventions">
-              <Button variant="outline" className="w-full h-20 flex flex-col">
-                <BellIcon className="h-6 w-6 mb-2" />
-                Interventions
+            <Link to="/students">
+              <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center">
+                <ExclamationTriangleIcon className="h-6 w-6 mb-1" />
+                <span className="text-xs">Risk Flags</span>
+              </Button>
+            </Link>
+            <Link to="/students">
+              <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center">
+                <BellIcon className="h-6 w-6 mb-1" />
+                <span className="text-xs">Interventions</span>
+              </Button>
+            </Link>
+            <Link to="/students">
+              <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center">
+                <ChartBarIcon className="h-6 w-6 mb-1" />
+                <span className="text-xs">Reports</span>
               </Button>
             </Link>
           </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/Button'
 import { MagnifyingGlassIcon, BellIcon, Bars3Icon } from '@heroicons/react/24/outline'
@@ -33,13 +34,13 @@ export function TopBar() {
             />
           </div>
         <div className="flex items-center gap-x-4 lg:gap-x-6">
-          <button
-            type="button"
+          <Link
+            to="/notifications"
             className="-m-2.5 p-2.5 text-neutral-400 hover:text-neutral-500"
           >
             <span className="sr-only">View notifications</span>
             <BellIcon className="h-6 w-6" aria-hidden="true" />
-          </button>
+          </Link>
 
           <div className="hidden lg:block lg:h-6 lg:w-px lg:bg-neutral-200" aria-hidden="true" />
 
@@ -48,7 +49,6 @@ export function TopBar() {
             <div className="flex items-center gap-x-4">
               <div className="hidden lg:block">
                 <span className="text-sm font-medium text-neutral-700">{user?.name}</span>
-                <span className="text-xs text-neutral-500 ml-2">{user?.role}</span>
               </div>
               <Button variant="ghost" onClick={logout}>
                 Sign out
@@ -91,7 +91,7 @@ export function TopBar() {
                     Register Student
                   </a>
                 )}
-                {user?.role === 'ADMIN' && (
+                {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
                   <>
                     <a href="/teachers" className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-neutral-900 hover:bg-neutral-50">
                       Teachers
@@ -117,7 +117,11 @@ export function TopBar() {
                   </div>
                   <div>
                     <div className="text-sm font-medium text-neutral-700">{user?.name}</div>
-                    <div className="text-xs text-neutral-500">{user?.role}</div>
+                    <div className="text-xs text-neutral-500">
+                      {user?.role === 'SUPER_ADMIN' ? 'Super Admin' : 
+                       user?.role === 'ADMIN' ? 'Admin' : 
+                       user?.role === 'TEACHER' ? 'Teacher' : user?.role}
+                    </div>
                   </div>
                 </div>
                 <div className="mt-4">

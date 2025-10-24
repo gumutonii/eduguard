@@ -25,64 +25,88 @@ const userSchema = new mongoose.Schema({
   phone: {
     type: String,
     trim: true,
-    match: [/^[\+]?[1-9][\d]{0,15}$/, 'Please enter a valid phone number']
+    match: [/^[\+]?250[0-9]{9}$|^0[0-9]{9}$/, 'Please enter a valid phone number']
   },
   role: {
     type: String,
-    enum: ['ADMIN', 'TEACHER'],
+    enum: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'],
     required: [true, 'Role is required'],
     default: 'TEACHER'
   },
+  
+  // School reference (replaces embedded school data)
   schoolId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'School',
-    required: [true, 'School ID is required']
+    required: function() {
+      return this.role === 'ADMIN' || this.role === 'TEACHER';
+    }
   },
-        isActive: {
-          type: Boolean,
-          default: true
-        },
-        isApproved: {
-          type: Boolean,
-          default: false
-        },
-        approvedBy: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'User',
-          default: null
-        },
-        approvedAt: {
-          type: Date,
-          default: null
-        },
-  lastLogin: {
+  
+  // Teacher-specific fields
+  assignedClasses: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Class'
+  }],
+  teacherTitle: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Teacher title cannot exceed 100 characters']
+  },
+  
+  // Admin-specific fields
+  adminTitle: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Admin title cannot exceed 100 characters']
+  },
+  
+  // Account status
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  isApproved: {
+    type: Boolean,
+    default: false
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  approvedAt: {
     type: Date
   },
-  passwordResetToken: String,
-  passwordResetExpires: Date,
-  emailVerificationToken: String,
   emailVerified: {
     type: Boolean,
     default: false
-  }
+  },
+  emailVerificationToken: String,
+  emailVerificationExpires: Date,
+  passwordResetToken: String,
+  passwordResetExpires: Date,
+  lastLogin: Date
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
 
-// Index for better query performance
-userSchema.index({ email: 1 });
+// Indexes for better performance
+userSchema.index({ role: 1, isActive: 1 });
 userSchema.index({ schoolId: 1, role: 1 });
-userSchema.index({ isActive: 1 });
+userSchema.index({ isApproved: 1, isActive: 1 });
 
-// Hash password before saving
+// Virtual for full name
+userSchema.virtual('fullName').get(function() {
+  return this.name;
+});
+
+// Pre-save middleware to hash password
 userSchema.pre('save', async function(next) {
-  // Only hash the password if it has been modified (or is new)
   if (!this.isModified('password')) return next();
   
   try {
-    // Hash password with cost of 12
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
     next();
@@ -91,29 +115,67 @@ userSchema.pre('save', async function(next) {
   }
 });
 
-// Instance method to check password
+// Method to compare password
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Instance method to get public profile
+// Static method to get users by school
+userSchema.statics.getBySchool = function(schoolId) {
+  return this.find({ schoolId, isActive: true }).populate('schoolId', 'name district sector');
+};
+
+// Static method to get teachers by school
+userSchema.statics.getTeachersBySchool = function(schoolId) {
+  return this.find({ schoolId, role: 'TEACHER', isActive: true }).populate('assignedClasses', 'name grade section');
+};
+
+// Static method to get admins by school
+userSchema.statics.getAdminsBySchool = function(schoolId) {
+  return this.find({ schoolId, role: 'ADMIN', isActive: true });
+};
+
+// Method to assign class to teacher
+userSchema.methods.assignClass = async function(classId) {
+  if (this.role !== 'TEACHER') {
+    throw new Error('Only teachers can be assigned to classes');
+  }
+  
+  if (!this.assignedClasses.includes(classId)) {
+    this.assignedClasses.push(classId);
+    await this.save();
+  }
+  
+  return this;
+};
+
+// Method to remove class assignment from teacher
+userSchema.methods.removeClass = async function(classId) {
+  this.assignedClasses = this.assignedClasses.filter(id => !id.equals(classId));
+  await this.save();
+  return this;
+};
+
+// Method to get public profile (without sensitive data)
 userSchema.methods.getPublicProfile = function() {
-  const userObject = this.toObject();
-  delete userObject.password;
-  delete userObject.passwordResetToken;
-  delete userObject.passwordResetExpires;
-  delete userObject.emailVerificationToken;
-  return userObject;
+  return {
+    _id: this._id,
+    name: this.name,
+    email: this.email,
+    phone: this.phone,
+    role: this.role,
+    schoolId: this.schoolId,
+    assignedClasses: this.assignedClasses,
+    teacherTitle: this.teacherTitle,
+    adminTitle: this.adminTitle,
+    isActive: this.isActive,
+    isApproved: this.isApproved,
+    approvedAt: this.approvedAt,
+    emailVerified: this.emailVerified,
+    lastLogin: this.lastLogin,
+    createdAt: this.createdAt,
+    updatedAt: this.updatedAt
+  };
 };
-
-// Static method to find user by email
-userSchema.statics.findByEmail = function(email) {
-  return this.findOne({ email: email.toLowerCase() }).select('+password');
-};
-
-// Virtual for full name
-userSchema.virtual('fullName').get(function() {
-  return this.name;
-});
 
 module.exports = mongoose.model('User', userSchema);

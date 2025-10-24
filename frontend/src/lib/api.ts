@@ -84,8 +84,18 @@ class ApiClient {
     password: string
     name: string
     role: string
-    schoolId: string
     phone?: string
+    // School details for ADMIN
+    schoolName?: string
+    schoolDistrict?: string
+    schoolSector?: string
+    schoolPhone?: string
+    schoolEmail?: string
+    adminTitle?: string
+    // Class selection for TEACHER
+    selectedSchool?: string
+    selectedClass?: string
+    teacherTitle?: string
   }) {
     const response = await this.request<{
       success: boolean
@@ -120,6 +130,57 @@ class ApiClient {
       success: boolean
       data: { user: any }
     }>('/auth/me')
+  }
+
+  async getProfile() {
+    return this.request<{
+      success: boolean
+      data: any
+    }>('/users/profile')
+  }
+
+  async updateProfile(profileData: {
+    name?: string
+    phone?: string
+    schoolName?: string
+    schoolDistrict?: string
+    schoolSector?: string
+    schoolPhone?: string
+    schoolEmail?: string
+    className?: string
+    classGrade?: string
+    classSection?: string
+  }) {
+    const response = await this.request<{
+      success: boolean
+      message: string
+      data: {
+        user: any
+        token: string
+      }
+    }>('/users/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    })
+
+    if (response.success) {
+      this.setToken(response.data.token)
+    }
+
+    return response
+  }
+
+  async changePassword(passwordData: {
+    currentPassword: string
+    newPassword: string
+  }) {
+    return this.request<{
+      success: boolean
+      message: string
+    }>('/users/profile/password', {
+      method: 'PUT',
+      body: JSON.stringify(passwordData),
+    })
   }
 
   // Dashboard methods
@@ -201,6 +262,46 @@ class ApiClient {
       success: boolean
       data: any
     }>(`/students/${id}`)
+  }
+
+  async createStudent(studentData: any) {
+    return this.request<{
+      success: boolean
+      message: string
+      data: any
+    }>('/students', {
+      method: 'POST',
+      body: JSON.stringify(studentData),
+    })
+  }
+
+  async getAttendance(params: { date?: string } = {}) {
+    const searchParams = new URLSearchParams()
+    if (params.date) {
+      searchParams.append('date', params.date)
+    }
+    return this.request<{
+      success: boolean
+      data: any[]
+    }>(`/attendance?${searchParams.toString()}`)
+  }
+
+  async markAttendance(attendanceRecords: any[]) {
+    return this.request<{
+      success: boolean
+      message: string
+      data: any
+    }>('/attendance', {
+      method: 'POST',
+      body: JSON.stringify({ records: attendanceRecords }),
+    })
+  }
+
+  async getTeacherDashboard() {
+    return this.request<{
+      success: boolean
+      data: any
+    }>('/dashboard/teacher')
   }
 
   // Notifications methods
@@ -368,6 +469,32 @@ class ApiClient {
     }>(`/schools/${id}`)
   }
 
+  // Get schools for teacher registration (simplified list)
+  async getSchoolsForRegistration() {
+    return this.request<{
+      success: boolean
+      data: Array<{
+        _id: string
+        name: string
+        district: string
+        sector: string
+      }>
+    }>('/schools/for-registration')
+  }
+
+  // Get classes for a specific school
+  async getClassesForSchool(schoolName: string) {
+    return this.request<{
+      success: boolean
+      data: Array<{
+        _id: string
+        className: string
+        fullName: string
+        capacityStatus: string
+      }>
+    }>(`/classes/for-school?schoolName=${encodeURIComponent(schoolName)}`)
+  }
+
         async getSchoolStats() {
           return this.request<{
             success: boolean
@@ -375,27 +502,13 @@ class ApiClient {
           }>('/schools/stats/overview')
         }
 
-        // Profile methods
-        async updateProfile(profileData: {
-          name?: string
-          phone?: string
-          schoolId?: string
-        }) {
-          return this.request<{
-            success: boolean
-            message: string
-            data: { user: any }
-          }>('/auth/profile', {
-            method: 'PUT',
-            body: JSON.stringify(profileData),
-          })
-        }
 
-        // Teachers methods (Admin only)
-        async getTeachers(params: {
+        // Users methods (Admin only)
+        async getUsers(params: {
           page?: number
           limit?: number
           search?: string
+          role?: string
         } = {}) {
           const searchParams = new URLSearchParams()
           Object.entries(params).forEach(([key, value]) => {
@@ -408,8 +521,394 @@ class ApiClient {
             success: boolean
             data: any[]
             pagination: any
-          }>(`/auth/teachers?${searchParams.toString()}`)
+          }>(`/users?${searchParams.toString()}`)
         }
+
+        // Teachers methods (Admin only) - kept for backward compatibility
+        async getTeachers(params: {
+          page?: number
+          limit?: number
+          search?: string
+        } = {}) {
+          return this.getUsers({ ...params, role: 'TEACHER' })
+        }
+
+        // Super Admin methods
+        async getSystemStats() {
+          return this.request<{
+            success: boolean
+            data: {
+              totalUsers: number
+              totalSchools: number
+              totalStudents: number
+              pendingApprovals: number
+              activeUsers: number
+              userRoles: {
+                superAdmin: number
+                admin: number
+                teacher: number
+              }
+            }
+          }>('/dashboard/system-stats')
+        }
+
+        async getAllSchools() {
+          return this.request<{
+            success: boolean
+            data: any[]
+          }>('/schools')
+        }
+
+        async getAllUsers() {
+          return this.request<{
+            success: boolean
+            data: any[]
+            pagination: any
+          }>('/users')
+        }
+
+        async getSystemRiskSummary() {
+          return this.request<{
+            success: boolean
+            data: {
+              totalRisks: number
+              criticalRisks: number
+              highRisks: number
+              mediumRisks: number
+              lowRisks: number
+              bySchool: any[]
+            }
+          }>('/dashboard/risk-summary')
+        }
+
+        async getPendingApprovals() {
+          return this.request<{
+            success: boolean
+            data: any[]
+          }>('/auth/pending-approvals')
+        }
+
+        async approveUser(userId: string) {
+          return this.request<{
+            success: boolean
+            message: string
+          }>(`/auth/approve-user/${userId}`, {
+            method: 'POST'
+          })
+        }
+
+  async rejectUser(userId: string) {
+    return this.request<{
+      success: boolean
+      message: string
+    }>(`/auth/reject-user/${userId}`, {
+      method: 'POST'
+    })
+  }
+
+  // Schools methods
+  async getDistrictsSectors() {
+    return this.request<{
+      success: boolean
+      data: any
+    }>('/schools/districts-sectors')
+  }
+
+  async createSchool(schoolData: {
+    name: string
+    district: string
+    sector: string
+    schoolType?: string
+    phone?: string
+    email?: string
+    address?: string
+    principal?: {
+      name?: string
+      phone?: string
+      email?: string
+    }
+  }) {
+    return this.request<{
+      success: boolean
+      message: string
+      data: any
+    }>('/schools', {
+      method: 'POST',
+      body: JSON.stringify(schoolData)
+    })
+  }
+
+  async updateSchool(id: string, schoolData: any) {
+    return this.request<{
+      success: boolean
+      message: string
+      data: any
+    }>(`/schools/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(schoolData)
+    })
+  }
+
+  async deleteSchool(id: string) {
+    return this.request<{
+      success: boolean
+      message: string
+    }>(`/schools/${id}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async getSchoolStatistics(id: string) {
+    return this.request<{
+      success: boolean
+      data: any
+    }>(`/schools/${id}/statistics`)
+  }
+
+  // Extended API methods for new features
+
+  // Attendance API
+
+  async getAttendanceSummary(studentId: string, startDate: string, endDate: string) {
+    return this.request<{ success: boolean; data: any }>(
+      `/attendance/summary/${studentId}?startDate=${startDate}&endDate=${endDate}`
+    )
+  }
+
+  async getAttendanceCalendar(studentId: string, month: number, year: number) {
+    return this.request<{ success: boolean; data: any[] }>(
+      `/attendance/calendar?studentId=${studentId}&month=${month}&year=${year}`
+    )
+  }
+
+  // Performance API
+  async addPerformance(data: any) {
+    return this.request<{ success: boolean; data: any }>('/performance', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async importPerformance(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return fetch(`${this.baseURL}/performance/import`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${this.token}` },
+      body: formData,
+    }).then(res => res.json())
+  }
+
+  async getPerformanceSummary(studentId: string, academicYear: string, term: string) {
+    return this.request<{ success: boolean; data: any }>(
+      `/performance/summary/${studentId}?academicYear=${academicYear}&term=${term}`
+    )
+  }
+
+  // Risk Flags API
+  async getRiskFlags(params: any = {}) {
+    const searchParams = new URLSearchParams(params)
+    return this.request<{ success: boolean; data: any[] }>(`/risk-flags?${searchParams}`)
+  }
+
+  async createRiskFlag(data: any) {
+    return this.request<{ success: boolean; data: any }>('/risk-flags', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async resolveRiskFlag(id: string, resolutionNotes: string) {
+    return this.request<{ success: boolean; data: any }>(`/risk-flags/${id}/resolve`, {
+      method: 'PUT',
+      body: JSON.stringify({ resolutionNotes }),
+    })
+  }
+
+  async detectRisksForStudent(studentId: string) {
+    return this.request<{ success: boolean; data: any }>(`/risk-flags/detect/${studentId}`, {
+      method: 'POST',
+    })
+  }
+
+  async getRiskSummary() {
+    return this.request<{ success: boolean; data: any }>('/risk-flags/summary')
+  }
+
+  // Interventions API
+  async getInterventions(params: any = {}) {
+    const searchParams = new URLSearchParams(params)
+    return this.request<{ success: boolean; data: any[] }>(`/interventions?${searchParams}`)
+  }
+
+  async getIntervention(id: string) {
+    return this.request<{ success: boolean; data: any }>(`/interventions/${id}`)
+  }
+
+  async createIntervention(data: any) {
+    return this.request<{ success: boolean; data: any }>('/interventions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateIntervention(id: string, data: any) {
+    return this.request<{ success: boolean; data: any }>(`/interventions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async completeIntervention(id: string, data: any) {
+    return this.request<{ success: boolean; data: any }>(`/interventions/${id}/complete`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async addInterventionNote(id: string, content: string) {
+    return this.request<{ success: boolean; data: any }>(`/interventions/${id}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    })
+  }
+
+  async getInterventionSummary() {
+    return this.request<{ success: boolean; data: any }>('/interventions/dashboard-summary')
+  }
+
+  // Classes API
+  async getClasses(params: any = {}) {
+    const searchParams = new URLSearchParams(params)
+    return this.request<{ success: boolean; data: any[] }>(`/classes?${searchParams}`)
+  }
+
+  async getClass(id: string) {
+    return this.request<{ success: boolean; data: any }>(`/classes/${id}`)
+  }
+
+  async createClass(classData: {
+    className: string
+  }) {
+    return this.request<{ success: boolean; data: any }>('/classes', {
+      method: 'POST',
+      body: JSON.stringify(classData)
+    })
+  }
+
+  async updateClass(id: string, classData: any) {
+    return this.request<{ success: boolean; data: any }>(`/classes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(classData)
+    })
+  }
+
+  async deleteClass(id: string) {
+    return this.request<{ success: boolean; message: string }>(`/classes/${id}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async deleteUser(id: string) {
+    return this.request<{ success: boolean; message: string }>(`/users/${id}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async deleteStudent(id: string) {
+    return this.request<{ success: boolean; message: string }>(`/students/${id}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async getClassStudents(id: string) {
+    return this.request<{ success: boolean; data: any[] }>(`/classes/${id}/students`)
+  }
+
+  // Settings API
+  async getSettings() {
+    return this.request<{ success: boolean; data: any }>('/settings')
+  }
+
+  async updateRiskRules(riskRules: any) {
+    return this.request<{ success: boolean; data: any }>('/settings/risk-rules', {
+      method: 'PUT',
+      body: JSON.stringify({ riskRules }),
+    })
+  }
+
+  async updateNotificationTemplates(notificationTemplates: any) {
+    return this.request<{ success: boolean; data: any }>('/settings/notification-templates', {
+      method: 'PUT',
+      body: JSON.stringify({ notificationTemplates }),
+    })
+  }
+
+  // Messages API
+  async getMessages(params: any = {}) {
+    const searchParams = new URLSearchParams(params)
+    return this.request<{ success: boolean; data: any[] }>(`/messages?${searchParams}`)
+  }
+
+  async sendMessage(data: any) {
+    return this.request<{ success: boolean; data: any }>('/messages/send', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async sendBulkMessages(data: any) {
+    return this.request<{ success: boolean; data: any }>('/messages/send-bulk', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async getMessageStats() {
+    return this.request<{ success: boolean; data: any }>('/messages/statistics')
+  }
+
+  // Reports API
+  async getAttendanceReport(params: any) {
+    const searchParams = new URLSearchParams(params)
+    return this.request<{ success: boolean; data: any[] }>(`/reports/attendance?${searchParams}`)
+  }
+
+  async getPerformanceReport(params: any) {
+    const searchParams = new URLSearchParams(params)
+    return this.request<{ success: boolean; data: any[] }>(`/reports/performance?${searchParams}`)
+  }
+
+  async getRiskReport(params: any) {
+    const searchParams = new URLSearchParams(params)
+    return this.request<{ success: boolean; data: any[] }>(`/reports/risk?${searchParams}`)
+  }
+
+  async getInterventionReport(params: any) {
+    const searchParams = new URLSearchParams(params)
+    return this.request<{ success: boolean; data: any[] }>(`/reports/interventions?${searchParams}`)
+  }
+
+  async getDashboardReport() {
+    return this.request<{ success: boolean; data: any }>('/reports/dashboard')
+  }
+
+  // Student CSV Import/Export
+  async exportStudents() {
+    return fetch(`${this.baseURL}/students/export`, {
+      headers: { Authorization: `Bearer ${this.token}` },
+    }).then(res => res.blob())
+  }
+
+  async importStudents(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return fetch(`${this.baseURL}/students/import`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${this.token}` },
+      body: formData,
+    }).then(res => res.json())
+  }
 }
 
 // Export singleton instance

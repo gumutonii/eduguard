@@ -1,19 +1,18 @@
 const { sendParentRiskAlert, sendParentRiskAlertSMS } = require('./emailService');
 const Student = require('../models/Student');
-const School = require('../models/School');
 
 // Send notifications to parents when a student is flagged as at-risk
 const notifyParentsOfRisk = async (studentId, riskLevel, riskDescription) => {
   try {
     // Get student information
-    const student = await Student.findById(studentId).populate('schoolId', 'name');
+    const student = await Student.findById(studentId);
     
     if (!student) {
       console.error('Student not found:', studentId);
       return { success: false, error: 'Student not found' };
     }
 
-    const schoolName = student.schoolId?.name || 'Unknown School';
+    const schoolName = student.schoolName || 'Unknown School';
     const studentName = `${student.firstName} ${student.lastName}`;
     
     // Get all guardian contacts for this student

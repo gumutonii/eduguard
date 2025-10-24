@@ -7,21 +7,46 @@ const studentSchema = new mongoose.Schema({
     trim: true,
     maxlength: [50, 'First name cannot exceed 50 characters']
   },
-  middleName: {
-    type: String,
-    trim: true,
-    maxlength: [50, 'Middle name cannot exceed 50 characters']
-  },
   lastName: {
     type: String,
     required: [true, 'Last name is required'],
     trim: true,
     maxlength: [50, 'Last name cannot exceed 50 characters']
   },
+  studentId: {
+    type: String,
+    required: [true, 'Student ID is required'],
+    unique: true,
+    trim: true,
+    uppercase: true
+  },
+  
+  // School and class references
+  schoolId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'School',
+    required: [true, 'School ID is required']
+  },
+  classId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Class',
+    required: [true, 'Class ID is required']
+  },
+  assignedTeacher: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'Assigned teacher is required']
+  },
+  
+  // Personal information
   gender: {
     type: String,
     enum: ['M', 'F'],
     required: [true, 'Gender is required']
+  },
+  dateOfBirth: {
+    type: Date,
+    required: [true, 'Date of birth is required']
   },
   age: {
     type: Number,
@@ -29,26 +54,8 @@ const studentSchema = new mongoose.Schema({
     min: [3, 'Age must be at least 3'],
     max: [25, 'Age cannot exceed 25']
   },
-  dob: {
-    type: Date,
-    required: [true, 'Date of birth is required']
-  },
-  schoolId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'School',
-    required: [true, 'School ID is required']
-  },
-  classroomId: {
-    type: String,
-    required: [true, 'Classroom ID is required'],
-    trim: true
-  },
-  assignedTeacherId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: [true, 'Assigned teacher ID is required']
-  },
-  // Rwanda-specific address information
+  
+  // Address information
   address: {
     district: {
       type: String,
@@ -72,25 +79,17 @@ const studentSchema = new mongoose.Schema({
     }
   },
   
-  // Socio-economic information for dropout risk assessment
+  // Socio-economic information
   socioEconomic: {
     ubudeheLevel: {
       type: Number,
       required: [true, 'Ubudehe level is required'],
-      enum: [1, 2, 3, 4],
-      default: 4
+      min: [1, 'Ubudehe level must be at least 1'],
+      max: [4, 'Ubudehe level cannot exceed 4']
     },
     hasParents: {
       type: Boolean,
-      required: [true, 'Parent status is required'],
-      default: true
-    },
-    guardianType: {
-      type: String,
-      enum: ['Parent', 'Sibling', 'Relative', 'Other'],
-      required: function() {
-        return !this.socioEconomic?.hasParents;
-      }
+      required: [true, 'Has parents information is required']
     },
     parentJob: {
       type: String,
@@ -98,14 +97,12 @@ const studentSchema = new mongoose.Schema({
     },
     familyConflict: {
       type: Boolean,
-      required: [true, 'Family conflict status is required'],
       default: false
     },
     numberOfSiblings: {
       type: Number,
-      required: [true, 'Number of siblings is required'],
       min: [0, 'Number of siblings cannot be negative'],
-      max: [20, 'Number of siblings cannot exceed 20']
+      default: 0
     },
     parentEducationLevel: {
       type: String,
@@ -113,7 +110,8 @@ const studentSchema = new mongoose.Schema({
       required: [true, 'Parent education level is required']
     }
   },
-
+  
+  // Guardian contacts
   guardianContacts: [{
     name: {
       type: String,
@@ -129,7 +127,7 @@ const studentSchema = new mongoose.Schema({
       type: String,
       required: true,
       trim: true,
-      match: [/^[\+]?[1-9][\d]{0,15}$/, 'Please enter a valid phone number']
+      match: [/^[\+]?250[0-9]{9}$|^0[0-9]{9}$/, 'Please enter a valid phone number']
     },
     email: {
       type: String,
@@ -150,6 +148,8 @@ const studentSchema = new mongoose.Schema({
       default: false
     }
   }],
+  
+  // Student status
   isActive: {
     type: Boolean,
     default: true
@@ -159,11 +159,15 @@ const studentSchema = new mongoose.Schema({
     default: Date.now
   },
   lastAttendanceDate: Date,
+  
+  // Risk assessment
   riskLevel: {
     type: String,
-    enum: ['LOW', 'MEDIUM', 'HIGH'],
+    enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
     default: 'LOW'
   },
+  
+  // Risk flags (embedded for quick access)
   riskFlags: [{
     type: {
       type: String,
@@ -177,7 +181,7 @@ const studentSchema = new mongoose.Schema({
     },
     severity: {
       type: String,
-      enum: ['LOW', 'MEDIUM', 'HIGH'],
+      enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
       required: true
     },
     createdAt: {
@@ -194,6 +198,8 @@ const studentSchema = new mongoose.Schema({
       ref: 'User'
     }
   }],
+  
+  // Notes
   notes: [{
     content: {
       type: String,
@@ -220,69 +226,101 @@ const studentSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Indexes for better query performance
-studentSchema.index({ schoolId: 1, classroomId: 1 });
-studentSchema.index({ assignedTeacherId: 1 });
-studentSchema.index({ riskLevel: 1 });
-studentSchema.index({ isActive: 1 });
-studentSchema.index({ 'guardianContacts.email': 1 });
-studentSchema.index({ 'address.district': 1, schoolId: 1 });
-studentSchema.index({ 'socioEconomic.ubudeheLevel': 1, schoolId: 1 });
-studentSchema.index({ 'socioEconomic.familyConflict': 1, schoolId: 1 });
-studentSchema.index({ 'socioEconomic.hasParents': 1, schoolId: 1 });
-studentSchema.index({ age: 1, schoolId: 1 });
+// Indexes for better performance
+studentSchema.index({ schoolId: 1, isActive: 1 });
+studentSchema.index({ classId: 1, isActive: 1 });
+studentSchema.index({ assignedTeacher: 1, isActive: 1 });
+studentSchema.index({ riskLevel: 1, isActive: 1 });
+studentSchema.index({ schoolId: 1, classId: 1, isActive: 1 });
 
 // Virtual for full name
 studentSchema.virtual('fullName').get(function() {
-  const middleName = this.middleName ? ` ${this.middleName}` : '';
-  return `${this.firstName}${middleName} ${this.lastName}`;
+  return `${this.firstName} ${this.lastName}`;
 });
 
-// Note: Age is now a real field in the schema, no virtual needed
+// Virtual for age calculation
+studentSchema.virtual('calculatedAge').get(function() {
+  if (!this.dateOfBirth) return null;
+  const today = new Date();
+  const birthDate = new Date(this.dateOfBirth);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+});
 
-// Method to get primary guardian
-studentSchema.methods.getPrimaryGuardian = function() {
-  return this.guardianContacts.find(contact => contact.isPrimary) || this.guardianContacts[0];
+// Static method to get students by school
+studentSchema.statics.getBySchool = function(schoolId) {
+  return this.find({ schoolId, isActive: true })
+    .populate('schoolId', 'name district sector')
+    .populate('classId', 'name grade section')
+    .populate('assignedTeacher', 'name email');
+};
+
+// Static method to get students by class
+studentSchema.statics.getByClass = function(classId) {
+  return this.find({ classId, isActive: true })
+    .populate('schoolId', 'name district sector')
+    .populate('classId', 'name grade section')
+    .populate('assignedTeacher', 'name email');
+};
+
+// Static method to get students by teacher
+studentSchema.statics.getByTeacher = function(teacherId) {
+  return this.find({ assignedTeacher: teacherId, isActive: true })
+    .populate('schoolId', 'name district sector')
+    .populate('classId', 'name grade section');
+};
+
+// Static method to get at-risk students
+studentSchema.statics.getAtRisk = function(schoolId = null) {
+  const query = { 
+    riskLevel: { $in: ['MEDIUM', 'HIGH', 'CRITICAL'] }, 
+    isActive: true 
+  };
+  
+  if (schoolId) {
+    query.schoolId = schoolId;
+  }
+  
+  return this.find(query)
+    .populate('schoolId', 'name district sector')
+    .populate('classId', 'name grade section')
+    .populate('assignedTeacher', 'name email');
 };
 
 // Method to add risk flag
-studentSchema.methods.addRiskFlag = function(flagData, userId) {
-  this.riskFlags.push({
-    ...flagData,
-    createdBy: userId
-  });
-  
-  // Update risk level based on flags
-  const highRiskFlags = this.riskFlags.filter(flag => flag.severity === 'HIGH' && !flag.isResolved);
-  const mediumRiskFlags = this.riskFlags.filter(flag => flag.severity === 'MEDIUM' && !flag.isResolved);
-  
-  if (highRiskFlags.length > 0) {
-    this.riskLevel = 'HIGH';
-  } else if (mediumRiskFlags.length > 2) {
-    this.riskLevel = 'MEDIUM';
-  } else {
-    this.riskLevel = 'LOW';
-  }
-  
+studentSchema.methods.addRiskFlag = function(flagData) {
+  this.riskFlags.push(flagData);
   return this.save();
 };
 
 // Method to resolve risk flag
-studentSchema.methods.resolveRiskFlag = function(flagId, userId) {
+studentSchema.methods.resolveRiskFlag = function(flagId, resolvedBy) {
   const flag = this.riskFlags.id(flagId);
   if (flag) {
     flag.isResolved = true;
     flag.resolvedAt = new Date();
-    flag.resolvedBy = userId;
-    
-    // Recalculate risk level
-    const unresolvedFlags = this.riskFlags.filter(f => !f.isResolved);
-    const highRiskFlags = unresolvedFlags.filter(f => f.severity === 'HIGH');
-    const mediumRiskFlags = unresolvedFlags.filter(f => f.severity === 'MEDIUM');
-    
-    if (highRiskFlags.length > 0) {
+    flag.resolvedBy = resolvedBy;
+  }
+  return this.save();
+};
+
+// Method to update risk level based on flags
+studentSchema.methods.updateRiskLevel = function() {
+  const activeFlags = this.riskFlags.filter(flag => !flag.isResolved);
+  
+  if (activeFlags.length === 0) {
+    this.riskLevel = 'LOW';
+  } else {
+    const severities = activeFlags.map(flag => flag.severity);
+    if (severities.includes('CRITICAL')) {
+      this.riskLevel = 'CRITICAL';
+    } else if (severities.includes('HIGH')) {
       this.riskLevel = 'HIGH';
-    } else if (mediumRiskFlags.length > 2) {
+    } else if (severities.includes('MEDIUM')) {
       this.riskLevel = 'MEDIUM';
     } else {
       this.riskLevel = 'LOW';

@@ -64,16 +64,9 @@ export function UserApprovalPage() {
   const handleApprove = async (userId: string) => {
     try {
       setActionLoading(userId)
-      const response = await fetch(`/api/auth/approve-user/${userId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      const data = await response.json()
+      const response = await apiClient.approveUser(userId)
       
-      if (data.success) {
+      if (response.success) {
         setPendingUsers(prev => prev.filter(user => user._id !== userId))
       }
     } catch (error) {
@@ -86,16 +79,9 @@ export function UserApprovalPage() {
   const handleReject = async (userId: string) => {
     try {
       setActionLoading(userId)
-      const response = await fetch(`/api/auth/reject-user/${userId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      const data = await response.json()
+      const response = await apiClient.rejectUser(userId)
       
-      if (data.success) {
+      if (response.success) {
         setPendingUsers(prev => prev.filter(user => user._id !== userId))
       }
     } catch (error) {

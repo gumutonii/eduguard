@@ -1,10 +1,19 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronDownIcon, MagnifyingGlassIcon, MapPinIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline'
-import { SchoolService, RwandanSchool } from '@/lib/schools'
+import { apiClient } from '@/lib/api'
+
+interface School {
+  _id: string
+  name: string
+  district: string
+  sector: string
+  phone?: string
+  email?: string
+}
 
 interface SchoolSelectProps {
   value?: string
-  onChange: (schoolId: string, school: RwandanSchool) => void
+  onChange: (schoolId: string, school: School) => void
   onClear?: () => void
   placeholder?: string
   disabled?: boolean
@@ -23,14 +32,9 @@ export function SchoolSelect({
 }: SchoolSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedSchool, setSelectedSchool] = useState<RwandanSchool | null>(null)
-  const [filteredSchools, setFilteredSchools] = useState<RwandanSchool[]>([])
-  const [schoolTypeFilter, setSchoolTypeFilter] = useState<'ALL' | 'PRIMARY' | 'SECONDARY'>('ALL')
-  const [provinceFilter, setProvinceFilter] = useState<string>('ALL')
-
-  // Get all schools and provinces
-  const [allSchools, setAllSchools] = useState<RwandanSchool[]>([])
-  const [provinces, setProvinces] = useState<string[]>([])
+  const [selectedSchool, setSelectedSchool] = useState<School | null>(null)
+  const [filteredSchools, setFilteredSchools] = useState<School[]>([])
+  const [allSchools, setAllSchools] = useState<School[]>([])
   const [loading, setLoading] = useState(true)
 
   // Load schools on component mount
@@ -38,13 +42,12 @@ export function SchoolSelect({
     const loadSchools = async () => {
       try {
         setLoading(true)
-        const schools = await SchoolService.getAllSchools()
-        setAllSchools(schools)
-        setProvinces(SchoolService.getProvinces())
+        const response = await apiClient.getAllSchools()
+        if (response.success) {
+          setAllSchools(response.data)
+        }
       } catch (error) {
         console.error('Failed to load schools:', error)
-        setAllSchools(SchoolService.getAllSchoolsSync())
-        setProvinces(SchoolService.getProvinces())
       } finally {
         setLoading(false)
       }
@@ -53,32 +56,26 @@ export function SchoolSelect({
     loadSchools()
   }, [])
 
-  // Filter schools based on search and filters
+  // Filter schools based on search
   useEffect(() => {
     let filtered = allSchools
 
     // Apply search filter
     if (searchQuery.trim()) {
-      filtered = SchoolService.searchSchools(searchQuery)
-    }
-
-    // Apply type filter
-    if (schoolTypeFilter !== 'ALL') {
-      filtered = filtered.filter(school => school.type === schoolTypeFilter)
-    }
-
-    // Apply province filter
-    if (provinceFilter !== 'ALL') {
-      filtered = filtered.filter(school => school.province === provinceFilter)
+      filtered = allSchools.filter(school => 
+        school.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        school.district.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        school.sector.toLowerCase().includes(searchQuery.toLowerCase())
+      )
     }
 
     setFilteredSchools(filtered)
-  }, [searchQuery, schoolTypeFilter, provinceFilter, allSchools])
+  }, [searchQuery, allSchools])
 
   // Set selected school when value changes
   useEffect(() => {
     if (value) {
-      const school = SchoolService.getSchoolById(value)
+      const school = allSchools.find(s => s._id === value)
       if (school) {
         setSelectedSchool(school)
       } else {
@@ -87,11 +84,11 @@ export function SchoolSelect({
     } else {
       setSelectedSchool(null)
     }
-  }, [value])
+  }, [value, allSchools])
 
-  const handleSchoolSelect = (school: RwandanSchool) => {
+  const handleSchoolSelect = (school: School) => {
     setSelectedSchool(school)
-    onChange(school.id, school)
+    onChange(school._id, school)
     setIsOpen(false)
     setSearchQuery('')
   }
@@ -103,12 +100,12 @@ export function SchoolSelect({
     if (onClear) {
       onClear()
     } else {
-      onChange('', {} as RwandanSchool)
+      onChange('', {} as School)
     }
   }
 
-  const getSchoolDisplayName = (school: RwandanSchool) => {
-    return `${school.name} (${school.type}) - ${school.district}, ${school.province}`
+  const getSchoolDisplayName = (school: School) => {
+    return `${school.name} - ${school.district}, ${school.sector}`
   }
 
   return (
@@ -149,9 +146,9 @@ export function SchoolSelect({
 
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-96 overflow-hidden">
-          {/* Search and Filter Header */}
+          {/* Search Header */}
           <div className="p-3 border-b border-neutral-200 bg-neutral-50">
-            <div className="relative mb-3">
+            <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
               <input
                 type="text"
@@ -161,29 +158,6 @@ export function SchoolSelect({
                 className="w-full pl-10 pr-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                 autoFocus
               />
-            </div>
-
-            <div className="flex space-x-2">
-              <select
-                value={schoolTypeFilter}
-                onChange={(e) => setSchoolTypeFilter(e.target.value as 'ALL' | 'PRIMARY' | 'SECONDARY')}
-                className="flex-1 px-2 py-1 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
-              >
-                <option value="ALL">All Types</option>
-                <option value="PRIMARY">Primary</option>
-                <option value="SECONDARY">Secondary</option>
-              </select>
-
-              <select
-                value={provinceFilter}
-                onChange={(e) => setProvinceFilter(e.target.value)}
-                className="flex-1 px-2 py-1 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
-              >
-                <option value="ALL">All Provinces</option>
-                {provinces.map(province => (
-                  <option key={province} value={province}>{province}</option>
-                ))}
-              </select>
             </div>
           </div>
 
@@ -196,53 +170,27 @@ export function SchoolSelect({
             ) : (
               filteredSchools.map((school) => (
                 <button
-                  key={school.id}
+                  key={school._id}
                   type="button"
                   onClick={() => handleSchoolSelect(school)}
                   className="w-full px-4 py-3 text-left hover:bg-neutral-50 focus:bg-neutral-50 focus:outline-none border-b border-neutral-100 last:border-b-0"
                 >
                   <div className="flex items-start space-x-3">
                     <div className="flex-shrink-0 mt-1">
-                      {school.type === 'PRIMARY' ? (
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      ) : (
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      )}
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2">
                         <p className="text-sm font-medium text-neutral-900 truncate">
                           {school.name}
                         </p>
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          school.type === 'PRIMARY' 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {school.type}
-                        </span>
-                        {school.isBoarding && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                            Boarding
-                          </span>
-                        )}
-                        {!school.isPublic && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                            Private
-                          </span>
-                        )}
                       </div>
                       <div className="flex items-center space-x-1 mt-1">
                         <MapPinIcon className="h-3 w-3 text-neutral-400" />
                         <p className="text-xs text-neutral-500">
-                          {school.district}, {school.province}
+                          {school.district}, {school.sector}
                         </p>
                       </div>
-                      {school.enrollment && (
-                        <p className="text-xs text-neutral-400 mt-1">
-                          {school.enrollment.toLocaleString()} students
-                        </p>
-                      )}
                     </div>
                   </div>
                 </button>

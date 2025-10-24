@@ -12,19 +12,8 @@ import {
   EnvelopeIcon,
   DevicePhoneMobileIcon
 } from '@heroicons/react/24/outline'
+import { apiClient } from '@/lib/api'
 import type { NotificationHistory } from '@/types'
-
-// API client
-const apiClient = {
-  getNotifications: async (filters: any) => {
-    const params = new URLSearchParams()
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) params.append(key, value.toString())
-    })
-    const response = await fetch(`/api/notifications?${params}`)
-    return response.json()
-  }
-}
 
 export function TeacherNotificationsPage() {
   const [filters, setFilters] = useState({
@@ -163,6 +152,14 @@ export function TeacherNotificationsPage() {
                   <div className="h-16 bg-neutral-200 rounded-xl"></div>
                 </div>
               ))}
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="text-center py-12">
+              <BellIcon className="mx-auto h-12 w-12 text-neutral-400" />
+              <h3 className="mt-2 text-sm font-medium text-neutral-900">No notifications</h3>
+              <p className="mt-1 text-sm text-neutral-500">
+                No notifications have been sent yet. When notifications are sent, they will appear here.
+              </p>
             </div>
           ) : (
             <>

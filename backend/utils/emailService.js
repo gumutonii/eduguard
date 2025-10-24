@@ -292,9 +292,43 @@ const sendParentRiskAlertSMS = async (parentPhone, studentName, riskLevel, schoo
   }
 };
 
+// General email sending function
+const sendEmail = async ({ to, subject, text, html }) => {
+  try {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.warn('Email service not configured');
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: `"EduGuard" <${process.env.EMAIL_USER}>`,
+      to,
+      subject,
+      text,
+      html: html || text
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log('Email sent:', result.messageId);
+    return { success: true, messageId: result.messageId };
+  } catch (error) {
+    console.error('Error sending email:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Check if email service is enabled
+const isEnabled = () => {
+  return !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+};
+
 module.exports = {
   sendApprovalNotification,
   sendPasswordResetEmail,
   sendParentRiskAlert,
-  sendParentRiskAlertSMS
+  sendParentRiskAlertSMS,
+  sendEmail,
+  isEnabled
 };

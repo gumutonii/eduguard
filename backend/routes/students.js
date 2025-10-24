@@ -2,8 +2,12 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Student = require('../models/Student');
 const { authenticateToken, authorize, canAccessStudent } = require('../middleware/auth');
+const multer = require('multer');
+const csv = require('fast-csv');
+const { stringify } = require('csv-stringify/sync');
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 // @route   GET /api/students
 // @desc    Get all students with filtering
@@ -20,7 +24,11 @@ router.get('/', authenticateToken, async (req, res) => {
       assignedTeacherId 
     } = req.query;
 
-    let query = { schoolId: req.user.schoolId, isActive: true };
+    let query = { 
+      schoolName: req.user.schoolName,
+      schoolDistrict: req.user.schoolDistrict,
+      isActive: true 
+    };
 
     // Role-based filtering
     if (req.user.role === 'TEACHER') {
@@ -153,7 +161,9 @@ router.post('/', [
 
     const studentData = {
       ...req.body,
-      schoolId: req.user.schoolId,
+      schoolName: req.user.schoolName,
+      schoolDistrict: req.user.schoolDistrict,
+      schoolSector: req.user.schoolSector,
       assignedTeacherId: req.user.role === 'TEACHER' ? req.user._id : req.body.assignedTeacherId
     };
 
@@ -445,18 +455,13 @@ router.post('/:id/notes', [
 });
 
 // @route   DELETE /api/students/:id
-// @desc    Delete student (soft delete)
+// @desc    Delete student (hard delete)
 // @access  Private (Admin)
 router.delete('/:id', authenticateToken, authorize('ADMIN'), async (req, res) => {
   try {
     const { id } = req.params;
 
-    const student = await Student.findByIdAndUpdate(
-      id,
-      { isActive: false },
-      { new: true }
-    );
-
+    const student = await Student.findById(id);
     if (!student) {
       return res.status(404).json({
         success: false,
@@ -464,15 +469,175 @@ router.delete('/:id', authenticateToken, authorize('ADMIN'), async (req, res) =>
       });
     }
 
+    // Check if student belongs to admin's school (for regular admins)
+    if (req.user.role === 'ADMIN' && student.schoolId && !student.schoolId.equals(req.user.schoolId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You can only delete students from your school.'
+      });
+    }
+
+    // Hard delete the student
+    await Student.findByIdAndDelete(id);
+
     res.json({
       success: true,
-      message: 'Student deactivated successfully'
+      message: 'Student deleted successfully'
     });
   } catch (error) {
     console.error('Delete student error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to delete student'
+    });
+  }
+});
+
+// @route   GET /api/students/export
+// @desc    Export students to CSV
+// @access  Private (Admin)
+router.get('/export', authenticateToken, authorize('ADMIN'), async (req, res) => {
+  try {
+    const students = await Student.find({
+      schoolName: req.user.schoolName,
+      schoolDistrict: req.user.schoolDistrict,
+      schoolSector: req.user.schoolSector,
+      isActive: true
+    })
+      .populate('assignedTeacherId', 'name')
+      .sort({ lastName: 1, firstName: 1 });
+
+    const csvData = students.map(s => ({
+      'Student ID': s._id.toString(),
+      'First Name': s.firstName,
+      'Middle Name': s.middleName || '',
+      'Last Name': s.lastName,
+      Gender: s.gender,
+      Age: s.age,
+      'Date of Birth': s.dob.toLocaleDateString(),
+      'Classroom ID': s.classroomId,
+      'Assigned Teacher': s.assignedTeacherId?.name || '',
+      District: s.address.district,
+      Sector: s.address.sector,
+      Cell: s.address.cell,
+      Village: s.address.village,
+      'Ubudehe Level': s.socioEconomic.ubudeheLevel,
+      'Has Parents': s.socioEconomic.hasParents ? 'Yes' : 'No',
+      'Family Conflict': s.socioEconomic.familyConflict ? 'Yes' : 'No',
+      'Number of Siblings': s.socioEconomic.numberOfSiblings,
+      'Parent Education Level': s.socioEconomic.parentEducationLevel,
+      'Risk Level': s.riskLevel,
+      'Primary Guardian Name': s.guardianContacts[0]?.name || '',
+      'Primary Guardian Phone': s.guardianContacts[0]?.phone || '',
+      'Primary Guardian Email': s.guardianContacts[0]?.email || '',
+      'Primary Guardian Relation': s.guardianContacts[0]?.relation || ''
+    }));
+
+    const csvString = stringify(csvData, { header: true });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=students-${Date.now()}.csv`);
+    res.send(csvString);
+  } catch (error) {
+    console.error('Export students error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to export students'
+    });
+  }
+});
+
+// @route   POST /api/students/import
+// @desc    Import students from CSV
+// @access  Private (Admin)
+router.post('/import', authenticateToken, authorize('ADMIN'), upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    const records = [];
+    const errors = [];
+
+    const stream = require('stream');
+    const bufferStream = new stream.PassThrough();
+    bufferStream.end(req.file.buffer);
+
+    bufferStream
+      .pipe(csv.parse({ headers: true, trim: true }))
+      .on('error', error => {
+        console.error('CSV parse error:', error);
+      })
+      .on('data', row => {
+        records.push(row);
+      })
+      .on('end', async () => {
+        const imported = [];
+
+        for (const [index, record] of records.entries()) {
+          try {
+            const studentData = {
+              firstName: record['First Name'] || record.firstName,
+              middleName: record['Middle Name'] || record.middleName || '',
+              lastName: record['Last Name'] || record.lastName,
+              gender: record.Gender || record.gender,
+              age: parseInt(record.Age || record.age),
+              dob: new Date(record['Date of Birth'] || record.dob),
+              schoolName: req.user.schoolName,
+      schoolDistrict: req.user.schoolDistrict,
+      schoolSector: req.user.schoolSector,
+              classroomId: record['Classroom ID'] || record.classroomId,
+              assignedTeacherId: record.assignedTeacherId || req.user._id,
+              address: {
+                district: record.District || record['address.district'] || '',
+                sector: record.Sector || record['address.sector'] || '',
+                cell: record.Cell || record['address.cell'] || '',
+                village: record.Village || record['address.village'] || ''
+              },
+              socioEconomic: {
+                ubudeheLevel: parseInt(record['Ubudehe Level'] || record['socioEconomic.ubudeheLevel'] || '4'),
+                hasParents: (record['Has Parents'] || record['socioEconomic.hasParents'] || 'Yes').toLowerCase() === 'yes',
+                familyConflict: (record['Family Conflict'] || record['socioEconomic.familyConflict'] || 'No').toLowerCase() === 'yes',
+                numberOfSiblings: parseInt(record['Number of Siblings'] || record['socioEconomic.numberOfSiblings'] || '0'),
+                parentEducationLevel: record['Parent Education Level'] || record['socioEconomic.parentEducationLevel'] || 'Primary'
+              },
+              guardianContacts: [{
+                name: record['Primary Guardian Name'] || record['guardianContacts[0].name'] || 'Unknown',
+                relation: record['Primary Guardian Relation'] || record['guardianContacts[0].relation'] || 'Guardian',
+                phone: record['Primary Guardian Phone'] || record['guardianContacts[0].phone'] || '',
+                email: record['Primary Guardian Email'] || record['guardianContacts[0].email'] || '',
+                isPrimary: true
+              }]
+            };
+
+            const student = await Student.create(studentData);
+            imported.push(student);
+          } catch (error) {
+            errors.push({
+              row: index + 2,
+              error: error.message,
+              data: record
+            });
+          }
+        }
+
+        res.json({
+          success: true,
+          message: `Imported ${imported.length} students`,
+          imported: imported.length,
+          failed: errors.length,
+          errors: errors.length > 0 ? errors.slice(0, 10) : undefined
+        });
+      });
+  } catch (error) {
+    console.error('Import students error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to import students',
+      error: error.message
     });
   }
 });

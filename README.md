@@ -5,7 +5,7 @@
 [![React](https://img.shields.io/badge/React-18+-blue.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
-A comprehensive, data-driven platform designed to help educational institutions proactively identify and prevent student dropout through advanced analytics, early warning systems, and automated intervention management.
+A comprehensive, data-driven platform designed to help educational institutions proactively identify and prevent student dropout through advanced analytics, early warning systems, and automated intervention management. The system operates with **Admin** and **Teacher** roles, where teachers manage students and their parent contacts, while admins oversee the entire system.
 
 ### Figma UI Design: [Click Here](https://www.figma.com/design/hACT4bbmrQ3VqLkud1xntM/EduGuard?node-id=0-1&t=AuO482VYgGrCe8xM-1)
 
@@ -27,20 +27,23 @@ EduGuard addresses the critical challenge of student dropout in educational syst
 
 ```
 EduGuard/
-├── frontend/          # React + TypeScript SPA
+├── frontend/          # React + TypeScript SPA (Independent)
 │   ├── src/
 │   │   ├── components/    # Reusable UI components
 │   │   ├── pages/        # Application pages
 │   │   ├── lib/          # Utilities and API client
 │   │   └── stores/       # State management
-│   └── dist/             # Production build
-├── backend/           # Node.js + Express API
+│   ├── dist/             # Production build
+│   ├── package.json      # Frontend dependencies
+│   └── README.md         # Frontend documentation
+├── backend/           # Node.js + Express API (Independent)
 │   ├── models/        # MongoDB schemas
 │   ├── routes/        # API endpoints
 │   ├── middleware/    # Authentication & validation
-│   └── utils/         # Helper functions
-├── scripts/           # Development utilities
-└── docs/             # Documentation
+│   ├── utils/         # Helper functions
+│   ├── package.json   # Backend dependencies
+│   └── README.md      # Backend documentation
+└── README.md         # Project overview
 ```
 
 ## ✨ Features
@@ -70,10 +73,11 @@ EduGuard/
 - **Escalation Workflows**: Automated escalation for high-risk cases
 
 ### 👥 User Management
-- **Role-Based Access Control**: Admin, Teacher, and Parent portals
-- **User Approval System**: Admin-controlled user registration
+- **Role-Based Access Control**: Admin and Teacher portals only
+- **User Approval System**: Admin-controlled teacher registration
 - **Permission Management**: Granular access control
 - **Audit Trails**: Complete activity logging
+- **Parent Management**: Parents managed through teacher student registration
 
 ## 🛠️ Technology Stack
 
@@ -114,38 +118,40 @@ EduGuard/
 
 ### Installation
 
+Each folder (frontend and backend) can run independently. Choose your setup:
+
+#### Option 1: Full Stack Development
 1. **Clone the repository**
    ```bash
    git clone https://github.com/gumutonii/eduguard.git
    cd eduguard
    ```
 
-2. **Install dependencies**
+2. **Backend Setup**
    ```bash
+   cd backend
    npm install
-   ```
-
-3. **Environment Setup**
-   ```bash
-   # Copy environment template
-   cp backend/env.example backend/.env
-   
-   # Edit backend/.env with your configuration
-   # Add MongoDB connection string, JWT secret, etc.
-   ```
-
-4. **Start Development**
-   ```bash
-   # Start frontend development server
+   cp env.example .env
+   # Edit .env with your configuration
    npm run dev
-   
-   # In another terminal, start backend server
-   cd backend && npm start
    ```
 
-5. **Access the Application**
-   - Frontend: http://localhost:5173
-   - Backend API: http://localhost:3000
+3. **Frontend Setup** (in another terminal)
+   ```bash
+   cd frontend
+   npm install
+   cp env.example .env
+   # Edit .env with your API URL
+   npm run dev
+   ```
+
+#### Option 2: Independent Development
+- **Backend Only**: See `backend/README.md` for detailed setup
+- **Frontend Only**: See `frontend/README.md` for detailed setup
+
+#### Access the Application
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:3000
 
 ## 📱 User Interface
 
@@ -159,7 +165,7 @@ EduGuard/
 - **Landing Page**: Project overview and authentication
 - **Admin Dashboard**: System-wide analytics and management
 - **Teacher Dashboard**: Class-specific insights and tools
-- **Student Registration**: Comprehensive student onboarding
+- **Student Registration**: Teachers register students with parent details
 - **Student Profiles**: Detailed individual student tracking
 - **Notification Center**: Alert management and communication
 
@@ -208,15 +214,19 @@ EduGuard/
 
 ## 🧪 Testing
 
+### Frontend Testing
 ```bash
-# Run frontend tests
-npm run test
+cd frontend
+npm run test          # Unit tests
+npm run test:ui       # Tests with UI
+npm run test:e2e     # End-to-end tests
+```
 
-# Run backend tests
-cd backend && npm test
-
-# Run security checks
-./scripts/security-check.sh
+### Backend Testing
+```bash
+cd backend
+npm test             # Unit tests
+npm run logs         # View logs
 ```
 
 ## 📈 Performance
@@ -230,15 +240,17 @@ cd backend && npm test
 
 ### Frontend Deployment
 ```bash
-# Build for production
-npm run build
-
-# Deploy to your preferred platform
+cd frontend
+npm run build        # Build for production
+npm run preview      # Preview production build
+# Deploy dist/ folder to your preferred platform
 # (Vercel, Netlify, AWS S3, etc.)
 ```
 
 ### Backend Deployment
 ```bash
+cd backend
+npm start           # Production start
 # Set production environment variables
 # Deploy to your preferred platform
 # (Heroku, AWS, DigitalOcean, etc.)

@@ -16,8 +16,7 @@ router.post('/register', [
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters long'),
   body('name').trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters long'),
   body('role').isIn(['ADMIN', 'TEACHER']).withMessage('Invalid role'),
-  body('schoolId').isMongoId().withMessage('Valid school ID is required'),
-  body('phone').optional().isMobilePhone().withMessage('Please provide a valid phone number')
+  body('phone').optional().matches(/^[\+]?250[0-9]{9}$|^0[0-9]{9}$/).withMessage('Please provide a valid phone number')
 ], async (req, res) => {
   try {
     // Check validation errors
@@ -30,7 +29,24 @@ router.post('/register', [
       });
     }
 
-    const { email, password, name, role, schoolId, phone } = req.body;
+    const { 
+      email, 
+      password, 
+      name, 
+      role, 
+      phone,
+      // School details for ADMIN
+      schoolName,
+      schoolDistrict,
+      schoolSector,
+      schoolPhone,
+      schoolEmail,
+      adminTitle,
+      // Class selection for TEACHER
+      selectedSchool,
+      selectedClass,
+      teacherTitle
+    } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
@@ -42,15 +58,67 @@ router.post('/register', [
     }
 
     // Create new user (not approved by default)
-    const user = new User({
+    const userData = {
       email: email.toLowerCase(),
       password,
       name,
       role,
-      schoolId,
       phone,
       isApproved: false // New users need approval
-    });
+    };
+
+    // Add school details for ADMIN
+    if (role === 'ADMIN') {
+      userData.schoolName = schoolName;
+      userData.schoolDistrict = schoolDistrict;
+      userData.schoolSector = schoolSector;
+      userData.schoolPhone = schoolPhone;
+      userData.schoolEmail = schoolEmail;
+      userData.adminTitle = adminTitle;
+    }
+
+    // Add school and class details for TEACHER
+    if (role === 'TEACHER') {
+      // For teachers, we need to get the school details from the selected school
+      // and assign the selected class
+      if (selectedSchool) {
+        // Find the school in the School model to get the schoolId
+        const School = require('../models/School');
+        const school = await School.findOne({ 
+          name: selectedSchool,
+          isActive: true 
+        });
+        
+        if (school) {
+          userData.schoolId = school._id;
+          userData.schoolName = school.name;
+          userData.schoolDistrict = school.district;
+          userData.schoolSector = school.sector;
+          userData.schoolPhone = school.phone;
+          userData.schoolEmail = school.email;
+        } else {
+          // Fallback: find the school admin to get school details
+          const schoolAdmin = await User.findOne({ 
+            schoolName: selectedSchool, 
+            role: 'ADMIN',
+            isApproved: true 
+          });
+          
+          if (schoolAdmin) {
+            userData.schoolName = schoolAdmin.schoolName;
+            userData.schoolDistrict = schoolAdmin.schoolDistrict;
+            userData.schoolSector = schoolAdmin.schoolSector;
+            userData.schoolPhone = schoolAdmin.schoolPhone;
+            userData.schoolEmail = schoolAdmin.schoolEmail;
+          }
+        }
+      }
+      
+      userData.teacherTitle = teacherTitle;
+      // Note: assignedClass will be set after class creation/assignment
+    }
+
+    const user = new User(userData);
 
     await user.save();
 
@@ -103,7 +171,7 @@ router.post('/login', [
     const { email, password } = req.body;
 
     // Find user with password
-    const user = await User.findByEmail(email);
+    const user = await User.findOne({ email }).select('+password');
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -357,8 +425,8 @@ router.post('/reset-password', [
 // @access  Private (Admin)
 router.get('/pending-approvals', authenticateToken, async (req, res) => {
   try {
-    // Check if user is admin
-    if (req.user.role !== 'ADMIN') {
+    // Check if user is admin or super admin
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
       return res.status(403).json({
         success: false,
         message: 'Access denied. Admin privileges required.'
@@ -369,7 +437,7 @@ router.get('/pending-approvals', authenticateToken, async (req, res) => {
       isApproved: false, 
       isActive: true,
       email: { $ne: 'admin@eduguard.com' } // Exclude superadmin
-    }).select('-password').populate('schoolId', 'name type district province');
+    }).select('-password');
 
     res.json({
       success: true,
@@ -385,12 +453,12 @@ router.get('/pending-approvals', authenticateToken, async (req, res) => {
 });
 
 // @route   POST /api/auth/approve-user/:userId
-// @desc    Approve a user (Admin only)
-// @access  Private (Admin)
+// @desc    Approve a user (Admin or Super Admin)
+// @access  Private (Admin or Super Admin)
 router.post('/approve-user/:userId', authenticateToken, async (req, res) => {
   try {
-    // Check if user is admin
-    if (req.user.role !== 'ADMIN') {
+    // Check if user is admin or super admin
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
       return res.status(403).json({
         success: false,
         message: 'Access denied. Admin privileges required.'
@@ -445,12 +513,12 @@ router.post('/approve-user/:userId', authenticateToken, async (req, res) => {
 });
 
 // @route   POST /api/auth/reject-user/:userId
-// @desc    Reject a user (Admin only)
-// @access  Private (Admin)
+// @desc    Reject a user (Admin or Super Admin)
+// @access  Private (Admin or Super Admin)
 router.post('/reject-user/:userId', authenticateToken, async (req, res) => {
   try {
-    // Check if user is admin
-    if (req.user.role !== 'ADMIN') {
+    // Check if user is admin or super admin
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
       return res.status(403).json({
         success: false,
         message: 'Access denied. Admin privileges required.'
@@ -497,7 +565,7 @@ router.post('/reject-user/:userId', authenticateToken, async (req, res) => {
 // @access  Private
 router.put('/profile', authenticateToken, [
   body('name').optional().trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters long'),
-  body('phone').optional().isMobilePhone().withMessage('Please provide a valid phone number'),
+  body('phone').optional().matches(/^[\+]?250[0-9]{9}$|^0[0-9]{9}$/).withMessage('Please provide a valid phone number'),
   body('schoolId').optional().isMongoId().withMessage('Valid school ID is required')
 ], async (req, res) => {
   try {
