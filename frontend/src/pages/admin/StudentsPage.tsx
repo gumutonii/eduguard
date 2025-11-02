@@ -186,7 +186,7 @@ export function StudentsPage() {
                           {student.gender === 'M' ? 'Male' : 'Female'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
-                          {student.classroomId}
+                          {student.classId?.className || student.className || 'Not assigned'}
                         </td>
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                           <Badge 

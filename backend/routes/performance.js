@@ -26,10 +26,16 @@ router.get('/', auth, async (req, res) => {
     // For teachers, filter by their assigned students
     if (req.user.role === 'TEACHER') {
       const students = await Student.find({
-        assignedTeacherId: req.user._id,
-        schoolId: req.user.schoolId
+        assignedTeacher: req.user._id,
+        schoolId: req.user.schoolId,
+        isActive: true
       }).select('_id');
-      query.studentId = { $in: students.map(s => s._id) };
+      if (students.length > 0) {
+        query.studentId = { $in: students.map(s => s._id) };
+      } else {
+        // No students assigned, return empty result
+        query.studentId = { $in: [] };
+      }
     }
 
     const performances = await Performance.find(query)

@@ -26,6 +26,7 @@ import type { Student, Attendance, Performance, RiskFlag, Intervention } from '@
 
 const tabs = [
   { id: 'overview', name: 'Overview', icon: UserIcon },
+  { id: 'details', name: 'Details', icon: UserIcon },
   { id: 'attendance', name: 'Attendance', icon: ClipboardDocumentCheckIcon },
   { id: 'performance', name: 'Performance', icon: ChartBarIcon },
   { id: 'risk', name: 'Risk Center', icon: ExclamationTriangleIcon },
@@ -118,7 +119,7 @@ export function StudentDetailPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-neutral-600">Class</p>
-                    <p className="text-neutral-900">{student.classroomId}</p>
+                    <p className="text-neutral-900">{student.classId?.className || student.className || 'Not assigned'}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-neutral-600">Status</p>
@@ -163,6 +164,181 @@ export function StudentDetailPage() {
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          </div>
+        )
+
+      case 'details':
+        return (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {/* Personal Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <UserIcon className="h-5 w-5 mr-2" />
+                  Personal Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-neutral-600">First Name</p>
+                    <p className="text-neutral-900">{student.firstName}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-neutral-600">Last Name</p>
+                    <p className="text-neutral-900">{student.lastName}</p>
+                  </div>
+                </div>
+                {student.middleName && (
+                  <div>
+                    <p className="text-sm font-medium text-neutral-600">Middle Name</p>
+                    <p className="text-neutral-900">{student.middleName}</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-neutral-600">Gender</p>
+                    <p className="text-neutral-900">{student.gender === 'M' ? 'Male' : 'Female'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-neutral-600">Age</p>
+                    <p className="text-neutral-900">{student.age} years old</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-neutral-600">Date of Birth</p>
+                  <p className="text-neutral-900">{new Date(student.dateOfBirth).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-neutral-600">Student ID</p>
+                  <p className="text-neutral-900 font-mono text-sm">{student.studentId}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Address Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <MapPinIcon className="h-5 w-5 mr-2" />
+                  Address Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-neutral-600">District</p>
+                    <p className="text-neutral-900">{student.address?.district}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-neutral-600">Sector</p>
+                    <p className="text-neutral-900">{student.address?.sector}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-neutral-600">Cell</p>
+                    <p className="text-neutral-900">{student.address?.cell || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-neutral-600">Village</p>
+                    <p className="text-neutral-900">{student.address?.village || 'Not specified'}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Socio-economic Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <HomeIcon className="h-5 w-5 mr-2" />
+                  Socio-economic Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-neutral-600">Ubudehe Level</p>
+                    <p className="text-neutral-900">{student.socioEconomic?.ubudeheLevel}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-neutral-600">Has Parents</p>
+                    <p className="text-neutral-900">{student.socioEconomic?.hasParents ? 'Yes' : 'No'}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-neutral-600">Family Conflict</p>
+                    <p className="text-neutral-900">{student.socioEconomic?.familyConflict ? 'Yes' : 'No'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-neutral-600">Number of Siblings</p>
+                    <p className="text-neutral-900">{student.socioEconomic?.numberOfSiblings}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-neutral-600">Parent Education Level</p>
+                  <p className="text-neutral-900">{student.socioEconomic?.parentEducationLevel}</p>
+                </div>
+                {student.socioEconomic?.parentJob && (
+                  <div>
+                    <p className="text-sm font-medium text-neutral-600">Parent Job</p>
+                    <p className="text-neutral-900">{student.socioEconomic.parentJob}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Guardian Contacts */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <PhoneIcon className="h-5 w-5 mr-2" />
+                  Guardian Contacts
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {student.guardianContacts?.map((guardian: any, index: number) => (
+                  <div key={index} className="p-4 border border-neutral-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-neutral-900">{guardian.name}</h4>
+                      {guardian.isPrimary && (
+                        <Badge variant="success">Primary</Badge>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-neutral-600">Relation</p>
+                        <p className="text-neutral-900">{guardian.relation}</p>
+                      </div>
+                      <div>
+                        <p className="text-neutral-600">Phone</p>
+                        <p className="text-neutral-900">{guardian.phone}</p>
+                      </div>
+                    </div>
+                    {guardian.email && (
+                      <div className="mt-2">
+                        <p className="text-sm text-neutral-600">Email</p>
+                        <p className="text-sm text-neutral-900">{guardian.email}</p>
+                      </div>
+                    )}
+                    {guardian.job && (
+                      <div className="mt-2">
+                        <p className="text-sm text-neutral-600">Job</p>
+                        <p className="text-sm text-neutral-900">{guardian.job}</p>
+                      </div>
+                    )}
+                    {guardian.educationLevel && (
+                      <div className="mt-2">
+                        <p className="text-sm text-neutral-600">Education Level</p>
+                        <p className="text-sm text-neutral-900">{guardian.educationLevel}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </CardContent>
             </Card>
           </div>
@@ -363,7 +539,7 @@ export function StudentDetailPage() {
                     <p className="text-sm text-neutral-600 mt-2">
                       Name: {student.firstName} {student.lastName}<br />
                       Gender: {student.gender === 'M' ? 'Male' : 'Female'}<br />
-                      Class: {student.classroomId}
+                      Class: {student.classId?.className || student.className || 'Not assigned'}
                     </p>
                   </div>
                   
@@ -410,7 +586,7 @@ export function StudentDetailPage() {
               {student.firstName} {student.lastName}
             </h1>
             <p className="text-sm sm:text-base text-neutral-600">
-              Student ID: {student._id.slice(-8)} • {student.classroomId} • {student.gender === 'M' ? 'Male' : 'Female'}
+              Student ID: {student.studentId || student._id.slice(-8)} • {student.classId?.className || student.className || 'Not assigned'} • {student.gender === 'M' ? 'Male' : 'Female'}
             </p>
           </div>
         </div>

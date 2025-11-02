@@ -55,7 +55,7 @@ const studentSchema = new mongoose.Schema({
     max: [25, 'Age cannot exceed 25']
   },
   
-  // Address information
+  // Address information - simplified to district and sector only
   address: {
     district: {
       type: String,
@@ -69,17 +69,17 @@ const studentSchema = new mongoose.Schema({
     },
     cell: {
       type: String,
-      required: [true, 'Cell is required'],
-      trim: true
+      trim: true,
+      default: ''
     },
     village: {
       type: String,
-      required: [true, 'Village is required'],
-      trim: true
+      trim: true,
+      default: ''
     }
   },
   
-  // Socio-economic information
+  // Socio-economic information - simplified to essential fields only
   socioEconomic: {
     ubudeheLevel: {
       type: Number,
@@ -91,43 +91,48 @@ const studentSchema = new mongoose.Schema({
       type: Boolean,
       required: [true, 'Has parents information is required']
     },
-    parentJob: {
-      type: String,
-      trim: true
-    },
     familyConflict: {
       type: Boolean,
+      required: [true, 'Family conflict information is required'],
       default: false
     },
     numberOfSiblings: {
       type: Number,
+      required: [true, 'Number of siblings is required'],
       min: [0, 'Number of siblings cannot be negative'],
+      max: [20, 'Number of siblings cannot exceed 20'],
       default: 0
+    },
+    // Optional fields that can be added later
+    parentJob: {
+      type: String,
+      trim: true
     },
     parentEducationLevel: {
       type: String,
-      enum: ['None', 'Primary', 'Secondary', 'University', 'Other'],
-      required: [true, 'Parent education level is required']
+      enum: ['None', 'Primary', 'Secondary', 'University', 'Other']
     }
   },
   
-  // Guardian contacts
+  // Guardian contacts - updated with new structure
   guardianContacts: [{
+    // Support both new structure (firstName/lastName) and legacy (name)
+    firstName: {
+      type: String,
+      trim: true
+    },
+    lastName: {
+      type: String,
+      trim: true
+    },
     name: {
       type: String,
-      required: true,
       trim: true
     },
     relation: {
       type: String,
-      enum: ['Father', 'Mother', 'Guardian', 'Sibling', 'Relative', 'Other'],
+      enum: ['Father', 'Mother', 'Uncle', 'Aunt', 'Sibling', 'Other Relative', 'Guardian', 'Relative', 'Other'], // Include legacy values for backward compatibility
       required: true
-    },
-    phone: {
-      type: String,
-      required: true,
-      trim: true,
-      match: [/^[\+]?250[0-9]{9}$|^0[0-9]{9}$/, 'Please enter a valid phone number']
     },
     email: {
       type: String,
@@ -135,13 +140,29 @@ const studentSchema = new mongoose.Schema({
       trim: true,
       match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
     },
-    job: {
+    phone: {
       type: String,
-      trim: true
+      required: true,
+      trim: true,
+      match: [/^[\+]?250[0-9]{9}$|^0[0-9]{9}$/, 'Please enter a valid phone number']
+    },
+    education: {
+      type: String,
+      enum: ['None', 'Primary', 'Secondary', 'University'],
+      required: true
     },
     educationLevel: {
       type: String,
       enum: ['None', 'Primary', 'Secondary', 'University', 'Other']
+    },
+    occupation: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    job: {
+      type: String,
+      trim: true
     },
     isPrimary: {
       type: Boolean,
@@ -309,8 +330,9 @@ studentSchema.methods.resolveRiskFlag = function(flagId, resolvedBy) {
 };
 
 // Method to update risk level based on flags
-studentSchema.methods.updateRiskLevel = function() {
+studentSchema.methods.updateRiskLevel = async function() {
   const activeFlags = this.riskFlags.filter(flag => !flag.isResolved);
+  const previousRiskLevel = this.riskLevel;
   
   if (activeFlags.length === 0) {
     this.riskLevel = 'LOW';
@@ -327,7 +349,44 @@ studentSchema.methods.updateRiskLevel = function() {
     }
   }
   
-  return this.save();
+  await this.save();
+
+  // Notify admins if risk level changed to or is at-risk
+  if (['MEDIUM', 'HIGH', 'CRITICAL'].includes(this.riskLevel)) {
+    // Only notify if risk level changed or if it's a new risk level
+    if (previousRiskLevel !== this.riskLevel || previousRiskLevel === 'LOW') {
+      const { notifyAdminOfStudentRisk } = require('../utils/adminNotificationService');
+      let reason = '';
+      if (previousRiskLevel !== this.riskLevel) {
+        reason = `Risk level changed from ${previousRiskLevel || 'LOW'} to ${this.riskLevel}.`;
+      } else {
+        reason = `Student has ${activeFlags.length} active risk flag(s) with ${this.riskLevel} risk level.`;
+      }
+      
+      // Get risk type from flags
+      const riskTypes = [...new Set(activeFlags.map(f => f.type || 'GENERAL'))];
+      const riskType = riskTypes.length > 0 ? riskTypes[0] : 'GENERAL';
+      
+      // Don't await to avoid blocking save operation
+      notifyAdminOfStudentRisk(this._id, this.riskLevel, reason, riskType).catch(err => {
+        console.error('Error notifying admin of student risk:', err);
+      });
+
+      // Automatically notify parents/guardians if risk level changed to HIGH or CRITICAL
+      // Only notify parents when risk level escalates (not on every update)
+      if ((previousRiskLevel !== this.riskLevel) && (this.riskLevel === 'HIGH' || this.riskLevel === 'CRITICAL')) {
+        const { notifyParentsOfRisk } = require('../utils/notificationService');
+        const riskDescription = reason || `Student has been flagged as ${this.riskLevel} risk. Immediate attention may be required.`;
+        
+        // Don't await to avoid blocking save operation
+        notifyParentsOfRisk(this._id, this.riskLevel, riskDescription).catch(err => {
+          console.error('Error notifying parents of student risk:', err);
+        });
+      }
+    }
+  }
+  
+  return this;
 };
 
 module.exports = mongoose.model('Student', studentSchema);

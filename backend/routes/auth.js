@@ -44,7 +44,6 @@ router.post('/register', [
       adminTitle,
       // Class selection for TEACHER
       selectedSchool,
-      selectedClass,
       teacherTitle
     } = req.body;
 
@@ -67,20 +66,69 @@ router.post('/register', [
       isApproved: false // New users need approval
     };
 
-    // Add school details for ADMIN
+    // Add school details for ADMIN - create School record first
     if (role === 'ADMIN') {
-      userData.schoolName = schoolName;
-      userData.schoolDistrict = schoolDistrict;
-      userData.schoolSector = schoolSector;
-      userData.schoolPhone = schoolPhone;
-      userData.schoolEmail = schoolEmail;
-      userData.adminTitle = adminTitle;
+      // Validate required school fields
+      if (!schoolName || !schoolDistrict || !schoolSector) {
+        return res.status(400).json({
+          success: false,
+          message: 'School name, district, and sector are required for Admin registration'
+        });
+      }
+
+      // Ensure sector is a single name (not multiple words like "Nyagatare Barija")
+      // Sector should be a single word/name from the valid sectors list
+      const trimmedSector = schoolSector.trim();
+      const normalizedSector = trimmedSector.split(' ')[0]; // Take first word only
+      
+      // Validate that sector is a single word (Rwanda sectors are single names)
+      if (trimmedSector !== normalizedSector) {
+        console.warn(`Warning: Sector "${trimmedSector}" contains multiple words. Using normalized: "${normalizedSector}"`);
+      }
+
+      const School = require('../models/School');
+      
+      // Check if school already exists
+      let school = await School.findOne({
+        name: schoolName.trim(),
+        district: schoolDistrict.trim(),
+        sector: normalizedSector,
+        isActive: true
+      });
+
+      if (!school) {
+        // Create new school record (createdBy will be set after user is created)
+        school = new School({
+          name: schoolName.trim(),
+          district: schoolDistrict.trim(),
+          sector: normalizedSector, // Use single sector name
+          schoolType: 'PRIMARY_AND_SECONDARY',
+          phone: schoolPhone || '',
+          email: schoolEmail || '',
+          isActive: true
+        });
+        
+        // Temporarily save without createdBy (will be updated after user creation)
+        await school.save();
+      }
+
+      // Set schoolId for the user
+      userData.schoolId = school._id;
+      userData.schoolName = school.name;
+      userData.schoolDistrict = school.district;
+      userData.schoolSector = school.sector; // Use the normalized single sector name
+      userData.schoolPhone = school.phone || schoolPhone || '';
+      userData.schoolEmail = school.email || schoolEmail || '';
+      userData.adminTitle = adminTitle || '';
+      
+      // Update school's createdBy after user is created
+      // (will be done after user.save())
     }
 
-    // Add school and class details for TEACHER
+    // Add school details for TEACHER
     if (role === 'TEACHER') {
       // For teachers, we need to get the school details from the selected school
-      // and assign the selected class
+      // Note: Class assignment will be done by admin after teacher approval
       if (selectedSchool) {
         // Find the school in the School model to get the schoolId
         const School = require('../models/School');
@@ -115,12 +163,19 @@ router.post('/register', [
       }
       
       userData.teacherTitle = teacherTitle;
-      // Note: assignedClass will be set after class creation/assignment
+      // Note: Class assignment will be done by admin after teacher approval via /api/classes/:id/assign-teacher
     }
 
     const user = new User(userData);
-
     await user.save();
+
+    // For ADMIN: Update school's createdBy field
+    if (role === 'ADMIN' && userData.schoolId) {
+      const School = require('../models/School');
+      await School.findByIdAndUpdate(userData.schoolId, {
+        createdBy: user._id
+      });
+    }
 
     // Generate tokens
     const token = generateToken(user._id);
@@ -422,6 +477,8 @@ router.post('/reset-password', [
 
 // @route   GET /api/auth/pending-approvals
 // @desc    Get all users pending approval (Admin only)
+// @desc    For regular admins: only shows teachers from their school
+// @desc    For super admins: shows all pending users
 // @access  Private (Admin)
 router.get('/pending-approvals', authenticateToken, async (req, res) => {
   try {
@@ -433,11 +490,23 @@ router.get('/pending-approvals', authenticateToken, async (req, res) => {
       });
     }
 
-    const pendingUsers = await User.find({ 
+    // Build query based on role
+    const query = { 
       isApproved: false, 
       isActive: true,
       email: { $ne: 'admin@eduguard.com' } // Exclude superadmin
-    }).select('-password');
+    };
+
+    // For regular admins, only show teachers from their school
+    if (req.user.role === 'ADMIN') {
+      query.role = 'TEACHER'; // Only teachers need approval
+      query.schoolId = req.user.schoolId; // Only teachers from this admin's school
+    }
+
+    const pendingUsers = await User.find(query)
+      .select('-password')
+      .populate('schoolId', 'name district sector')
+      .sort({ createdAt: -1 }); // Most recent first
 
     res.json({
       success: true,
@@ -473,6 +542,22 @@ router.post('/approve-user/:userId', authenticateToken, async (req, res) => {
         success: false,
         message: 'User not found'
       });
+    }
+
+    // For regular admins, verify the user is a teacher from their school
+    if (req.user.role === 'ADMIN') {
+      if (user.role !== 'TEACHER') {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You can only approve teachers from your school.'
+        });
+      }
+      if (user.schoolId?.toString() !== req.user.schoolId?.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You can only approve teachers from your school.'
+        });
+      }
     }
 
     if (user.isApproved) {
@@ -533,6 +618,22 @@ router.post('/reject-user/:userId', authenticateToken, async (req, res) => {
         success: false,
         message: 'User not found'
       });
+    }
+
+    // For regular admins, verify the user is a teacher from their school
+    if (req.user.role === 'ADMIN') {
+      if (user.role !== 'TEACHER') {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You can only reject teachers from your school.'
+        });
+      }
+      if (user.schoolId?.toString() !== req.user.schoolId?.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You can only reject teachers from your school.'
+        });
+      }
     }
 
     // Deactivate the user (rejection)

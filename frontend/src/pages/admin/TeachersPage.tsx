@@ -31,7 +31,10 @@ interface User {
   className?: string
   classGrade?: string
   classSection?: string
+  teacherTitle?: string
+  adminTitle?: string
   isApproved: boolean
+  isActive: boolean
   approvedAt?: string
   createdAt: string
   lastLogin?: string
@@ -184,144 +187,125 @@ export function TeachersPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {users.map((user) => (
-            <Card key={user._id} className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
-                      <span className="text-sm font-medium text-primary-600">
-                        {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                      </span>
-                    </div>
-                    <div>
-                      <CardTitle className="text-sm font-medium">{user.name}</CardTitle>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Button 
-                      size="sm" 
-                      variant="ghost"
-                      className="h-6 w-6 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Edit functionality
-                      }}
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">User</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Role</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Title</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Class</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
+                    <th className="text-center py-3 px-4 font-medium text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr 
+                      key={user._id} 
+                      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => window.location.href = `/users/${user._id}`}
                     >
-                      <PencilIcon className="h-3 w-3" />
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="ghost"
-                      className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (window.confirm(`Are you sure you want to delete ${user.name}?`)) {
-                          deleteUserMutation.mutate(user._id);
-                        }
-                      }}
-                      disabled={deleteUserMutation.isPending}
-                    >
-                      <TrashIcon className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">Role</span>
-                    <Badge className={`text-xs ${getRoleColor(user.role)}`}>
-                      {getRoleDisplayName(user.role)}
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">Status</span>
-                    <div className="flex items-center space-x-1">
-                      {user.isApproved ? (
-                        <>
-                          <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                          <span className="text-green-600 font-medium">Approved</span>
-                        </>
-                      ) : (
-                        <>
-                          <div className="h-2 w-2 bg-orange-400 rounded-full"></div>
-                          <span className="text-orange-600 font-medium">Pending</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-2">
-                    <div className="flex items-center space-x-2">
-                      <EnvelopeIcon className="h-3 w-3 text-gray-400" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{user.email}</p>
-                        {user.phone && (
-                          <p className="text-xs text-gray-500 truncate">{user.phone}</p>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="h-10 w-10 bg-primary-100 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-medium text-primary-600">
+                              {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{user.name}</p>
+                            <p className="text-sm text-gray-500">{user.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <Badge className={`text-xs ${getRoleColor(user.role)}`}>
+                          {getRoleDisplayName(user.role)}
+                        </Badge>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-sm text-gray-900">
+                          {user.teacherTitle || user.adminTitle || 'Teacher'}
+                        </p>
+                      </td>
+                      <td className="py-4 px-4">
+                        {user.className ? (
+                          <p className="text-sm text-blue-600">Class: {user.className}</p>
+                        ) : (
+                          <span className="text-sm text-gray-400">Not assigned</span>
                         )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {user.schoolName && (
-                    <div className="border-t pt-2">
-                      <div className="flex items-center space-x-2">
-                        <BuildingOfficeIcon className="h-3 w-3 text-gray-400" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">{user.schoolName}</p>
-                          {user.schoolDistrict && (
-                            <p className="text-xs text-gray-500 truncate">{user.schoolDistrict}</p>
-                          )}
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex flex-col space-y-1">
+                          <div className="flex items-center space-x-1">
+                            {user.isApproved ? (
+                              <>
+                                <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                                <span className="text-xs text-green-600 font-medium">Approved</span>
+                              </>
+                            ) : (
+                              <>
+                                <div className="h-2 w-2 bg-orange-400 rounded-full"></div>
+                                <span className="text-xs text-orange-600 font-medium">Pending</span>
+                              </>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <div className={`h-2 w-2 rounded-full ${user.isActive ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                            <span className={`text-xs font-medium ${user.isActive ? 'text-green-600' : 'text-red-600'}`}>
+                              {user.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {user.className && (
-                    <div className="border-t pt-2">
-                      <div className="flex items-center space-x-2">
-                        <UserGroupIcon className="h-3 w-3 text-gray-400" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">Class: {user.className}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center justify-center space-x-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              window.location.href = `/users/${user._id}`
+                            }}
+                          >
+                            View
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              window.location.href = `/users/${user._id}/edit`
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="text-red-600 hover:text-red-700"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (window.confirm(`Are you sure you want to delete ${user.name}?`)) {
+                                deleteUserMutation.mutate(user._id);
+                              }
+                            }}
+                            disabled={deleteUserMutation.isPending}
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </Button>
                         </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex space-x-1">
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="flex-1 text-xs h-7"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // View details functionality
-                      }}
-                    >
-                      <UserGroupIcon className="h-3 w-3 mr-1" />
-                      Details
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="flex-1 text-xs h-7"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Edit functionality
-                      }}
-                    >
-                      <PencilIcon className="h-3 w-3 mr-1" />
-                      Edit
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Pagination */}

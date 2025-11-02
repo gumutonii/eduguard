@@ -16,8 +16,16 @@ import './styles/globals.css'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 0, // Always consider data stale for real-time updates
+      refetchOnWindowFocus: true, // Refetch when window regains focus
+      refetchOnMount: true, // Refetch when component mounts
       retry: 1,
+    },
+    mutations: {
+      // Refetch all queries after mutations for real-time updates
+      onSettled: () => {
+        queryClient.invalidateQueries()
+      },
     },
   },
 })

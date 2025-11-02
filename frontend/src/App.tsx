@@ -12,17 +12,22 @@ import { TermsConditions } from '@/pages/TermsConditions'
 // Super Admin pages
 import { SuperAdminDashboardPage } from '@/pages/admin/SuperAdminDashboardPage'
 import { AllSchoolsPage } from '@/pages/admin/AllSchoolsPage'
+import { SchoolDetailPage } from '@/pages/admin/SchoolDetailPage'
+import { AllUsersPage } from '@/pages/admin/AllUsersPage'
+import { UserDetailPage } from '@/pages/admin/UserDetailPage'
+import { UserEditPage } from '@/pages/admin/UserEditPage'
 
 // Admin pages
 import { DashboardPage as AdminDashboardPage } from '@/pages/admin/DashboardPage'
 import { StudentDetailPage as AdminStudentDetailPage } from '@/pages/admin/StudentDetailPage'
 import { TeachersPage as AdminTeachersPage } from '@/pages/admin/TeachersPage'
-import { NotificationsPage as AdminNotificationsPage } from '@/pages/admin/NotificationsPage'
+import { AdminNotificationsPage } from '@/pages/admin/NotificationsPage'
 import { SettingsPage as AdminSettingsPage } from '@/pages/admin/SettingsPage'
 import { UserApprovalPage } from '@/pages/admin/UserApprovalPage'
 import { AdminClassesPage } from '@/pages/admin/AdminClassesPage'
 import { AdminStudentsPage } from '@/pages/admin/AdminStudentsPage'
 import { ClassStudentsPage } from '@/pages/admin/ClassStudentsPage'
+import { AssignTeacherPage } from '@/pages/admin/AssignTeacherPage'
 
 // Teacher pages
 import { TeacherDashboardPage } from '@/pages/teacher/TeacherDashboardPage'
@@ -31,7 +36,6 @@ import { TeacherStudentDetailPage } from '@/pages/teacher/TeacherStudentDetailPa
 import { TeacherNotificationsPage } from '@/pages/teacher/TeacherNotificationsPage'
 import { TeacherSettingsPage } from '@/pages/teacher/TeacherSettingsPage'
 import { StudentRegistrationPage } from '@/pages/teacher/StudentRegistrationPage'
-import { TeacherAttendancesPage } from '@/pages/teacher/TeacherAttendancesPage'
 
 
 
@@ -61,7 +65,10 @@ function App() {
         <Routes>
           <Route path="/dashboard" element={<SuperAdminDashboardPage />} />
           <Route path="/schools" element={<AllSchoolsPage />} />
-          <Route path="/users" element={<AdminTeachersPage />} />
+          <Route path="/schools/:schoolId" element={<SchoolDetailPage />} />
+          <Route path="/users" element={<AllUsersPage />} />
+          <Route path="/users/:userId" element={<UserDetailPage />} />
+          <Route path="/users/:userId/edit" element={<UserEditPage />} />
           <Route path="/approvals" element={<UserApprovalPage />} />
           <Route path="/profile" element={<AdminSettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -71,21 +78,24 @@ function App() {
   }
 
   if (user?.role === 'ADMIN') {
-          return (
-            <AppLayout>
-              <Routes>
-                <Route path="/dashboard" element={<AdminDashboardPage />} />
-                <Route path="/teachers" element={<AdminTeachersPage />} />
-                <Route path="/classes" element={<AdminClassesPage />} />
-                <Route path="/classes/:id" element={<ClassStudentsPage />} />
-                <Route path="/students" element={<AdminStudentsPage />} />
-                <Route path="/students/:id" element={<AdminStudentDetailPage />} />
-                <Route path="/profile" element={<AdminSettingsPage />} />
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-              </Routes>
-            </AppLayout>
-          )
-        }
+    return (
+      <AppLayout>
+        <Routes>
+          <Route path="/dashboard" element={<AdminDashboardPage />} />
+          <Route path="/teachers" element={<AdminTeachersPage />} />
+          <Route path="/classes" element={<AdminClassesPage />} />
+          <Route path="/classes/:id" element={<ClassStudentsPage />} />
+          <Route path="/classes/:id/assign-teacher" element={<AssignTeacherPage />} />
+          <Route path="/students" element={<AdminStudentsPage />} />
+          <Route path="/students/:id" element={<AdminStudentDetailPage />} />
+          <Route path="/approvals" element={<UserApprovalPage />} />
+          <Route path="/notifications" element={<AdminNotificationsPage />} />
+          <Route path="/profile" element={<AdminSettingsPage />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </AppLayout>
+    )
+  }
 
   if (user?.role === 'TEACHER') {
     return (
@@ -95,7 +105,7 @@ function App() {
           <Route path="/students" element={<TeacherStudentsPage />} />
           <Route path="/students/:id" element={<TeacherStudentDetailPage />} />
           <Route path="/students/register" element={<StudentRegistrationPage />} />
-          <Route path="/attendance" element={<TeacherAttendancesPage />} />
+          <Route path="/notifications" element={<TeacherNotificationsPage />} />
           <Route path="/profile" element={<TeacherSettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

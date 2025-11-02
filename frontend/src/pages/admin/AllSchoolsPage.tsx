@@ -125,7 +125,8 @@ export function AllSchoolsPage() {
       ) : (
         <div className="grid gap-6">
           {schools.map((school, index) => (
-            <Card key={school._id || index}>
+            <Link key={school._id || index} to={`/schools/${school._id}`}>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-3">
@@ -133,35 +134,35 @@ export function AllSchoolsPage() {
                       <BuildingOfficeIcon className="h-6 w-6 text-blue-600" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg">{school.schoolName}</CardTitle>
+                      <CardTitle className="text-lg">{school.name || school.schoolName}</CardTitle>
                       <div className="flex items-center space-x-2 mt-1">
                         <Badge className="bg-blue-100 text-blue-800">
-                          {school.schoolDistrict}
+                          {school.district || school.schoolDistrict}
                         </Badge>
                         <Badge className="bg-gray-100 text-gray-800">
-                          {school.schoolSector}
+                          {school.sector || school.schoolSector}
                         </Badge>
                       </div>
                     </div>
                   </div>
                   <div className="text-sm text-gray-500">
-                    {school.totalUsers} users
+                    {school.totalUsers || 0} users
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {school.schoolPhone && (
+                    {(school.phone || school.schoolPhone) && (
                       <div className="flex items-center space-x-2">
                         <PhoneIcon className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">{school.schoolPhone}</span>
+                        <span className="text-sm text-gray-600">{school.phone || school.schoolPhone}</span>
                       </div>
                     )}
-                    {school.schoolEmail && (
+                    {(school.email || school.schoolEmail) && (
                       <div className="flex items-center space-x-2">
                         <EnvelopeIcon className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">{school.schoolEmail}</span>
+                        <span className="text-sm text-gray-600">{school.email || school.schoolEmail}</span>
                       </div>
                     )}
                   </div>
@@ -169,31 +170,31 @@ export function AllSchoolsPage() {
                   <div className="border-t pt-4">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div className="text-center">
-                        <div className="font-medium text-gray-900">{school.totalUsers}</div>
+                        <div className="font-medium text-gray-900">{school.totalUsers || 0}</div>
                         <div className="text-gray-500">Total Users</div>
                       </div>
                       <div className="text-center">
-                        <div className="font-medium text-gray-900">{school.admins}</div>
+                        <div className="font-medium text-gray-900">{school.admins || 0}</div>
                         <div className="text-gray-500">Admins</div>
                       </div>
                       <div className="text-center">
-                        <div className="font-medium text-gray-900">{school.teachers}</div>
+                        <div className="font-medium text-gray-900">{school.teachers || 0}</div>
                         <div className="text-gray-500">Teachers</div>
                       </div>
                       <div className="text-center">
-                        <div className="font-medium text-gray-900">{school.totalStudents}</div>
+                        <div className="font-medium text-gray-900">{school.totalStudents || 0}</div>
                         <div className="text-gray-500">Students</div>
                       </div>
                     </div>
                   </div>
 
-                  {school.atRiskStudents > 0 && (
+                  {(school.atRiskStudents || 0) > 0 && (
                     <div className="border-t pt-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <ExclamationTriangleIcon className="w-4 h-4 text-red-500" />
                           <span className="text-sm font-medium text-red-700">
-                            {school.atRiskStudents} at-risk students
+                            {school.atRiskStudents || 0} at-risk students
                           </span>
                         </div>
                         <Badge className="bg-red-100 text-red-800">
@@ -203,16 +204,10 @@ export function AllSchoolsPage() {
                     </div>
                   )}
 
-                  <div className="border-t pt-4">
-                    <div className="flex justify-end">
-                      <Link to={`/schools/${school._id || school.schoolName}`}>
-                        <Button size="sm">View Details</Button>
-                      </Link>
-                    </div>
-                  </div>
                 </div>
               </CardContent>
             </Card>
+            </Link>
           ))}
         </div>
       )}

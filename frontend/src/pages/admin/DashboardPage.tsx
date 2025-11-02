@@ -13,7 +13,9 @@ import {
   ArrowTrendingDownIcon
 } from '@heroicons/react/24/outline'
 import { Link } from 'react-router-dom'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+} from 'recharts'
 import { apiClient } from '@/lib/api'
 import type { 
   DashboardStats, 
@@ -24,23 +26,13 @@ import type {
 } from '@/types'
 
 export function DashboardPage() {
-  // Use comprehensive dashboard endpoint
-  const { data: dashboardReport, isLoading } = useQuery({
-    queryKey: ['dashboard-report'],
-    queryFn: () => apiClient.getDashboardReport(),
+  // Use school admin dashboard endpoint
+  const { data: schoolAdminStats, isLoading } = useQuery({
+    queryKey: ['school-admin-stats'],
+    queryFn: () => apiClient.getSchoolAdminStats(),
   })
 
-  const { data: interventionSummary, isLoading: interventionLoading } = useQuery({
-    queryKey: ['intervention-summary'],
-    queryFn: () => apiClient.getInterventionSummary(),
-  })
-
-  const { data: riskSummary, isLoading: riskLoading } = useQuery({
-    queryKey: ['risk-summary'],
-    queryFn: () => apiClient.getRiskSummary(),
-  })
-
-  const loading = isLoading || interventionLoading || riskLoading
+  const loading = isLoading
 
   if (loading) {
     return (
@@ -61,12 +53,19 @@ export function DashboardPage() {
     )
   }
 
-  const report = dashboardReport?.data
-  const students = report?.students || {}
-  const risks = riskSummary?.data || report?.risks || {}
-  const interventions = interventionSummary?.data || report?.interventions || {}
-  const attendance = report?.attendance || {}
-  const messages = report?.messages || {}
+  const stats = schoolAdminStats?.data || {} as any
+  const school = stats.school || {}
+  const students = {
+    total: stats.totalStudents || 0,
+    highRisk: stats.atRiskStudents || 0
+  }
+  const risks = stats.riskFlags || {}
+  const interventions = stats.interventions || {}
+  const attendance = stats.attendance || {}
+  const messages = stats.messages || {}
+  const performance = stats.performance || {}
+  const teachers = stats.teachers || []
+  const classPerformance = stats.classPerformance || []
 
   const COLORS = {
     high: '#ef4444',
@@ -81,10 +80,19 @@ export function DashboardPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Admin Dashboard</h1>
-          <p className="text-sm sm:text-base text-neutral-600">Monitor Student Progress And Identify At-Risk Students</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">School Admin Dashboard</h1>
+          <p className="text-sm sm:text-base text-neutral-600">
+            {school.name} • {school.district}, {school.sector}
+          </p>
+          <p className="text-sm text-neutral-500">Monitor teachers, students, and school activities</p>
         </div>
         <div className="flex gap-2">
+          <Link to="/teachers" className="w-full sm:w-auto">
+            <Button variant="outline" className="w-full sm:w-auto">
+              <UsersIcon className="h-4 w-4 mr-2" />
+              Manage Teachers
+            </Button>
+          </Link>
           <Link to="/students" className="w-full sm:w-auto">
             <Button variant="primary" className="w-full sm:w-auto">
               <UsersIcon className="h-4 w-4 mr-2" />
@@ -97,12 +105,13 @@ export function DashboardPage() {
       {/* Key Metrics */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Link to="/students">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
+          <Card className="hover:shadow-md transition-shadow cursor-pointer h-32">
+            <CardContent className="p-6 h-full">
+              <div className="flex items-center justify-between h-full">
+                <div className="flex-1">
                   <p className="text-sm font-medium text-neutral-600">Total Students</p>
                   <p className="text-3xl font-bold text-neutral-900">{students.total || 0}</p>
+                  <p className="text-xs text-neutral-500">{stats.totalClasses || 0} classes</p>
                 </div>
                 <UsersIcon className="h-12 w-12 text-blue-500 opacity-75" />
               </div>
@@ -110,13 +119,31 @@ export function DashboardPage() {
           </Card>
         </Link>
 
+        <Link to="/teachers">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer h-32">
+            <CardContent className="p-6 h-full">
+              <div className="flex items-center justify-between h-full">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-neutral-600">Total Teachers</p>
+                  <p className="text-3xl font-bold text-green-600">{stats.totalTeachers || 0}</p>
+                  <p className="text-xs text-neutral-500">{stats.pendingTeachers || 0} pending</p>
+                </div>
+                <UsersIcon className="h-12 w-12 text-green-500 opacity-75" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
         <Link to="/students?riskLevel=HIGH">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-neutral-600">High Risk</p>
+          <Card className="hover:shadow-md transition-shadow cursor-pointer h-32">
+            <CardContent className="p-6 h-full">
+              <div className="flex items-center justify-between h-full">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-neutral-600">At Risk Students</p>
                   <p className="text-3xl font-bold text-red-600">{students.highRisk || 0}</p>
+                  <p className="text-xs text-neutral-500">
+                    {students.total > 0 ? Math.round((students.highRisk / students.total) * 100) : 0}% of total
+                  </p>
                 </div>
                 <ExclamationTriangleIcon className="h-12 w-12 text-red-500 opacity-75" />
               </div>
@@ -125,28 +152,78 @@ export function DashboardPage() {
         </Link>
 
         <Link to="/students">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
+          <Card className="hover:shadow-md transition-shadow cursor-pointer h-32">
+            <CardContent className="p-6 h-full">
+              <div className="flex items-center justify-between h-full">
+                <div className="flex-1">
                   <p className="text-sm font-medium text-neutral-600">Attendance Rate</p>
-                  <p className="text-3xl font-bold text-green-600">{attendance.rate || 0}%</p>
+                  <p className="text-3xl font-bold text-blue-600">{attendance.rate || 0}%</p>
+                  <p className="text-xs text-neutral-500">Last 30 days</p>
                 </div>
-                <ClipboardDocumentCheckIcon className="h-12 w-12 text-green-500 opacity-75" />
+                <ClipboardDocumentCheckIcon className="h-12 w-12 text-blue-500 opacity-75" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
+      {/* Additional Metrics Row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Link to="/students">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer h-32">
+            <CardContent className="p-6 h-full">
+              <div className="flex items-center justify-between h-full">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-neutral-600">Avg Performance</p>
+                  <p className="text-3xl font-bold text-purple-600">{performance.averageScore || 0}%</p>
+                  <p className="text-xs text-neutral-500">{performance.passingRate || 0}% passing</p>
+                </div>
+                <ChartBarIcon className="h-12 w-12 text-purple-500 opacity-75" />
               </div>
             </CardContent>
           </Card>
         </Link>
 
         <Link to="/students">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
+          <Card className="hover:shadow-md transition-shadow cursor-pointer h-32">
+            <CardContent className="p-6 h-full">
+              <div className="flex items-center justify-between h-full">
+                <div className="flex-1">
                   <p className="text-sm font-medium text-neutral-600">Active Interventions</p>
-                  <p className="text-3xl font-bold text-purple-600">{interventions.inProgress || 0}</p>
+                  <p className="text-3xl font-bold text-orange-600">{interventions.inProgress || 0}</p>
+                  <p className="text-xs text-neutral-500">{interventions.total || 0} total</p>
                 </div>
-                <BellIcon className="h-12 w-12 text-purple-500 opacity-75" />
+                <BellIcon className="h-12 w-12 text-orange-500 opacity-75" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/notifications">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer h-32">
+            <CardContent className="p-6 h-full">
+              <div className="flex items-center justify-between h-full">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-neutral-600">Messages Sent</p>
+                  <p className="text-3xl font-bold text-indigo-600">{messages.total || 0}</p>
+                  <p className="text-xs text-neutral-500">{messages.delivered || 0} delivered</p>
+                </div>
+                <BellIcon className="h-12 w-12 text-indigo-500 opacity-75" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/classes">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer h-32">
+            <CardContent className="p-6 h-full">
+              <div className="flex items-center justify-between h-full">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-neutral-600">Total Classes</p>
+                  <p className="text-3xl font-bold text-teal-600">{stats.totalClasses || 0}</p>
+                  <p className="text-xs text-neutral-500">{stats.classesWithTeachers || 0} with teachers</p>
+                </div>
+                <UsersIcon className="h-12 w-12 text-teal-500 opacity-75" />
               </div>
             </CardContent>
           </Card>
@@ -351,6 +428,166 @@ export function DashboardPage() {
         </CardContent>
       </Card>
 
+      {/* Teacher Management */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Teacher Management</span>
+            <Link to="/teachers">
+              <Button size="sm">
+                <UsersIcon className="h-4 w-4 mr-2" />
+                Manage All
+              </Button>
+            </Link>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Pending Teachers */}
+            {stats.pendingTeachers > 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium text-yellow-800">
+                      {stats.pendingTeachers} Teacher(s) Pending Approval
+                    </h4>
+                    <p className="text-sm text-yellow-600">
+                      Review and approve new teacher registrations
+                    </p>
+                  </div>
+                  <Link to="/teachers?status=pending">
+                    <Button size="sm" variant="outline">
+                      Review
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {/* Recent Teachers */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Recent Teachers</h4>
+              <div className="space-y-2">
+                {teachers.slice(0, 5).map((teacher: any) => (
+                  <div key={teacher._id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium text-blue-600">
+                          {teacher.name.split(' ').map((n: string) => n[0]).join('')}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{teacher.name}</p>
+                        <p className="text-sm text-gray-500">{teacher.email}</p>
+                        <p className="text-xs text-gray-400">{teacher.className}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant={teacher.isApproved ? 'success' : 'warning'}>
+                        {teacher.isApproved ? 'Approved' : 'Pending'}
+                      </Badge>
+                      <Link to={`/teachers/${teacher._id}`}>
+                        <Button size="sm" variant="outline">
+                          View
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Class Performance Analytics */}
+      {classPerformance.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <ChartBarIcon className="h-5 w-5 mr-2 text-blue-600" />
+              Class Performance Comparison
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-96">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={classPerformance}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="name" 
+                    angle={-45} 
+                    textAnchor="end" 
+                    height={100}
+                    interval={0}
+                  />
+                  <YAxis />
+                  <Tooltip 
+                    formatter={(value: any, name: string) => {
+                      if (name === 'Total Students') return [value, 'Total Students'];
+                      if (name === 'At Risk Students') return [value, 'At Risk Students'];
+                      return [value, name];
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="totalStudents" fill="#3B82F6" name="Total Students" />
+                  <Bar dataKey="atRiskStudents" fill="#EF4444" name="At Risk Students" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Class Performance Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Class Performance Overview</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {classPerformance.length > 0 ? (
+              classPerformance.map((classItem: any, index: number) => (
+                <div key={index} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center space-x-4">
+                    <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                      <span className="text-lg font-bold text-gray-600">{classItem.name}</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{classItem.name}</p>
+                      <p className="text-sm text-gray-500">
+                        {classItem.totalStudents} students • {classItem.atRiskStudents} at risk
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <div className="text-right">
+                      <p className="text-sm text-gray-500">Risk Rate</p>
+                      <p className="text-lg font-bold text-gray-900">
+                        {classItem.totalStudents > 0 ? 
+                          Math.round((classItem.atRiskStudents / classItem.totalStudents) * 100) : 0}%
+                      </p>
+                    </div>
+                    <Badge variant={
+                      classItem.totalStudents > 0 && (classItem.atRiskStudents / classItem.totalStudents) > 0.3 ? 'error' :
+                      classItem.totalStudents > 0 && (classItem.atRiskStudents / classItem.totalStudents) > 0.1 ? 'warning' : 'low'
+                    }>
+                      {classItem.totalStudents > 0 && (classItem.atRiskStudents / classItem.totalStudents) > 0.3 ? 'High Risk' :
+                       classItem.totalStudents > 0 && (classItem.atRiskStudents / classItem.totalStudents) > 0.1 ? 'Medium Risk' : 'Low Risk'}
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <UsersIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>No class performance data available</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Quick Actions */}
       <Card>
         <CardHeader>
@@ -358,6 +595,12 @@ export function DashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <Link to="/teachers">
+              <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center">
+                <UsersIcon className="h-6 w-6 mb-1" />
+                <span className="text-xs">Teachers</span>
+              </Button>
+            </Link>
             <Link to="/students">
               <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center">
                 <UsersIcon className="h-6 w-6 mb-1" />
@@ -382,16 +625,10 @@ export function DashboardPage() {
                 <span className="text-xs">Risk Flags</span>
               </Button>
             </Link>
-            <Link to="/students">
+            <Link to="/notifications">
               <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center">
                 <BellIcon className="h-6 w-6 mb-1" />
-                <span className="text-xs">Interventions</span>
-              </Button>
-            </Link>
-            <Link to="/students">
-              <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center">
-                <ChartBarIcon className="h-6 w-6 mb-1" />
-                <span className="text-xs">Reports</span>
+                <span className="text-xs">Messages</span>
               </Button>
             </Link>
           </div>

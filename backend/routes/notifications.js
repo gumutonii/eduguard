@@ -5,30 +5,150 @@ const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 
 // @route   GET /api/notifications
-// @desc    Get notifications with filtering
+// @desc    Get in-app notifications with filtering
 // @access  Private
 router.get('/', authenticateToken, async (req, res) => {
   try {
+    const Notification = require('../models/Notification');
     const { 
       page = 1, 
-      limit = 10, 
-      status, 
-      channel, 
+      limit = 20, 
+      entityType, 
+      type, 
+      isRead,
       search 
     } = req.query;
 
-    // Return empty notifications array for now
-    // In a real implementation, this would query a notifications collection
-    const notifications = [];
+    const user = req.user;
+    const schoolId = user.schoolId;
+
+    // Build base query
+    const query = {
+      schoolId,
+      $or: [
+        { recipientType: 'ADMIN' },
+        { recipientType: 'ALL' },
+        { recipientId: user._id }
+      ]
+    };
+
+    // Apply filters
+    if (entityType) {
+      query.entityType = entityType;
+    }
+
+    if (type) {
+      query.type = type;
+    }
+
+    if (isRead !== undefined) {
+      query.isRead = isRead === 'true';
+    }
+
+    // Handle search - combine with existing filters
+    if (search) {
+      const searchQuery = {
+        $or: [
+          { title: { $regex: search, $options: 'i' } },
+          { message: { $regex: search, $options: 'i' } }
+        ]
+      };
+      
+      // Use $and to combine recipient filter with search
+      query.$and = [
+        {
+          $or: [
+            { recipientType: 'ADMIN' },
+            { recipientType: 'ALL' },
+            { recipientId: user._id }
+          ]
+        },
+        searchQuery
+      ];
+      
+      // Move other filters to $and
+      if (entityType || type || isRead !== undefined) {
+        query.$and.push({
+          ...(entityType && { entityType }),
+          ...(type && { type }),
+          ...(isRead !== undefined && { isRead: isRead === 'true' })
+        });
+      }
+      
+      delete query.$or;
+      delete query.entityType;
+      delete query.type;
+      delete query.isRead;
+    }
+
+    // Get total count for pagination
+    const total = await Notification.countDocuments(query);
+    const pages = Math.ceil(total / parseInt(limit));
+
+    // Get notifications with proper population
+    // Map entityType to correct model names
+    const notifications = await Notification.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .lean(); // Use lean() to get plain objects first
+    
+    // Manually populate entityId based on entityType
+    const Student = require('../models/Student');
+    const User = require('../models/User');
+    const Class = require('../models/Class');
+    const School = require('../models/School');
+    
+    const populatedNotifications = await Promise.all(notifications.map(async (notification) => {
+      let entity = null;
+      
+      if (notification.entityId) {
+        try {
+          switch (notification.entityType) {
+            case 'STUDENT':
+              entity = await Student.findById(notification.entityId).select('firstName lastName studentId className').lean();
+              break;
+            case 'TEACHER':
+            case 'PARENT':
+              entity = await User.findById(notification.entityId).select('name email className').lean();
+              break;
+            case 'CLASS':
+              entity = await Class.findById(notification.entityId).select('className grade section').lean();
+              break;
+            case 'SCHOOL':
+              entity = await School.findById(notification.entityId).select('name district sector').lean();
+              break;
+          }
+        } catch (err) {
+          console.error(`Error populating ${notification.entityType}:`, err);
+        }
+      }
+      
+      // Populate recipientId
+      let recipient = null;
+      if (notification.recipientId) {
+        try {
+          recipient = await User.findById(notification.recipientId).select('name email').lean();
+        } catch (err) {
+          console.error('Error populating recipient:', err);
+        }
+      }
+      
+      return {
+        ...notification,
+        entityId: entity,
+        recipientId: recipient
+      };
+    }));
 
     res.json({
       success: true,
-      data: notifications,
+      data: populatedNotifications,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total: 0,
-        pages: 0
+        total,
+        pages
       }
     });
   } catch (error) {
@@ -158,22 +278,114 @@ router.put('/:id/status', [
   }
 });
 
+// @route   PUT /api/notifications/:id/read
+// @desc    Mark notification as read
+// @access  Private
+router.put('/:id/read', authenticateToken, async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    const { id } = req.params;
+    const user = req.user;
+
+    const notification = await Notification.findOne({
+      _id: id,
+      schoolId: user.schoolId
+    });
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found'
+      });
+    }
+
+    notification.isRead = true;
+    notification.readAt = new Date();
+    await notification.save();
+
+    res.json({
+      success: true,
+      message: 'Notification marked as read',
+      data: notification
+    });
+  } catch (error) {
+    console.error('Mark notification as read error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark notification as read'
+    });
+  }
+});
+
+// @route   PUT /api/notifications/read-all
+// @desc    Mark all notifications as read for user
+// @access  Private
+router.put('/read-all', authenticateToken, async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    const user = req.user;
+
+    const result = await Notification.updateMany(
+      {
+        schoolId: user.schoolId,
+        $or: [
+          { recipientType: 'ADMIN' },
+          { recipientType: 'ALL' },
+          { recipientId: user._id }
+        ],
+        isRead: false
+      },
+      {
+        $set: {
+          isRead: true,
+          readAt: new Date()
+        }
+      }
+    );
+
+    res.json({
+      success: true,
+      message: `Marked ${result.modifiedCount} notifications as read`,
+      data: { count: result.modifiedCount }
+    });
+  } catch (error) {
+    console.error('Mark all notifications as read error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark all notifications as read'
+    });
+  }
+});
+
 // @route   DELETE /api/notifications/:id
 // @desc    Delete notification
 // @access  Private (Admin)
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
+    const Notification = require('../models/Notification');
     const { id } = req.params;
+    const user = req.user;
 
     // Check if user is admin
-    if (req.user.role !== 'ADMIN') {
+    if (user.role !== 'ADMIN') {
       return res.status(403).json({
         success: false,
         message: 'Access denied'
       });
     }
 
-    // Mock notification deletion
+    const notification = await Notification.findOneAndDelete({
+      _id: id,
+      schoolId: user.schoolId
+    });
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found'
+      });
+    }
+
     res.json({
       success: true,
       message: 'Notification deleted successfully'

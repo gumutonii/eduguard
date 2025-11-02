@@ -32,7 +32,11 @@ export function AdminClassesPage() {
   const createClassMutation = useMutation({
     mutationFn: (classData: any) => apiClient.createClass(classData),
     onSuccess: () => {
+      // Invalidate all related queries to ensure real-time updates
       queryClient.invalidateQueries({ queryKey: ['admin-classes'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['classes'] })
       setShowCreateForm(false)
     }
   })
@@ -40,7 +44,11 @@ export function AdminClassesPage() {
   const deleteClassMutation = useMutation({
     mutationFn: (classId: string) => apiClient.deleteClass(classId),
     onSuccess: () => {
+      // Invalidate all related queries to ensure real-time updates
       queryClient.invalidateQueries({ queryKey: ['admin-classes'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['classes'] })
     }
   })
 
@@ -187,8 +195,14 @@ export function AdminClassesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {classes.map((classItem, index) => (
-            <Card key={classItem._id || index} className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardHeader className="pb-3">
+            <Card 
+              key={classItem._id || index} 
+              className="hover:shadow-md transition-shadow"
+            >
+              <CardHeader 
+                className="pb-3 cursor-pointer"
+                onClick={() => window.location.href = `/classes/${classItem._id}`}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
@@ -266,7 +280,11 @@ export function AdminClassesPage() {
                   )}
 
                   <div className="flex space-x-1">
-                    <Link to={`/classes/${classItem._id}`} className="flex-1">
+                    <Link 
+                      to={`/classes/${classItem._id}`} 
+                      className="flex-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Button 
                         size="sm" 
                         variant="outline" 
@@ -276,7 +294,11 @@ export function AdminClassesPage() {
                         Students
                       </Button>
                     </Link>
-                    <Link to={`/classes/${classItem._id}/assign-teacher`} className="flex-1">
+                    <Link 
+                      to={`/classes/${classItem._id}/assign-teacher`} 
+                      className="flex-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Button 
                         size="sm" 
                         variant="outline" 

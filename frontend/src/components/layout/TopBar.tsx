@@ -83,22 +83,29 @@ export function TopBar() {
                 <a href="/dashboard" className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-neutral-900 hover:bg-neutral-50">
                   Dashboard
                 </a>
-                <a href="/students" className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-neutral-900 hover:bg-neutral-50">
-                  Students
-                </a>
                 {user?.role === 'TEACHER' && (
-                  <a href="/students/register" className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-neutral-900 hover:bg-neutral-50">
-                    Register Student
-                  </a>
+                  <>
+                    <a href="/students" className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-neutral-900 hover:bg-neutral-50">
+                      Students
+                    </a>
+                    <a href="/students/register" className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-neutral-900 hover:bg-neutral-50">
+                      Register Student
+                    </a>
+                  </>
                 )}
                 {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
                   <>
                     <a href="/teachers" className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-neutral-900 hover:bg-neutral-50">
                       Teachers
                     </a>
-                    <a href="/approvals" className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-neutral-900 hover:bg-neutral-50">
-                      Approvals
+                    <a href="/classes" className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-neutral-900 hover:bg-neutral-50">
+                      Classes
                     </a>
+                    {user?.role === 'SUPER_ADMIN' && (
+                      <a href="/approvals" className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-neutral-900 hover:bg-neutral-50">
+                        Approvals
+                      </a>
+                    )}
                   </>
                 )}
                 <a href="/notifications" className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-neutral-900 hover:bg-neutral-50">

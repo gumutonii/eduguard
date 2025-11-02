@@ -17,7 +17,8 @@ import {
 } from '@heroicons/react/24/outline'
 import { apiClient } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
-import { getDistricts, getSectorsByDistrict, getCellsBySector, getVillagesByCell } from '@/lib/rwandaData'
+import { getDistricts, getSectorsByDistrict } from '@/lib/rwandaDistrictsSectors'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 // Validation schema for student registration
 const studentRegistrationSchema = z.object({
@@ -28,35 +29,37 @@ const studentRegistrationSchema = z.object({
   age: z.number().min(3, 'Age must be at least 3').max(25, 'Age cannot exceed 25'),
   dob: z.string().min(1, 'Date of birth is required'),
   
-  // Address information
+  // Address information - only district and sector
   address: z.object({
     district: z.string().min(1, 'District is required'),
-    sector: z.string().min(1, 'Sector is required'),
-    cell: z.string().min(1, 'Cell is required'),
-    village: z.string().min(1, 'Village is required')
+    sector: z.string().min(1, 'Sector is required')
   }),
   
-  // Socio-economic information
+  // Socio-economic information - only essential fields
   socioEconomic: z.object({
     ubudeheLevel: z.number().min(1).max(4),
-    hasParents: z.boolean(),
-    guardianType: z.string().optional(),
-    parentJob: z.string().optional(),
-    familyConflict: z.boolean(),
-    numberOfSiblings: z.number().min(0).max(20),
-    parentEducationLevel: z.enum(['None', 'Primary', 'Secondary', 'University', 'Other'])
+    hasParents: z.union([
+      z.boolean(),
+      z.string().transform((val) => val === 'true' || val === true)
+    ]).pipe(z.boolean()),
+    familyConflict: z.union([
+      z.boolean(),
+      z.string().transform((val) => val === 'true' || val === true)
+    ]).pipe(z.boolean()),
+    numberOfSiblings: z.number().min(0).max(20)
   }),
   
-  // Guardian contacts
+  // Guardian contacts - updated with new requirements (max 2)
   guardianContacts: z.array(z.object({
-    name: z.string().min(2, 'Guardian name is required'),
-    relation: z.enum(['Father', 'Mother', 'Guardian', 'Sibling', 'Relative', 'Other']),
+    firstName: z.string().min(2, 'First name is required'),
+    lastName: z.string().min(2, 'Last name is required'),
+    relation: z.enum(['Father', 'Mother', 'Uncle', 'Aunt', 'Sibling', 'Other Relative']),
+    email: z.union([z.string().email('Invalid email format'), z.literal('')]).optional(),
     phone: z.string().min(10, 'Phone number is required'),
-    email: z.string().email('Invalid email').optional().or(z.literal('')),
-    job: z.string().optional(),
-    educationLevel: z.enum(['None', 'Primary', 'Secondary', 'University', 'Other']).optional(),
+    education: z.enum(['None', 'Primary', 'Secondary', 'University'], { required_error: 'Education level is required' }),
+    occupation: z.string().min(2, 'Occupation is required'),
     isPrimary: z.boolean().default(false)
-  })).min(1, 'At least one guardian contact is required')
+  })).min(1, 'At least one parent/guardian is required').max(2, 'Maximum 2 parents/guardians allowed')
 })
 
 type StudentRegistrationForm = z.infer<typeof studentRegistrationSchema>
@@ -65,12 +68,54 @@ type StudentRegistrationForm = z.infer<typeof studentRegistrationSchema>
 
 export function StudentRegistrationPage() {
   const { user } = useAuthStore()
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const queryClient = useQueryClient()
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [districts, setDistricts] = useState(getDistricts())
   const [sectors, setSectors] = useState<string[]>([])
-  const [cells, setCells] = useState<string[]>([])
-  const [villages, setVillages] = useState<string[]>([])
+
+  // Fetch teacher's assigned classes
+  const { data: teacherClassesData, isLoading: classesLoading } = useQuery({
+    queryKey: ['teacher-classes'],
+    queryFn: () => apiClient.getTeacherMyClasses(),
+    enabled: user?.role === 'TEACHER',
+  })
+
+  const teacherClasses = teacherClassesData?.data || []
+
+  // Mutation for creating student
+  const createStudentMutation = useMutation({
+    mutationFn: (studentData: any) => apiClient.createStudent(studentData),
+    onSuccess: () => {
+      // Invalidate all related queries to ensure real-time updates
+      queryClient.invalidateQueries({ queryKey: ['teacher-students'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-students'] })
+      queryClient.invalidateQueries({ queryKey: ['students'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['teacher-classes'] })
+      queryClient.invalidateQueries({ queryKey: ['classes'] })
+      setSubmitSuccess(true)
+      
+      // Reset form and redirect after success
+      setTimeout(() => {
+        setSubmitSuccess(false)
+        window.location.href = '/students'
+      }, 2000)
+    },
+    onError: (error: any) => {
+      // Show detailed validation errors if available
+      if (error.errors && Array.isArray(error.errors)) {
+        const errorMessages = error.errors.map((err: any) => 
+          `${err.param || err.path}: ${err.msg || err.message || 'Invalid value'}`
+        ).join('\n')
+        alert(`Validation failed:\n\n${errorMessages}`)
+      } else if (error.message) {
+        alert(error.message)
+      } else {
+        alert('Failed to register student. Please check all fields and try again.')
+      }
+    }
+  })
 
   const {
     register,
@@ -78,114 +123,196 @@ export function StudentRegistrationPage() {
     control,
     watch,
     setValue,
-    formState: { errors, isValid }
+    formState: { errors, isValid },
+    trigger
   } = useForm<StudentRegistrationForm>({
     resolver: zodResolver(studentRegistrationSchema),
+    mode: 'onChange', // Validate on change for better UX
     defaultValues: {
       socioEconomic: {
         ubudeheLevel: 4,
         hasParents: true,
         familyConflict: false,
-        numberOfSiblings: 0,
-        parentEducationLevel: 'Primary'
+        numberOfSiblings: 0
       },
       guardianContacts: [{
-        name: '',
+        firstName: '',
+        lastName: '',
         relation: 'Father',
-        phone: '',
         email: '',
-        job: '',
-        educationLevel: 'Primary',
+        phone: '',
+        education: 'Primary',
+        occupation: '',
         isPrimary: true
       }]
     }
   })
+
+  // Watch form values to check if we can enable submit button
+  const formValues = watch()
+  
+  // Helper function to check if at least one guardian has all required fields
+  const hasValidGuardian = () => {
+    if (!formValues.guardianContacts || formValues.guardianContacts.length === 0) {
+      return false
+    }
+    
+    // Check if at least one guardian has all required fields filled
+    // Email is optional, so we don't require it
+    return formValues.guardianContacts.some(guardian => 
+      guardian?.firstName?.trim()?.length >= 2 &&
+      guardian?.lastName?.trim()?.length >= 2 &&
+      guardian?.relation &&
+      guardian?.phone?.trim()?.length >= 10 &&
+      guardian?.education &&
+      guardian?.occupation?.trim()?.length >= 2
+    )
+  }
+
+  // Check if all required fields are filled (excluding optional email for guardian)
+  const canSubmit = () => {
+    // Check if teacher has assigned classes
+    if (!teacherClasses || teacherClasses.length === 0) {
+      return false
+    }
+
+    // Check student personal info
+    const hasPersonalInfo = (
+      formValues.firstName?.trim()?.length >= 2 &&
+      formValues.lastName?.trim()?.length >= 2 &&
+      formValues.gender &&
+      formValues.age >= 3 &&
+      formValues.age <= 25 &&
+      formValues.dob
+    )
+
+    // Check address
+    const hasAddress = (
+      formValues.address?.district &&
+      formValues.address?.sector
+    )
+
+    // Check socio-economic info (hasParents and familyConflict can be string 'true'/'false' or boolean)
+    const hasSocioEconomic = (
+      formValues.socioEconomic?.ubudeheLevel >= 1 &&
+      formValues.socioEconomic?.ubudeheLevel <= 4 &&
+      (formValues.socioEconomic?.hasParents === true || 
+       formValues.socioEconomic?.hasParents === false ||
+       formValues.socioEconomic?.hasParents === 'true' ||
+       formValues.socioEconomic?.hasParents === 'false') &&
+      (formValues.socioEconomic?.familyConflict === true ||
+       formValues.socioEconomic?.familyConflict === false ||
+       formValues.socioEconomic?.familyConflict === 'true' ||
+       formValues.socioEconomic?.familyConflict === 'false') &&
+      typeof formValues.socioEconomic?.numberOfSiblings === 'number' &&
+      formValues.socioEconomic?.numberOfSiblings >= 0 &&
+      formValues.socioEconomic?.numberOfSiblings <= 20
+    )
+
+    // Check at least one valid guardian
+    const hasGuardian = hasValidGuardian()
+
+    return hasPersonalInfo && hasAddress && hasSocioEconomic && hasGuardian
+  }
 
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'guardianContacts'
   })
 
-  const hasParents = watch('socioEconomic.hasParents')
   const selectedDistrict = watch('address.district')
-  const selectedSector = watch('address.sector')
-  const selectedCell = watch('address.cell')
 
-  // Rwanda administrative structure integration
+  // Rwanda administrative structure integration - only districts and sectors
   useEffect(() => {
     if (selectedDistrict) {
       const districtSectors = getSectorsByDistrict(selectedDistrict)
       setSectors(districtSectors)
-      // Clear dependent fields
+      // Clear sector when district changes
       setValue('address.sector', '')
-      setValue('address.cell', '')
-      setValue('address.village', '')
-      setCells([])
-      setVillages([])
     }
   }, [selectedDistrict, setValue])
 
-  useEffect(() => {
-    if (selectedDistrict && selectedSector) {
-      const sectorCells = getCellsBySector(selectedDistrict, selectedSector)
-      setCells(sectorCells)
-      // Clear dependent fields
-      setValue('address.cell', '')
-      setValue('address.village', '')
-      setVillages([])
-    }
-  }, [selectedDistrict, selectedSector, setValue])
-
-  useEffect(() => {
-    if (selectedDistrict && selectedSector && selectedCell) {
-      const cellVillages = getVillagesByCell(selectedDistrict, selectedSector, selectedCell)
-      setVillages(cellVillages)
-      // Clear dependent field
-      setValue('address.village', '')
-    }
-  }, [selectedDistrict, selectedSector, selectedCell, setValue])
-
   const onSubmit = async (data: StudentRegistrationForm) => {
-    setIsSubmitting(true)
     try {
+      // Check if teacher has assigned classes
+      if (!teacherClasses || teacherClasses.length === 0) {
+        alert('Error: You do not have any assigned classes. Please contact your administrator to assign you to a class.')
+        return
+      }
+
+      // Use the first assigned class (or allow selection in the future)
+      const selectedClass = teacherClasses[0]
+      
       // Calculate age from date of birth
       const dob = new Date(data.dob)
       const today = new Date()
-      const age = today.getFullYear() - dob.getFullYear()
+      let age = today.getFullYear() - dob.getFullYear()
+      const monthDiff = today.getMonth() - dob.getMonth()
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+        age--
+      }
       
       const studentData = {
-        ...data,
-        age,
+        firstName: data.firstName,
+        middleName: data.middleName || '',
+        lastName: data.lastName,
+        gender: data.gender,
+        age: age,
+        dob: dob.toISOString(), // Send as ISO string for backend validation
+        dateOfBirth: dob, // Also include as Date object
+        classId: selectedClass._id,
+        address: {
+          district: data.address.district,
+          sector: data.address.sector
+          // cell and village can be added later in student detail page
+        },
+        socioEconomic: {
+          ubudeheLevel: data.socioEconomic.ubudeheLevel,
+          hasParents: typeof data.socioEconomic.hasParents === 'string' 
+            ? data.socioEconomic.hasParents === 'true' 
+            : Boolean(data.socioEconomic.hasParents),
+          familyConflict: typeof data.socioEconomic.familyConflict === 'string'
+            ? data.socioEconomic.familyConflict === 'true'
+            : Boolean(data.socioEconomic.familyConflict),
+          numberOfSiblings: data.socioEconomic.numberOfSiblings
+        },
+        guardianContacts: data.guardianContacts.map(contact => ({
+          firstName: contact.firstName.trim(),
+          lastName: contact.lastName.trim(),
+          name: `${contact.firstName.trim()} ${contact.lastName.trim()}`, // Full name for backward compatibility
+          relation: contact.relation,
+          email: contact.email && contact.email.trim() !== '' ? contact.email.trim() : undefined, // Set to undefined if empty
+          phone: contact.phone.trim(), // Ensure phone is trimmed
+          education: contact.education,
+          educationLevel: contact.education, // For backward compatibility
+          occupation: contact.occupation.trim(),
+          job: contact.occupation.trim(), // For backward compatibility
+          isPrimary: contact.isPrimary || false
+        })),
         schoolId: user?.schoolId,
-        assignedTeacherId: user?._id
+        assignedTeacher: user?._id
       }
 
-      await apiClient.createStudent(studentData)
-      setSubmitSuccess(true)
-      
-      // Reset form after successful submission
-      setTimeout(() => {
-        setSubmitSuccess(false)
-        window.location.reload()
-      }, 3000)
-      
-    } catch (error) {
+      createStudentMutation.mutate(studentData)
+    } catch (error: any) {
       console.error('Error creating student:', error)
-    } finally {
-      setIsSubmitting(false)
+      alert(error.message || 'Failed to register student. Please check all fields and try again.')
     }
   }
 
   const addGuardianContact = () => {
-    append({
-      name: '',
-      relation: 'Guardian',
-      phone: '',
-      email: '',
-      job: '',
-      educationLevel: 'Primary',
-      isPrimary: false
-    })
+    if (fields.length < 2) {
+      append({
+        firstName: '',
+        lastName: '',
+        relation: 'Mother',
+        email: '',
+        phone: '',
+        education: 'Primary',
+        occupation: '',
+        isPrimary: false
+      })
+    }
   }
 
   if (submitSuccess) {
@@ -221,6 +348,46 @@ export function StudentRegistrationPage() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 sm:space-y-8">
+          {/* Class Information */}
+          {classesLoading ? (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-gray-600">Loading your assigned classes...</p>
+              </CardContent>
+            </Card>
+          ) : teacherClasses.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <UserIcon className="h-5 w-5 mr-2" />
+                  Assigned Class
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-gray-700 mb-2">
+                    <span className="font-medium">Class:</span> {teacherClasses[0].className || teacherClasses[0].name}
+                    {teacherClasses[0].grade && ` (Grade ${teacherClasses[0].grade})`}
+                    {teacherClasses[0].section && ` - Section ${teacherClasses[0].section}`}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    Students will be registered in this class automatically.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <p className="text-sm text-yellow-800">
+                    ⚠️ You don't have any assigned classes. Please contact your administrator to assign you to a class before registering students.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Personal Information */}
           <Card>
             <CardHeader>
@@ -230,14 +397,14 @@ export function StudentRegistrationPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+                <div className="flex flex-col">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     First Name *
                   </label>
                   <input
                     {...register('firstName')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent h-10"
                     placeholder="Enter first name"
                   />
                   {errors.firstName && (
@@ -245,24 +412,27 @@ export function StudentRegistrationPage() {
                   )}
                 </div>
 
-                <div>
+                <div className="flex flex-col">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Middle Name
                   </label>
                   <input
                     {...register('middleName')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent h-10"
                     placeholder="Enter middle name (optional)"
                   />
+                  {errors.middleName && (
+                    <p className="mt-1 text-sm text-red-600">{errors.middleName.message}</p>
+                  )}
                 </div>
 
-                <div>
+                <div className="flex flex-col">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Last Name *
                   </label>
                   <input
                     {...register('lastName')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent h-10"
                     placeholder="Enter last name"
                   />
                   {errors.lastName && (
@@ -272,13 +442,13 @@ export function StudentRegistrationPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-                <div>
+                <div className="flex flex-col">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Gender *
                   </label>
                   <select
                     {...register('gender')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent h-10"
                   >
                     <option value="">Select gender</option>
                     <option value="M">Male</option>
@@ -289,34 +459,46 @@ export function StudentRegistrationPage() {
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Age *
-                  </label>
-                  <input
-                    {...register('age', { valueAsNumber: true })}
-                    type="number"
-                    min="3"
-                    max="25"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter age"
-                  />
-                  {errors.age && (
-                    <p className="mt-1 text-sm text-red-600">{errors.age.message}</p>
-                  )}
-                </div>
-
-                <div>
+                <div className="flex flex-col">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Date of Birth *
                   </label>
                   <input
                     {...register('dob')}
                     type="date"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent h-10"
+                    onChange={(e) => {
+                      const dob = e.target.value;
+                      if (dob) {
+                        const today = new Date();
+                        const birthDate = new Date(dob);
+                        const age = today.getFullYear() - birthDate.getFullYear();
+                        const monthDiff = today.getMonth() - birthDate.getMonth();
+                        const calculatedAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate()) ? age - 1 : age;
+                        setValue('age', calculatedAge);
+                      }
+                    }}
                   />
                   {errors.dob && (
                     <p className="mt-1 text-sm text-red-600">{errors.dob.message}</p>
+                  )}
+                </div>
+
+                <div className="flex flex-col">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Age * <span className="text-xs text-gray-500">(Auto-calculated)</span>
+                  </label>
+                  <input
+                    {...register('age', { valueAsNumber: true })}
+                    type="number"
+                    min="3"
+                    max="25"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 h-10"
+                    placeholder="Enter date of birth above"
+                    readOnly
+                  />
+                  {errors.age && (
+                    <p className="mt-1 text-sm text-red-600">{errors.age.message}</p>
                   )}
                 </div>
               </div>
@@ -343,8 +525,8 @@ export function StudentRegistrationPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Select district</option>
-                    {districts.map((district) => (
-                      <option key={district} value={district}>
+                    {districts.map((district, index) => (
+                      <option key={`${district}-${index}`} value={district}>
                         {district}
                       </option>
                     ))}
@@ -364,56 +546,14 @@ export function StudentRegistrationPage() {
                     disabled={!selectedDistrict}
                   >
                     <option value="">Select sector</option>
-                    {sectors.map((sector) => (
-                      <option key={sector} value={sector}>
+                    {sectors.map((sector, index) => (
+                      <option key={`${sector}-${index}`} value={sector}>
                         {sector}
                       </option>
                     ))}
                   </select>
                   {errors.address?.sector && (
                     <p className="mt-1 text-sm text-red-600">{errors.address.sector.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cell *
-                  </label>
-                  <select
-                    {...register('address.cell')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={!selectedSector}
-                  >
-                    <option value="">Select cell</option>
-                    {cells.map((cell) => (
-                      <option key={cell} value={cell}>
-                        {cell}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.address?.cell && (
-                    <p className="mt-1 text-sm text-red-600">{errors.address.cell.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Village *
-                  </label>
-                  <select
-                    {...register('address.village')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={!selectedCell}
-                  >
-                    <option value="">Select village</option>
-                    {villages.map((village) => (
-                      <option key={village} value={village}>
-                        {village}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.address?.village && (
-                    <p className="mt-1 text-sm text-red-600">{errors.address.village.message}</p>
                   )}
                 </div>
               </div>
@@ -450,7 +590,26 @@ export function StudentRegistrationPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Has Parents *
+                    Number of Siblings *
+                  </label>
+                  <input
+                    {...register('socioEconomic.numberOfSiblings', { valueAsNumber: true })}
+                    type="number"
+                    min="0"
+                    max="20"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter number of siblings"
+                  />
+                  {errors.socioEconomic?.numberOfSiblings && (
+                    <p className="mt-1 text-sm text-red-600">{errors.socioEconomic.numberOfSiblings.message}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Has Both Parents *
                   </label>
                   <div className="flex space-x-4">
                     <label className="flex items-center">
@@ -474,77 +633,6 @@ export function StudentRegistrationPage() {
                   </div>
                   {errors.socioEconomic?.hasParents && (
                     <p className="mt-1 text-sm text-red-600">{errors.socioEconomic.hasParents.message}</p>
-                  )}
-                </div>
-              </div>
-
-              {!hasParents && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Guardian Type *
-                  </label>
-                  <select
-                    {...register('socioEconomic.guardianType')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select guardian type</option>
-                    <option value="Sibling">Sibling</option>
-                    <option value="Relative">Relative</option>
-                    <option value="Other">Other</option>
-                  </select>
-                  {errors.socioEconomic?.guardianType && (
-                    <p className="mt-1 text-sm text-red-600">{errors.socioEconomic.guardianType.message}</p>
-                  )}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Parent/Guardian Job
-                  </label>
-                  <input
-                    {...register('socioEconomic.parentJob')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., Farmer, Teacher, Business"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Number of Siblings *
-                  </label>
-                  <input
-                    {...register('socioEconomic.numberOfSiblings', { valueAsNumber: true })}
-                    type="number"
-                    min="0"
-                    max="20"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter number of siblings"
-                  />
-                  {errors.socioEconomic?.numberOfSiblings && (
-                    <p className="mt-1 text-sm text-red-600">{errors.socioEconomic.numberOfSiblings.message}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Parent Education Level *
-                  </label>
-                  <select
-                    {...register('socioEconomic.parentEducationLevel')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="None">None</option>
-                    <option value="Primary">Primary</option>
-                    <option value="Secondary">Secondary</option>
-                    <option value="University">University</option>
-                    <option value="Other">Other</option>
-                  </select>
-                  {errors.socioEconomic?.parentEducationLevel && (
-                    <p className="mt-1 text-sm text-red-600">{errors.socioEconomic.parentEducationLevel.message}</p>
                   )}
                 </div>
 
@@ -580,22 +668,25 @@ export function StudentRegistrationPage() {
             </CardContent>
           </Card>
 
-          {/* Guardian Contacts */}
+          {/* Guardian/Parent Contacts */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center">
                   <PhoneIcon className="h-5 w-5 mr-2" />
-                  Guardian Contacts
+                  Parents/Guardians (Maximum 2)
                 </div>
-                <Button
-                  type="button"
-                  onClick={addGuardianContact}
-                  className="flex items-center text-sm"
-                >
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  Add Guardian
-                </Button>
+                {fields.length < 2 && (
+                  <Button
+                    type="button"
+                    onClick={addGuardianContact}
+                    className="flex items-center text-sm"
+                    disabled={fields.length >= 2}
+                  >
+                    <PlusIcon className="h-4 w-4 mr-1" />
+                    Add Parent/Guardian
+                  </Button>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -603,7 +694,7 @@ export function StudentRegistrationPage() {
                 <div key={field.id} className="border border-gray-200 rounded-lg p-6">
                   <div className="flex justify-between items-center mb-4">
                     <h4 className="text-lg font-medium text-gray-900">
-                      Guardian {index + 1}
+                      {field.relation || 'Parent/Guardian'} {index + 1}
                     </h4>
                     {fields.length > 1 && (
                       <Button
@@ -619,15 +710,29 @@ export function StudentRegistrationPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Full Name *
+                        First Name *
                       </label>
                       <input
-                        {...register(`guardianContacts.${index}.name`)}
+                        {...register(`guardianContacts.${index}.firstName`)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Enter guardian name"
+                        placeholder="Enter first name"
                       />
-                      {errors.guardianContacts?.[index]?.name && (
-                        <p className="mt-1 text-sm text-red-600">{errors.guardianContacts[index]?.name?.message}</p>
+                      {errors.guardianContacts?.[index]?.firstName && (
+                        <p className="mt-1 text-sm text-red-600">{errors.guardianContacts[index]?.firstName?.message}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Last Name *
+                      </label>
+                      <input
+                        {...register(`guardianContacts.${index}.lastName`)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Enter last name"
+                      />
+                      {errors.guardianContacts?.[index]?.lastName && (
+                        <p className="mt-1 text-sm text-red-600">{errors.guardianContacts[index]?.lastName?.message}</p>
                       )}
                     </div>
 
@@ -639,15 +744,31 @@ export function StudentRegistrationPage() {
                         {...register(`guardianContacts.${index}.relation`)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
+                        <option value="">Select relation</option>
                         <option value="Father">Father</option>
                         <option value="Mother">Mother</option>
-                        <option value="Guardian">Guardian</option>
+                        <option value="Uncle">Uncle</option>
+                        <option value="Aunt">Aunt</option>
                         <option value="Sibling">Sibling</option>
-                        <option value="Relative">Relative</option>
-                        <option value="Other">Other</option>
+                        <option value="Other Relative">Other Relative</option>
                       </select>
                       {errors.guardianContacts?.[index]?.relation && (
                         <p className="mt-1 text-sm text-red-600">{errors.guardianContacts[index]?.relation?.message}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email <span className="text-gray-500 text-xs">(Optional)</span>
+                      </label>
+                      <input
+                        {...register(`guardianContacts.${index}.email`)}
+                        type="email"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="guardian@example.com"
+                      />
+                      {errors.guardianContacts?.[index]?.email && (
+                        <p className="mt-1 text-sm text-red-600">{errors.guardianContacts[index]?.email?.message}</p>
                       )}
                     </div>
 
@@ -667,44 +788,35 @@ export function StudentRegistrationPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Email (Optional)
+                        Education Level *
                       </label>
-                      <input
-                        {...register(`guardianContacts.${index}.email`)}
-                        type="email"
+                      <select
+                        {...register(`guardianContacts.${index}.education`)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="guardian@example.com"
-                      />
-                      {errors.guardianContacts?.[index]?.email && (
-                        <p className="mt-1 text-sm text-red-600">{errors.guardianContacts[index]?.email?.message}</p>
+                      >
+                        <option value="">Select education level</option>
+                        <option value="None">None</option>
+                        <option value="Primary">Primary</option>
+                        <option value="Secondary">Secondary</option>
+                        <option value="University">University</option>
+                      </select>
+                      {errors.guardianContacts?.[index]?.education && (
+                        <p className="mt-1 text-sm text-red-600">{errors.guardianContacts[index]?.education?.message}</p>
                       )}
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Job/Occupation
+                        Occupation *
                       </label>
                       <input
-                        {...register(`guardianContacts.${index}.job`)}
+                        {...register(`guardianContacts.${index}.occupation`)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="e.g., Farmer, Teacher, Business"
                       />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Education Level
-                      </label>
-                      <select
-                        {...register(`guardianContacts.${index}.educationLevel`)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="None">None</option>
-                        <option value="Primary">Primary</option>
-                        <option value="Secondary">Secondary</option>
-                        <option value="University">University</option>
-                        <option value="Other">Other</option>
-                      </select>
+                      {errors.guardianContacts?.[index]?.occupation && (
+                        <p className="mt-1 text-sm text-red-600">{errors.guardianContacts[index]?.occupation?.message}</p>
+                      )}
                     </div>
                   </div>
 
@@ -722,6 +834,11 @@ export function StudentRegistrationPage() {
                   </div>
                 </div>
               ))}
+              {fields.length >= 2 && (
+                <p className="text-sm text-gray-600 italic">
+                  Maximum of 2 parents/guardians allowed. Remove one to add another.
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -737,10 +854,17 @@ export function StudentRegistrationPage() {
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting || !isValid}
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+              disabled={createStudentMutation.isPending || !canSubmit()}
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold"
             >
-              {isSubmitting ? 'Registering Student...' : 'Register Student'}
+              {createStudentMutation.isPending ? (
+                <>
+                  <span className="animate-spin mr-2">⏳</span>
+                  Registering Student...
+                </>
+              ) : (
+                'Register Student'
+              )}
             </Button>
           </div>
         </form>

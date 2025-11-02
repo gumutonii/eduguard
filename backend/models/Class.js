@@ -8,6 +8,20 @@ const classSchema = new mongoose.Schema({
     maxlength: [50, 'Class name cannot exceed 50 characters']
   },
   
+  // Grade and section information
+  grade: {
+    type: String,
+    required: [true, 'Grade is required'],
+    trim: true,
+    maxlength: [10, 'Grade cannot exceed 10 characters']
+  },
+  section: {
+    type: String,
+    required: [true, 'Section is required'],
+    trim: true,
+    maxlength: [10, 'Section cannot exceed 10 characters']
+  },
+  
   // School reference
   schoolId: {
     type: mongoose.Schema.Types.ObjectId,

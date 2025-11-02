@@ -36,14 +36,15 @@ const getNavigation = (role: string) => {
         { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
         { name: 'Teachers', href: '/teachers', icon: UserGroupIcon },
         { name: 'Classes', href: '/classes', icon: AcademicCapIcon },
-        { name: 'Students', href: '/students', icon: UserIcon },
+        { name: 'Approvals', href: '/approvals', icon: UserPlusIcon },
+        { name: 'Notifications', href: '/notifications', icon: BellIcon },
         { name: 'Profile', href: '/profile', icon: Cog6ToothIcon },
       ]
     case 'TEACHER':
       return [
         { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
         { name: 'Students', href: '/students', icon: UserGroupIcon },
-        { name: 'Attendance', href: '/attendance', icon: CalendarIcon },
+        { name: 'Notifications', href: '/notifications', icon: BellIcon },
         { name: 'Profile', href: '/profile', icon: Cog6ToothIcon },
       ]
     default:

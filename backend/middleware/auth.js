@@ -82,36 +82,59 @@ const authorize = (...roles) => {
 // Check if user can access student data
 const canAccessStudent = async (req, res, next) => {
   try {
-    const { studentId } = req.params;
+    // Support both 'id' and 'studentId' parameter names
+    const studentId = req.params.id || req.params.studentId;
     const user = req.user;
 
-    // Admins can access all students
-    if (user.role === 'ADMIN') {
-      return next();
+    if (!studentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student ID is required'
+      });
     }
 
-    // Teachers can access students in their classes
-    if (user.role === 'TEACHER') {
-      const Student = require('../models/Student');
-      const student = await Student.findById(studentId);
-      
-      if (!student) {
-        return res.status(404).json({
-          success: false,
-          message: 'Student not found'
-        });
-      }
+    const Student = require('../models/Student');
+    const student = await Student.findById(studentId);
+    
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
 
-      if (student.assignedTeacherId.toString() !== user._id.toString()) {
+    // Admins can access all students in their school
+    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+      // Verify student belongs to admin's school (unless super admin)
+      if (user.role === 'ADMIN' && student.schoolId.toString() !== user.schoolId.toString()) {
         return res.status(403).json({
           success: false,
           message: 'Access denied to this student'
         });
       }
-
       return next();
     }
 
+    // Teachers can access students assigned to them
+    if (user.role === 'TEACHER') {
+      // Check if student is assigned to this teacher
+      if (student.assignedTeacher && student.assignedTeacher.toString() === user._id.toString()) {
+        return next();
+      }
+
+      // Also check if teacher's assigned class matches student's class
+      if (student.classId && user.assignedClasses && user.assignedClasses.length > 0) {
+        const classIds = user.assignedClasses.map(id => id.toString());
+        if (classIds.includes(student.classId.toString())) {
+          return next();
+        }
+      }
+
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. This student is not assigned to you.'
+      });
+    }
 
     res.status(403).json({
       success: false,

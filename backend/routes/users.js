@@ -65,7 +65,8 @@ router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
       .select('-password -passwordResetToken -passwordResetExpires -emailVerificationToken')
-      .populate('schoolId', 'name district sector phone email');
+      .populate('schoolId', 'name district sector phone email')
+      .populate('assignedClasses', 'className grade section academicYear studentCount maxCapacity description');
 
     if (!user) {
       return res.status(404).json({
@@ -74,9 +75,49 @@ router.get('/profile', authenticateToken, async (req, res) => {
       });
     }
 
+    // Add school information to user object for easier frontend access
+    const userProfile = user.toObject();
+    if (user.schoolId) {
+      userProfile.schoolName = user.schoolId.name;
+      userProfile.schoolDistrict = user.schoolId.district;
+      userProfile.schoolSector = user.schoolId.sector;
+      userProfile.schoolPhone = user.schoolId.phone;
+      userProfile.schoolEmail = user.schoolId.email;
+    }
+
+    // For teachers, fetch detailed class information if assigned
+    if (user.role === 'TEACHER' && user.assignedClasses && user.assignedClasses.length > 0) {
+      const Class = require('../models/Class');
+      const assignedClassId = user.assignedClasses[0]; // Get first assigned class
+      
+      if (assignedClassId) {
+        const assignedClass = await Class.findById(assignedClassId)
+          .populate('schoolId', 'name district sector')
+          .populate('assignedTeacher', 'name email teacherTitle');
+        
+        if (assignedClass) {
+          // Update class details to match the actual class
+          userProfile.className = assignedClass.className;
+          userProfile.classGrade = assignedClass.grade;
+          userProfile.classSection = assignedClass.section;
+          userProfile.assignedClassDetails = {
+            _id: assignedClass._id,
+            className: assignedClass.className,
+            grade: assignedClass.grade,
+            section: assignedClass.section,
+            academicYear: assignedClass.academicYear,
+            studentCount: assignedClass.studentCount || 0,
+            maxCapacity: assignedClass.maxCapacity || 0,
+            description: assignedClass.description || '',
+            isActive: assignedClass.isActive
+          };
+        }
+      }
+    }
+
     res.json({
       success: true,
-      data: user
+      data: userProfile
     });
   } catch (error) {
     console.error('Get profile error:', error);
@@ -129,11 +170,11 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // @access  Private
 router.put('/profile', authenticateToken, [
   body('name').optional().trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters long'),
-  body('phone').optional().matches(/^[\+]?250[0-9]{9}$|^0[0-9]{9}$/).withMessage('Please provide a valid phone number'),
+  body('phone').optional().matches(/^[\+]?250[\s]?[0-9]{3}[\s]?[0-9]{3}[\s]?[0-9]{3}$|^0[\s]?[0-9]{3}[\s]?[0-9]{3}[\s]?[0-9]{3}$/).withMessage('Please provide a valid phone number'),
   body('schoolName').optional().trim().isLength({ min: 2 }).withMessage('School name must be at least 2 characters long'),
   body('schoolDistrict').optional().trim().isLength({ min: 2 }).withMessage('School district must be at least 2 characters long'),
   body('schoolSector').optional().trim().isLength({ min: 2 }).withMessage('School sector must be at least 2 characters long'),
-  body('schoolPhone').optional().matches(/^[\+]?250[0-9]{9}$|^0[0-9]{9}$/).withMessage('Please provide a valid school phone number'),
+  body('schoolPhone').optional().matches(/^[\+]?250[\s]?[0-9]{3}[\s]?[0-9]{3}[\s]?[0-9]{3}$|^0[\s]?[0-9]{3}[\s]?[0-9]{3}[\s]?[0-9]{3}$/).withMessage('Please provide a valid school phone number'),
   body('schoolEmail').optional().isEmail().withMessage('Please provide a valid school email'),
   body('className').optional().trim().isLength({ min: 1 }).withMessage('Class name must be at least 1 character long'),
   body('classGrade').optional().trim().isLength({ min: 1 }).withMessage('Class grade must be at least 1 character long'),
@@ -149,24 +190,37 @@ router.put('/profile', authenticateToken, [
       });
     }
 
+    const School = require('../models/School');
     const updateData = {};
-    const allowedFields = [
-      'name', 'phone', 'schoolName', 'schoolDistrict', 'schoolSector', 
-      'schoolPhone', 'schoolEmail', 'className', 'classGrade', 'classSection'
-    ];
+    const schoolUpdateData = {};
+    const allowedUserFields = ['name', 'phone', 'className', 'classGrade', 'classSection'];
+    const allowedSchoolFields = ['schoolName', 'schoolDistrict', 'schoolSector', 'schoolPhone', 'schoolEmail'];
 
-    // Only include fields that are provided
-    allowedFields.forEach(field => {
+    // Separate user fields from school fields
+    allowedUserFields.forEach(field => {
       if (req.body[field] !== undefined) {
         updateData[field] = req.body[field];
       }
     });
 
+    allowedSchoolFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        const schoolField = field.replace('school', '').toLowerCase();
+        schoolField === 'name' ? schoolUpdateData['name'] = req.body[field] :
+        schoolField === 'district' ? schoolUpdateData['district'] = req.body[field] :
+        schoolField === 'sector' ? schoolUpdateData['sector'] = req.body[field] :
+        schoolField === 'phone' ? schoolUpdateData['phone'] = req.body[field] :
+        schoolField === 'email' ? schoolUpdateData['email'] = req.body[field] : null;
+      }
+    });
+
+    // Update user profile
     const user = await User.findByIdAndUpdate(
       req.user._id,
       updateData,
       { new: true, runValidators: true }
-    ).select('-password -passwordResetToken -passwordResetExpires -emailVerificationToken');
+    ).select('-password -passwordResetToken -passwordResetExpires -emailVerificationToken')
+     .populate('schoolId', 'name district sector phone email');
 
     if (!user) {
       return res.status(404).json({
@@ -175,13 +229,29 @@ router.put('/profile', authenticateToken, [
       });
     }
 
+    // Update school information if school fields are provided
+    if (Object.keys(schoolUpdateData).length > 0 && user.schoolId) {
+      await School.findByIdAndUpdate(
+        user.schoolId._id,
+        schoolUpdateData,
+        { new: true, runValidators: true }
+      );
+    }
+
+    // Add school information to response
+    const userProfile = user.toObject();
+    if (user.schoolId) {
+      userProfile.schoolName = user.schoolId.name;
+      userProfile.schoolDistrict = user.schoolId.district;
+      userProfile.schoolSector = user.schoolId.sector;
+      userProfile.schoolPhone = user.schoolId.phone;
+      userProfile.schoolEmail = user.schoolId.email;
+    }
+
     res.json({
       success: true,
       message: 'Profile updated successfully',
-      data: {
-        user,
-        token: req.headers.authorization?.split(' ')[1] // Return current token
-      }
+      data: userProfile
     });
   } catch (error) {
     console.error('Update profile error:', error);
@@ -198,7 +268,7 @@ router.put('/profile', authenticateToken, [
 router.put('/:id', [
   authenticateToken,
   body('name').optional().trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters long'),
-  body('phone').optional().matches(/^[\+]?250[0-9]{9}$|^0[0-9]{9}$/).withMessage('Please provide a valid phone number'),
+  body('phone').optional().matches(/^[\+]?250[\s]?[0-9]{3}[\s]?[0-9]{3}[\s]?[0-9]{3}$|^0[\s]?[0-9]{3}[\s]?[0-9]{3}[\s]?[0-9]{3}$/).withMessage('Please provide a valid phone number'),
   body('role').optional().isIn(['ADMIN', 'TEACHER']).withMessage('Invalid role')
 ], async (req, res) => {
   try {

@@ -27,9 +27,13 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null })
         
         try {
+          console.log('🔐 Attempting login for:', email);
           const response = await apiClient.login(email, password)
           
+          console.log('🔐 Login response:', response);
+          
           if (response.success) {
+            console.log('✅ Login successful, setting user:', response.data.user);
             set({ 
               user: response.data.user, 
               isAuthenticated: true,
@@ -39,6 +43,7 @@ export const useAuthStore = create<AuthState>()(
             throw new Error(response.message || 'Login failed')
           }
         } catch (error) {
+          console.error('❌ Login error:', error);
           set({ 
             error: error instanceof Error ? error.message : 'Login failed',
             isLoading: false 

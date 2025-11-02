@@ -203,7 +203,10 @@ export function ClassStudentsPage() {
                             <div>
                               <p>{student.address.district}, {student.address.sector}</p>
                               <p className="text-xs text-gray-500">
-                                {student.address.cell}, {student.address.village}
+                                {student.address.sector}, {student.address.district}
+                                {student.address.cell && student.address.village && (
+                                  <> • {student.address.cell}, {student.address.village}</>
+                                )}
                               </p>
                             </div>
                           </div>

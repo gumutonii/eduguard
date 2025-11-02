@@ -21,26 +21,25 @@ router.get('/', authenticateToken, async (req, res) => {
       riskLevel, 
       gender, 
       search,
-      assignedTeacherId 
+      assignedTeacher 
     } = req.query;
 
     let query = { 
-      schoolName: req.user.schoolName,
-      schoolDistrict: req.user.schoolDistrict,
+      schoolId: req.user.schoolId,
       isActive: true 
     };
 
     // Role-based filtering
     if (req.user.role === 'TEACHER') {
-      query.assignedTeacherId = req.user._id;
+      query.assignedTeacher = req.user._id;
     }
 
     // Additional filters
-    if (classroomId) query.classroomId = classroomId;
+    if (classroomId) query.classId = classroomId;
     if (riskLevel) query.riskLevel = riskLevel;
     if (gender) query.gender = gender;
-    if (assignedTeacherId && req.user.role === 'ADMIN') {
-      query.assignedTeacherId = assignedTeacherId;
+    if (assignedTeacher && req.user.role === 'ADMIN') {
+      query.assignedTeacher = assignedTeacher;
     }
 
     // Search by name
@@ -52,7 +51,9 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 
     const students = await Student.find(query)
-      .populate('assignedTeacherId', 'name email')
+      .populate('assignedTeacher', 'name email')
+      .populate('schoolId', 'name district sector')
+      .populate('classId', 'className name grade section')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -86,7 +87,9 @@ router.get('/:id', authenticateToken, canAccessStudent, async (req, res) => {
     const { id } = req.params;
 
     const student = await Student.findById(id)
-      .populate('assignedTeacherId', 'name email')
+      .populate('assignedTeacher', 'name email')
+      .populate('schoolId', 'name district sector')
+      .populate('classId', 'className name grade section')
       .populate('riskFlags.resolvedBy', 'name')
       .populate('notes.createdBy', 'name');
 
@@ -123,31 +126,29 @@ router.post('/', [
   body('gender').isIn(['M', 'F']).withMessage('Invalid gender'),
   body('age').isInt({ min: 3, max: 25 }).withMessage('Age must be between 3 and 25'),
   body('dob').isISO8601().withMessage('Valid date of birth is required'),
-  body('classroomId').notEmpty().withMessage('Classroom ID is required'),
+  body('classId').notEmpty().withMessage('Class ID is required'),
   
-  // Address validation
+  // Address validation - only district and sector required
   body('address.district').notEmpty().withMessage('District is required'),
   body('address.sector').notEmpty().withMessage('Sector is required'),
-  body('address.cell').notEmpty().withMessage('Cell is required'),
-  body('address.village').notEmpty().withMessage('Village is required'),
+  body('address.cell').optional().trim().isLength({ max: 100 }),
+  body('address.village').optional().trim().isLength({ max: 100 }),
   
-  // Socio-economic validation
+  // Socio-economic validation - only essential fields
   body('socioEconomic.ubudeheLevel').isInt({ min: 1, max: 4 }).withMessage('Ubudehe level must be between 1 and 4'),
   body('socioEconomic.hasParents').isBoolean().withMessage('Has parents must be a boolean'),
-  body('socioEconomic.guardianType').optional().isIn(['Parent', 'Sibling', 'Relative', 'Other']).withMessage('Invalid guardian type'),
-  body('socioEconomic.parentJob').optional().trim().isLength({ max: 100 }).withMessage('Parent job cannot exceed 100 characters'),
   body('socioEconomic.familyConflict').isBoolean().withMessage('Family conflict must be a boolean'),
   body('socioEconomic.numberOfSiblings').isInt({ min: 0, max: 20 }).withMessage('Number of siblings must be between 0 and 20'),
-  body('socioEconomic.parentEducationLevel').isIn(['None', 'Primary', 'Secondary', 'University', 'Other']).withMessage('Invalid parent education level'),
   
-  // Guardian contacts validation
-  body('guardianContacts').isArray({ min: 1 }).withMessage('At least one guardian contact is required'),
-  body('guardianContacts.*.name').trim().notEmpty().withMessage('Guardian name is required'),
-  body('guardianContacts.*.relation').isIn(['Father', 'Mother', 'Guardian', 'Sibling', 'Relative', 'Other']).withMessage('Invalid relation'),
-  body('guardianContacts.*.phone').matches(/^[\+]?[1-9][\d]{0,15}$/).withMessage('Valid phone number is required'),
-  body('guardianContacts.*.email').optional().isEmail().withMessage('Valid email is required'),
-  body('guardianContacts.*.job').optional().trim().isLength({ max: 100 }).withMessage('Job cannot exceed 100 characters'),
-  body('guardianContacts.*.educationLevel').optional().isIn(['None', 'Primary', 'Secondary', 'University', 'Other']).withMessage('Invalid education level')
+  // Guardian contacts validation - updated
+  body('guardianContacts').isArray({ min: 1, max: 2 }).withMessage('Between 1 and 2 parents/guardians required'),
+  body('guardianContacts.*.firstName').trim().notEmpty().withMessage('First name is required'),
+  body('guardianContacts.*.lastName').trim().notEmpty().withMessage('Last name is required'),
+  body('guardianContacts.*.relation').isIn(['Father', 'Mother', 'Uncle', 'Aunt', 'Sibling', 'Other Relative']).withMessage('Invalid relation'),
+  body('guardianContacts.*.email').optional().isEmail().withMessage('Valid email format is required if provided'),
+  body('guardianContacts.*.phone').matches(/^[\+]?250[0-9]{9}$|^0[0-9]{9}$/).withMessage('Valid phone number is required (Rwandan format)'),
+  body('guardianContacts.*.education').isIn(['None', 'Primary', 'Secondary', 'University']).withMessage('Education level is required'),
+  body('guardianContacts.*.occupation').trim().notEmpty().withMessage('Occupation is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -159,20 +160,60 @@ router.post('/', [
       });
     }
 
+    // Generate unique student ID
+    const studentId = `STU${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+    
+    // Handle dateOfBirth - convert dob string to Date if needed
+    let dateOfBirth = req.body.dateOfBirth;
+    if (!dateOfBirth && req.body.dob) {
+      dateOfBirth = new Date(req.body.dob);
+    } else if (req.body.dob && typeof req.body.dob === 'string') {
+      dateOfBirth = new Date(req.body.dob);
+    }
+    
     const studentData = {
       ...req.body,
-      schoolName: req.user.schoolName,
-      schoolDistrict: req.user.schoolDistrict,
-      schoolSector: req.user.schoolSector,
-      assignedTeacherId: req.user.role === 'TEACHER' ? req.user._id : req.body.assignedTeacherId
+      studentId,
+      dateOfBirth: dateOfBirth, // Ensure dateOfBirth is set
+      schoolId: req.user.schoolId,
+      assignedTeacher: req.user.role === 'TEACHER' ? req.user._id : req.body.assignedTeacher
     };
 
+    // Ensure guardian contacts have proper name field and at least one is primary
+    studentData.guardianContacts = studentData.guardianContacts.map(contact => {
+      // If name not provided but firstName and lastName are, create full name
+      if (!contact.name && contact.firstName && contact.lastName) {
+        contact.name = `${contact.firstName} ${contact.lastName}`.trim();
+      }
+      // If name provided but firstName/lastName not, parse if possible
+      if (contact.name && (!contact.firstName || !contact.lastName)) {
+        const nameParts = contact.name.trim().split(' ');
+        if (nameParts.length >= 2) {
+          contact.firstName = nameParts[0];
+          contact.lastName = nameParts.slice(1).join(' ');
+        }
+      }
+      // Handle empty email - set to undefined if empty string
+      if (contact.email && contact.email.trim() === '') {
+        contact.email = undefined;
+      }
+      // Set educationLevel for backward compatibility
+      if (contact.education && !contact.educationLevel) {
+        contact.educationLevel = contact.education;
+      }
+      // Set job for backward compatibility
+      if (contact.occupation && !contact.job) {
+        contact.job = contact.occupation;
+      }
+      return contact;
+    });
+    
     // Ensure at least one guardian is primary
     if (!studentData.guardianContacts.some(contact => contact.isPrimary)) {
       studentData.guardianContacts[0].isPrimary = true;
     }
 
-    // Calculate risk level based on socio-economic factors
+    // Calculate risk level based on socio-economic factors (simplified)
     let riskScore = 0;
     
     // Ubudehe level scoring (higher level = lower risk)
@@ -183,15 +224,20 @@ router.post('/', [
     if (studentData.socioEconomic.familyConflict) riskScore += 2;
     if (studentData.socioEconomic.numberOfSiblings > 5) riskScore += 1;
     
-    // Parent education level
-    const educationScore = {
-      'None': 3,
-      'Primary': 2,
-      'Secondary': 1,
-      'University': 0,
-      'Other': 1
-    };
-    riskScore += educationScore[studentData.socioEconomic.parentEducationLevel] || 1;
+    // Optional parent education level (if provided)
+    if (studentData.socioEconomic.parentEducationLevel) {
+      const educationScore = {
+        'None': 3,
+        'Primary': 2,
+        'Secondary': 1,
+        'University': 0,
+        'Other': 1
+      };
+      riskScore += educationScore[studentData.socioEconomic.parentEducationLevel] || 1;
+    } else {
+      // Default risk if education level not provided
+      riskScore += 1;
+    }
     
     // Determine risk level
     if (riskScore >= 8) {
@@ -205,8 +251,25 @@ router.post('/', [
     const student = new Student(studentData);
     await student.save();
 
+    // Notify admins if student is at-risk
+    if (['MEDIUM', 'HIGH', 'CRITICAL'].includes(studentData.riskLevel)) {
+      const { notifyAdminOfStudentRisk } = require('../utils/adminNotificationService');
+      const riskReason = `Student registered with ${studentData.riskLevel} risk level based on socio-economic factors.`;
+      await notifyAdminOfStudentRisk(student._id, studentData.riskLevel, riskReason, 'SOCIOECONOMIC');
+
+      // Automatically notify parents/guardians if student registered with HIGH or CRITICAL risk
+      if (studentData.riskLevel === 'HIGH' || studentData.riskLevel === 'CRITICAL') {
+        const { notifyParentsOfRisk } = require('../utils/notificationService');
+        notifyParentsOfRisk(student._id, studentData.riskLevel, riskReason).catch(err => {
+          console.error('Error notifying parents during registration:', err);
+        });
+      }
+    }
+
     const populatedStudent = await Student.findById(student._id)
-      .populate('assignedTeacherId', 'name email');
+      .populate('assignedTeacher', 'name email')
+      .populate('schoolId', 'name district sector')
+      .populate('classId', 'className name grade section');
 
     res.status(201).json({
       success: true,
@@ -232,8 +295,8 @@ router.put('/:id', [
   body('firstName').optional().trim().isLength({ min: 2 }).withMessage('First name must be at least 2 characters long'),
   body('lastName').optional().trim().isLength({ min: 2 }).withMessage('Last name must be at least 2 characters long'),
   body('gender').optional().isIn(['M', 'F', 'Other']).withMessage('Invalid gender'),
-  body('classroomId').optional().notEmpty().withMessage('Classroom ID cannot be empty'),
-  body('assignedTeacherId').optional().isMongoId().withMessage('Valid assigned teacher ID is required')
+  body('classId').optional().notEmpty().withMessage('Class ID cannot be empty'),
+  body('assignedTeacher').optional().isMongoId().withMessage('Valid assigned teacher ID is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -251,7 +314,7 @@ router.put('/:id', [
     // Teachers can only update students assigned to them
     if (req.user.role === 'TEACHER') {
       const existingStudent = await Student.findById(id);
-      if (!existingStudent || existingStudent.assignedTeacherId.toString() !== req.user._id.toString()) {
+      if (!existingStudent || existingStudent.assignedTeacher.toString() !== req.user._id.toString()) {
         return res.status(403).json({
           success: false,
           message: 'Access denied to this student'
@@ -263,7 +326,9 @@ router.put('/:id', [
       id,
       updateData,
       { new: true, runValidators: true }
-    ).populate('assignedTeacherId', 'name email');
+    ).populate('assignedTeacher', 'name email')
+      .populate('schoolId', 'name district sector')
+      .populate('classId', 'className name grade section');
 
     if (!student) {
       return res.status(404).json({
@@ -318,7 +383,7 @@ router.post('/:id/risk-flags', [
     }
 
     // Check access permissions
-    if (req.user.role === 'TEACHER' && student.assignedTeacherId.toString() !== req.user._id.toString()) {
+    if (req.user.role === 'TEACHER' && student.assignedTeacher.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Access denied to this student'
@@ -327,8 +392,22 @@ router.post('/:id/risk-flags', [
 
     await student.addRiskFlag({ type, description, severity }, req.user._id);
 
+    // Update risk level based on all flags
+    await student.updateRiskLevel();
+
+    // Notify admins immediately for HIGH and CRITICAL risk flags
+    if (['HIGH', 'CRITICAL'].includes(severity)) {
+      const { notifyAdminOfStudentRisk } = require('../utils/adminNotificationService');
+      await notifyAdminOfStudentRisk(
+        student._id,
+        severity,
+        `Manual risk flag added: ${description || type}.`,
+        type
+      );
+    }
+
     const updatedStudent = await Student.findById(id)
-      .populate('assignedTeacherId', 'name email')
+      .populate('assignedTeacher', 'name email')
       .populate('riskFlags.resolvedBy', 'name');
 
     res.json({
@@ -364,7 +443,7 @@ router.put('/:id/risk-flags/:flagId/resolve', [
     }
 
     // Check access permissions
-    if (req.user.role === 'TEACHER' && student.assignedTeacherId.toString() !== req.user._id.toString()) {
+    if (req.user.role === 'TEACHER' && student.assignedTeacher.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Access denied to this student'
@@ -374,7 +453,7 @@ router.put('/:id/risk-flags/:flagId/resolve', [
     await student.resolveRiskFlag(flagId, req.user._id);
 
     const updatedStudent = await Student.findById(id)
-      .populate('assignedTeacherId', 'name email')
+      .populate('assignedTeacher', 'name email')
       .populate('riskFlags.resolvedBy', 'name');
 
     res.json({
@@ -421,7 +500,7 @@ router.post('/:id/notes', [
     }
 
     // Check access permissions
-    if (req.user.role === 'TEACHER' && student.assignedTeacherId.toString() !== req.user._id.toString()) {
+    if (req.user.role === 'TEACHER' && student.assignedTeacher.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Access denied to this student'
@@ -437,7 +516,7 @@ router.post('/:id/notes', [
     await student.save();
 
     const updatedStudent = await Student.findById(id)
-      .populate('assignedTeacherId', 'name email')
+      .populate('assignedTeacher', 'name email')
       .populate('notes.createdBy', 'name');
 
     res.json({
@@ -499,12 +578,12 @@ router.delete('/:id', authenticateToken, authorize('ADMIN'), async (req, res) =>
 router.get('/export', authenticateToken, authorize('ADMIN'), async (req, res) => {
   try {
     const students = await Student.find({
-      schoolName: req.user.schoolName,
-      schoolDistrict: req.user.schoolDistrict,
-      schoolSector: req.user.schoolSector,
+      schoolId: req.user.schoolId,
       isActive: true
     })
-      .populate('assignedTeacherId', 'name')
+      .populate('assignedTeacher', 'name')
+      .populate('schoolId', 'name district sector')
+      .populate('classId', 'className name grade section')
       .sort({ lastName: 1, firstName: 1 });
 
     const csvData = students.map(s => ({
@@ -515,12 +594,13 @@ router.get('/export', authenticateToken, authorize('ADMIN'), async (req, res) =>
       Gender: s.gender,
       Age: s.age,
       'Date of Birth': s.dob.toLocaleDateString(),
-      'Classroom ID': s.classroomId,
-      'Assigned Teacher': s.assignedTeacherId?.name || '',
+      'Class ID': s.classId?._id || '',
+      'Class Name': s.classId?.name || '',
+      'Assigned Teacher': s.assignedTeacher?.name || '',
       District: s.address.district,
       Sector: s.address.sector,
-      Cell: s.address.cell,
-      Village: s.address.village,
+      Cell: s.address.cell || 'Not specified',
+      Village: s.address.village || 'Not specified',
       'Ubudehe Level': s.socioEconomic.ubudeheLevel,
       'Has Parents': s.socioEconomic.hasParents ? 'Yes' : 'No',
       'Family Conflict': s.socioEconomic.familyConflict ? 'Yes' : 'No',
@@ -586,11 +666,9 @@ router.post('/import', authenticateToken, authorize('ADMIN'), upload.single('fil
               gender: record.Gender || record.gender,
               age: parseInt(record.Age || record.age),
               dob: new Date(record['Date of Birth'] || record.dob),
-              schoolName: req.user.schoolName,
-      schoolDistrict: req.user.schoolDistrict,
-      schoolSector: req.user.schoolSector,
-              classroomId: record['Classroom ID'] || record.classroomId,
-              assignedTeacherId: record.assignedTeacherId || req.user._id,
+              schoolId: req.user.schoolId,
+              classId: record['Class ID'] || record.classId,
+              assignedTeacher: record.assignedTeacher || req.user._id,
               address: {
                 district: record.District || record['address.district'] || '',
                 sector: record.Sector || record['address.sector'] || '',

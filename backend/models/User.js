@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema({
   phone: {
     type: String,
     trim: true,
-    match: [/^[\+]?250[0-9]{9}$|^0[0-9]{9}$/, 'Please enter a valid phone number']
+    match: [/^[\+]?250[\s]?[0-9]{3}[\s]?[0-9]{3}[\s]?[0-9]{3}$|^0[\s]?[0-9]{3}[\s]?[0-9]{3}[\s]?[0-9]{3}$/, 'Please enter a valid phone number']
   },
   role: {
     type: String,
@@ -48,6 +48,19 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Class'
   }],
+  // Individual class assignment fields for easier display
+  className: {
+    type: String,
+    trim: true
+  },
+  classGrade: {
+    type: String,
+    trim: true
+  },
+  classSection: {
+    type: String,
+    trim: true
+  },
   teacherTitle: {
     type: String,
     trim: true,
@@ -115,6 +128,40 @@ userSchema.pre('save', async function(next) {
   }
 });
 
+// Post-save middleware to assign class to new teachers
+userSchema.post('save', async function(doc, next) {
+  if (doc.role === 'TEACHER' && !doc.className && doc.isNew) {
+    try {
+      // Find an unassigned class
+      const Class = require('./Class');
+      const unassignedClass = await Class.findOne({ 
+        assignedTeacher: { $exists: false },
+        schoolId: doc.schoolId
+      });
+      
+      if (unassignedClass) {
+        // Assign the class to the teacher
+        doc.className = unassignedClass.className;
+        doc.classGrade = unassignedClass.grade;
+        doc.classSection = unassignedClass.section;
+        doc.assignedClasses = [unassignedClass._id];
+        
+        // Update the class with the assigned teacher
+        unassignedClass.assignedTeacher = doc._id;
+        await unassignedClass.save();
+        
+        // Save the teacher with class assignment
+        await doc.save();
+        
+        console.log(`✅ Automatically assigned class ${unassignedClass.className} to new teacher ${doc.name}`);
+      }
+    } catch (error) {
+      console.error('Error auto-assigning class to teacher:', error);
+    }
+  }
+  next();
+});
+
 // Method to compare password
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
@@ -156,6 +203,36 @@ userSchema.methods.removeClass = async function(classId) {
   return this;
 };
 
+// Method to ensure teacher has a class assignment
+userSchema.methods.ensureClassAssignment = async function() {
+  if (this.role === 'TEACHER' && !this.className) {
+    try {
+      const Class = require('./Class');
+      const unassignedClass = await Class.findOne({ 
+        assignedTeacher: { $exists: false },
+        schoolId: this.schoolId
+      });
+      
+      if (unassignedClass) {
+        this.className = unassignedClass.className;
+        this.classGrade = unassignedClass.grade;
+        this.classSection = unassignedClass.section;
+        this.assignedClasses = [unassignedClass._id];
+        
+        unassignedClass.assignedTeacher = this._id;
+        await unassignedClass.save();
+        await this.save();
+        
+        console.log(`✅ Assigned class ${unassignedClass.className} to teacher ${this.name}`);
+        return true;
+      }
+    } catch (error) {
+      console.error('Error ensuring class assignment:', error);
+    }
+  }
+  return false;
+};
+
 // Method to get public profile (without sensitive data)
 userSchema.methods.getPublicProfile = function() {
   return {
@@ -166,6 +243,9 @@ userSchema.methods.getPublicProfile = function() {
     role: this.role,
     schoolId: this.schoolId,
     assignedClasses: this.assignedClasses,
+    className: this.className,
+    classGrade: this.classGrade,
+    classSection: this.classSection,
     teacherTitle: this.teacherTitle,
     adminTitle: this.adminTitle,
     isActive: this.isActive,

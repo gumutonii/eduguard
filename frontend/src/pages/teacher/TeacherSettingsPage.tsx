@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { apiClient } from '@/lib/api'
+import DistrictSectorSelect from '@/components/ui/DistrictSectorSelect'
 import { 
   UserIcon,
   EnvelopeIcon,
@@ -28,6 +30,7 @@ export function TeacherSettingsPage() {
 
   const [profileForm, setProfileForm] = useState({
     name: '',
+    email: '',
     phone: '',
   })
   const [schoolForm, setSchoolForm] = useState({
@@ -37,11 +40,17 @@ export function TeacherSettingsPage() {
     schoolPhone: '',
     schoolEmail: '',
   })
-  const [classForm, setClassForm] = useState({
-    className: '',
-    classGrade: '',
-    classSection: '',
-  })
+  const [assignedClassDetails, setAssignedClassDetails] = useState<{
+    _id?: string
+    className?: string
+    grade?: string
+    section?: string
+    academicYear?: string
+    studentCount?: number
+    maxCapacity?: number
+    description?: string
+    isActive?: boolean
+  } | null>(null)
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -55,6 +64,7 @@ export function TeacherSettingsPage() {
       const profile = userProfile.data
       setProfileForm({
         name: profile.name || '',
+        email: profile.email || '',
         phone: profile.phone || '',
       })
       setSchoolForm({
@@ -64,11 +74,19 @@ export function TeacherSettingsPage() {
         schoolPhone: profile.schoolPhone || '',
         schoolEmail: profile.schoolEmail || '',
       })
-      setClassForm({
-        className: profile.className || '',
-        classGrade: profile.classGrade || '',
-        classSection: profile.classSection || '',
-      })
+      // Set assigned class details if available
+      if (profile.assignedClassDetails) {
+        setAssignedClassDetails(profile.assignedClassDetails)
+      } else if (profile.className) {
+        // Fallback to basic class info if detailed class not available
+        setAssignedClassDetails({
+          className: profile.className,
+          grade: profile.classGrade || '',
+          section: profile.classSection || '',
+        })
+      } else {
+        setAssignedClassDetails(null)
+      }
     }
   }, [userProfile])
 
@@ -81,6 +99,8 @@ export function TeacherSettingsPage() {
         setUpdateMessage('Profile updated successfully!')
         setTimeout(() => setUpdateMessage(''), 3000)
         queryClient.invalidateQueries({ queryKey: ['user-profile'] })
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+        queryClient.invalidateQueries({ queryKey: ['teacher-classes'] })
       }
     },
     onError: () => {
@@ -91,7 +111,9 @@ export function TeacherSettingsPage() {
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
     setUpdateMessage('')
-    updateProfileMutation.mutate(profileForm)
+    // Don't send email in the update - it's read-only
+    const { email, ...updateData } = profileForm
+    updateProfileMutation.mutate(updateData)
   }
 
   const handleSchoolUpdate = async (e: React.FormEvent) => {
@@ -100,11 +122,7 @@ export function TeacherSettingsPage() {
     updateProfileMutation.mutate(schoolForm)
   }
 
-  const handleClassUpdate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setUpdateMessage('')
-    updateProfileMutation.mutate(classForm)
-  }
+  // Note: Class assignment is managed by admins, so no update function needed
 
   const changePasswordMutation = useMutation({
     mutationFn: (data: { currentPassword: string; newPassword: string }) => 
@@ -199,6 +217,23 @@ export function TeacherSettingsPage() {
                   </div>
 
                   <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      value={profileForm.email}
+                      disabled
+                      className="mt-1 input bg-gray-50 cursor-not-allowed"
+                      placeholder="your.email@example.com"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Email cannot be changed. Contact administrator if you need to update it.
+                    </p>
+                  </div>
+
+                  <div>
                 <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
                       Phone Number
                     </label>
@@ -248,35 +283,13 @@ export function TeacherSettingsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="schoolDistrict" className="block text-sm font-medium text-gray-700">
-                    District
-                  </label>
-                  <input
-                    type="text"
-                    id="schoolDistrict"
-                    value={schoolForm.schoolDistrict}
-                    onChange={(e) => setSchoolForm({ ...schoolForm, schoolDistrict: e.target.value })}
-                    className="mt-1 input"
-                    placeholder="e.g., Gasabo"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="schoolSector" className="block text-sm font-medium text-gray-700">
-                    Sector
-                  </label>
-                  <input
-                    type="text"
-                    id="schoolSector"
-                    value={schoolForm.schoolSector}
-                    onChange={(e) => setSchoolForm({ ...schoolForm, schoolSector: e.target.value })}
-                    className="mt-1 input"
-                    placeholder="e.g., Kimisagara"
-                  />
-                </div>
-              </div>
+              <DistrictSectorSelect
+                selectedDistrict={schoolForm.schoolDistrict}
+                selectedSector={schoolForm.schoolSector}
+                onDistrictChange={(district) => setSchoolForm({ ...schoolForm, schoolDistrict: district })}
+                onSectorChange={(sector) => setSchoolForm({ ...schoolForm, schoolSector: sector })}
+                className="grid grid-cols-1 md:grid-cols-2 gap-4"
+              />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -320,69 +333,120 @@ export function TeacherSettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Class Information */}
+        {/* Assigned Class Information */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AcademicCapIcon className="h-5 w-5" />
-              Class Information
+              Assigned Class Information
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleClassUpdate} className="space-y-4">
-              <div>
-                <label htmlFor="className" className="block text-sm font-medium text-gray-700">
-                  Class Name
-                </label>
-                <input
-                  type="text"
-                  id="className"
-                  value={classForm.className}
-                  onChange={(e) => setClassForm({ ...classForm, className: e.target.value })}
-                  className="mt-1 input"
-                  placeholder="e.g., P1 A, S6 PCB, S4 MEG"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="classGrade" className="block text-sm font-medium text-gray-700">
-                    Grade
-                  </label>
-                  <input
-                    type="text"
-                    id="classGrade"
-                    value={classForm.classGrade}
-                    onChange={(e) => setClassForm({ ...classForm, classGrade: e.target.value })}
-                    className="mt-1 input"
-                    placeholder="e.g., P1, S6, S4"
-                  />
+            {assignedClassDetails ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-sm text-blue-800">
+                    <strong>Note:</strong> Class assignment is managed by your school administrator. 
+                    Contact them if you need to be reassigned to a different class.
+                  </p>
                 </div>
 
-                <div>
-                  <label htmlFor="classSection" className="block text-sm font-medium text-gray-700">
-                    Section
-                  </label>
-                  <input
-                    type="text"
-                    id="classSection"
-                    value={classForm.classSection}
-                    onChange={(e) => setClassForm({ ...classForm, classSection: e.target.value })}
-                    className="mt-1 input"
-                    placeholder="e.g., A, B, C"
-                  />
-              </div>
-            </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Class Name
+                    </label>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">
+                      {assignedClassDetails.className || 'Not assigned'}
+                    </p>
+                  </div>
 
-              <Button
-                type="submit"
-                loading={updateProfileMutation.isPending}
-                disabled={updateProfileMutation.isPending}
-                className="w-full"
-              >
-                Update Class Information
-              </Button>
-            </form>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Academic Year
+                    </label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {assignedClassDetails.academicYear || 'N/A'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Grade
+                    </label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {assignedClassDetails.grade || 'N/A'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Section
+                    </label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {assignedClassDetails.section || 'N/A'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Students
+                    </label>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">
+                      {assignedClassDetails.studentCount || 0} / {assignedClassDetails.maxCapacity || 0} 
+                      {assignedClassDetails.maxCapacity && (
+                        <span className="text-xs text-gray-500 ml-1">
+                          ({(assignedClassDetails.studentCount || 0) / (assignedClassDetails.maxCapacity || 1) * 100}% capacity)
+                        </span>
+                      )}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Status
+                    </label>
+                    <Badge variant={assignedClassDetails.isActive ? 'success' : 'error'} className="mt-1">
+                      {assignedClassDetails.isActive ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </div>
+                </div>
+
+                {assignedClassDetails.description && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Description
+                    </label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {assignedClassDetails.description}
+                    </p>
+                  </div>
+                )}
+
+                {assignedClassDetails._id && (
+                  <div className="pt-4 border-t">
+                    <Link
+                      to="/students"
+                      className="text-sm text-blue-600 hover:text-blue-800 underline inline-flex items-center"
+                    >
+                      View My Students →
+                    </Link>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <AcademicCapIcon className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-4 text-lg font-medium text-gray-900">No Class Assigned</h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  You have not been assigned to a class yet. Your school administrator will assign you to a class after your account is approved.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -495,7 +559,25 @@ export function TeacherSettingsPage() {
                 </div>
               )}
 
-              {(user as any)?.className && (
+              {assignedClassDetails ? (
+                <div className="flex items-center gap-3">
+                  <AcademicCapIcon className="h-5 w-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Assigned Class</p>
+                    <p className="text-sm text-gray-600">{assignedClassDetails.className}</p>
+                    {assignedClassDetails.grade && assignedClassDetails.section && (
+                      <p className="text-xs text-gray-500">
+                        {assignedClassDetails.grade} - Section {assignedClassDetails.section}
+                      </p>
+                    )}
+                    {assignedClassDetails.studentCount !== undefined && (
+                      <p className="text-xs text-gray-500">
+                        {assignedClassDetails.studentCount} students
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : (user as any)?.className ? (
                 <div className="flex items-center gap-3">
                   <AcademicCapIcon className="h-5 w-5 text-gray-400" />
                   <div>
@@ -506,7 +588,7 @@ export function TeacherSettingsPage() {
                     )}
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         </CardContent>

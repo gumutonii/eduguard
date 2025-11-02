@@ -25,10 +25,11 @@ interface PendingUser {
   schoolId?: {
     _id: string
     name: string
-    type: 'PRIMARY' | 'SECONDARY'
     district: string
-    province: string
-  } | null
+    sector: string
+  } | string | null
+  selectedClass?: string
+  teacherTitle?: string
   createdAt: string
 }
 
@@ -40,15 +41,9 @@ export function UserApprovalPage() {
   const fetchPendingUsers = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/auth/pending-approvals', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      const data = await response.json()
-      if (data.success) {
-        setPendingUsers(data.data)
+      const response = await apiClient.getPendingApprovals()
+      if (response.success) {
+        setPendingUsers(response.data)
       }
     } catch (error) {
       console.error('Failed to fetch pending users:', error)
@@ -126,8 +121,8 @@ export function UserApprovalPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">User Approvals</h1>
-          <p className="text-neutral-600">Review and approve new user registrations</p>
+          <h1 className="text-2xl font-bold text-neutral-900">Teacher Approvals</h1>
+          <p className="text-neutral-600">Review and approve teachers registered for your school</p>
         </div>
         <Button onClick={fetchPendingUsers} variant="outline">
           Refresh
@@ -184,24 +179,41 @@ export function UserApprovalPage() {
                   </div>
 
                   <div className="border-t pt-4">
-                    <div className="flex items-start space-x-2">
-                      <BuildingOfficeIcon className="w-4 h-4 text-neutral-400 mt-0.5" />
-                      <div>
-                        {user.schoolId ? (
-                          <>
-                            <p className="font-medium text-sm text-neutral-900">{user.schoolId.name}</p>
-                            <div className="flex items-center space-x-1 text-xs text-neutral-500">
-                              <MapPinIcon className="w-3 h-3" />
-                              <span>{user.schoolId.district}, {user.schoolId.province}</span>
-                            </div>
-                            <Badge className="mt-1 text-xs bg-gray-100 text-gray-800">
-                              {user.schoolId.type}
-                            </Badge>
-                          </>
-                        ) : (
-                          <p className="text-sm text-neutral-500 italic">No school information available</p>
-                        )}
+                    <div className="space-y-3">
+                      <div className="flex items-start space-x-2">
+                        <BuildingOfficeIcon className="w-4 h-4 text-neutral-400 mt-0.5" />
+                        <div>
+                          {user.schoolId && typeof user.schoolId === 'object' ? (
+                            <>
+                              <p className="font-medium text-sm text-neutral-900">{user.schoolId.name}</p>
+                              <div className="flex items-center space-x-1 text-xs text-neutral-500">
+                                <MapPinIcon className="w-3 h-3" />
+                                <span>{user.schoolId.sector}, {user.schoolId.district}</span>
+                              </div>
+                            </>
+                          ) : (
+                            <p className="text-sm text-neutral-500 italic">School information not available</p>
+                          )}
+                        </div>
                       </div>
+                      {user.selectedClass && (
+                        <div className="flex items-start space-x-2">
+                          <AcademicCapIcon className="w-4 h-4 text-neutral-400 mt-0.5" />
+                          <div>
+                            <p className="text-xs text-neutral-500">Assigned Class</p>
+                            <p className="font-medium text-sm text-neutral-900">{user.selectedClass}</p>
+                          </div>
+                        </div>
+                      )}
+                      {user.teacherTitle && (
+                        <div className="flex items-start space-x-2">
+                          <UserIcon className="w-4 h-4 text-neutral-400 mt-0.5" />
+                          <div>
+                            <p className="text-xs text-neutral-500">Teaching Title</p>
+                            <p className="font-medium text-sm text-neutral-900">{user.teacherTitle}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 

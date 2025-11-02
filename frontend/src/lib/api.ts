@@ -38,6 +38,9 @@ class ApiClient {
 
     if (this.token) {
       headers.Authorization = `Bearer ${this.token}`
+      console.log('🔑 Making authenticated request to:', url);
+    } else {
+      console.log('⚠️ Making unauthenticated request to:', url);
     }
 
     const response = await fetch(url, {
@@ -45,20 +48,47 @@ class ApiClient {
       headers,
     })
 
+    console.log('📡 Response status:', response.status, 'for', url);
+
     if (!response.ok) {
+      console.log('❌ HTTP Error:', response.status, 'for', url);
+      
       if (response.status === 401) {
+        console.log('🔒 Unauthorized - clearing token and redirecting to login');
         this.clearToken()
         window.location.href = '/auth/login'
         throw new Error('Unauthorized')
       }
-      throw new Error(`HTTP error! status: ${response.status}`)
+      
+      // Try to get error message from response
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      let errorData: any = null;
+      try {
+        errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+        console.log('❌ Error details:', errorData);
+      } catch (e) {
+        console.log('❌ Could not parse error response');
+      }
+      
+      // Create error object with full details for validation errors
+      const error = new Error(errorMessage) as any;
+      if (errorData) {
+        error.errors = errorData.errors || errorData.error || null;
+        error.data = errorData;
+      }
+      throw error;
     }
 
-    return response.json()
+    const data = await response.json()
+    console.log('📊 Response data for', url, ':', data);
+    return data
   }
 
   // Authentication methods
   async login(email: string, password: string) {
+    console.log('🔐 API Client: Attempting login for:', email);
+    
     const response = await this.request<{
       success: boolean
       message: string
@@ -72,7 +102,10 @@ class ApiClient {
       body: JSON.stringify({ email, password }),
     })
 
+    console.log('🔐 API Client: Login response:', response);
+
     if (response.success) {
+      console.log('🔐 API Client: Setting token:', response.data.token.substring(0, 20) + '...');
       this.setToken(response.data.token)
     }
 
@@ -174,10 +207,20 @@ class ApiClient {
     currentPassword: string
     newPassword: string
   }) {
+    // Get current user ID from auth store
+    const authToken = localStorage.getItem('auth_token')
+    if (!authToken) {
+      throw new Error('No authentication token found')
+    }
+    
+    // Decode token to get user ID
+    const payload = JSON.parse(atob(authToken.split('.')[1]))
+    const userId = payload.userId || payload._id
+    
     return this.request<{
       success: boolean
       message: string
-    }>('/users/profile/password', {
+    }>(`/users/${userId}/password`, {
       method: 'PUT',
       body: JSON.stringify(passwordData),
     })
@@ -301,7 +344,7 @@ class ApiClient {
     return this.request<{
       success: boolean
       data: any
-    }>('/dashboard/teacher')
+    }>('/dashboard/teacher-stats')
   }
 
   // Notifications methods
@@ -324,6 +367,48 @@ class ApiClient {
       data: any[]
       pagination: any
     }>(`/notifications?${searchParams.toString()}`)
+  }
+
+  async getInAppNotifications(params: {
+    page?: number
+    limit?: number
+    entityType?: string
+    type?: string
+    isRead?: string
+    search?: string
+  } = {}) {
+    const searchParams = new URLSearchParams()
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString())
+      }
+    })
+
+    return this.request<{
+      success: boolean
+      data: any[]
+      pagination: any
+    }>(`/notifications?${searchParams.toString()}`)
+  }
+
+  async markNotificationAsRead(notificationId: string) {
+    return this.request<{
+      success: boolean
+      message: string
+      data: any
+    }>(`/notifications/${notificationId}/read`, {
+      method: 'PUT'
+    })
+  }
+
+  async markAllNotificationsAsRead() {
+    return this.request<{
+      success: boolean
+      message: string
+      data: { count: number }
+    }>('/notifications/read-all', {
+      method: 'PUT'
+    })
   }
 
 
@@ -541,6 +626,8 @@ class ApiClient {
               totalUsers: number
               totalSchools: number
               totalStudents: number
+              totalClasses: number
+              atRiskStudents: number
               pendingApprovals: number
               activeUsers: number
               userRoles: {
@@ -548,6 +635,40 @@ class ApiClient {
                 admin: number
                 teacher: number
               }
+              attendance: {
+                rate: number
+                total: number
+                present: number
+                absent: number
+                excused: number
+              }
+              performance: {
+                averageScore: number
+                passingRate: number
+                totalRecords: number
+              }
+              riskFlags: {
+                total: number
+                critical: number
+                high: number
+                medium: number
+                low: number
+              }
+              interventions: {
+                total: number
+                planned: number
+                inProgress: number
+                completed: number
+                cancelled: number
+              }
+              messages: {
+                total: number
+                sent: number
+                delivered: number
+                failed: number
+                pending: number
+              }
+              schoolPerformance: any[]
             }
           }>('/dashboard/system-stats')
         }
@@ -556,29 +677,75 @@ class ApiClient {
           return this.request<{
             success: boolean
             data: any[]
-          }>('/schools')
+          }>('/dashboard/all-schools')
+        }
+
+        async getSchoolById(schoolId: string) {
+          return this.request<{
+            success: boolean
+            data: any
+          }>(`/schools/${schoolId}`)
+        }
+
+        async getSchoolUsers(schoolId: string) {
+          return this.request<{
+            success: boolean
+            data: any[]
+          }>(`/schools/${schoolId}/users`)
+        }
+
+        async getSchoolClasses(schoolId: string) {
+          return this.request<{
+            success: boolean
+            data: any[]
+          }>(`/schools/${schoolId}/classes`)
         }
 
         async getAllUsers() {
           return this.request<{
             success: boolean
             data: any[]
-            pagination: any
-          }>('/users')
+          }>('/dashboard/all-users')
+        }
+
+        async getUserById(userId: string) {
+          return this.request<{
+            success: boolean
+            data: any
+          }>(`/users/${userId}`)
+        }
+
+        async updateUser(userId: string, userData: any) {
+          return this.request<{
+            success: boolean
+            message: string
+            data: any
+          }>(`/users/${userId}`, {
+            method: 'PUT',
+            body: JSON.stringify(userData),
+          })
         }
 
         async getSystemRiskSummary() {
           return this.request<{
             success: boolean
             data: {
+              totalAtRisk: number
               totalRisks: number
-              criticalRisks: number
-              highRisks: number
-              mediumRisks: number
-              lowRisks: number
-              bySchool: any[]
+              critical: number
+              high: number
+              medium: number
+              low: number
+              byType: {
+                attendance: number
+                performance: number
+                behavior: number
+                socioeconomic: number
+                combined: number
+                other: number
+              }
             }
-          }>('/dashboard/risk-summary')
+          }>('/dashboard/system-risk-summary')
         }
 
         async getPendingApprovals() {
@@ -586,6 +753,116 @@ class ApiClient {
             success: boolean
             data: any[]
           }>('/auth/pending-approvals')
+        }
+
+        // School Admin methods
+        async getSchoolAdminStats() {
+          return this.request<{
+            success: boolean
+            data: {
+              school: {
+                name: string
+                district: string
+                sector: string
+              }
+              totalTeachers: number
+              pendingTeachers: number
+              totalStudents: number
+              totalClasses: number
+              classesWithTeachers: number
+              atRiskStudents: number
+              attendance: {
+                rate: number
+                total: number
+                present: number
+                absent: number
+                excused: number
+              }
+              performance: {
+                averageScore: number
+                passingRate: number
+                totalRecords: number
+              }
+              riskFlags: {
+                total: number
+                critical: number
+                high: number
+                medium: number
+                low: number
+              }
+              interventions: {
+                total: number
+                planned: number
+                inProgress: number
+                completed: number
+                cancelled: number
+              }
+              messages: {
+                total: number
+                sent: number
+                delivered: number
+                failed: number
+                pending: number
+              }
+              classPerformance: any[]
+              teachers: any[]
+            }
+          }>('/dashboard/school-admin-stats')
+        }
+
+        // Teacher methods
+        async getTeacherStats() {
+          return this.request<{
+            success: boolean
+            data: {
+              teacher: {
+                name: string
+                email: string
+                className: string
+                schoolName: string
+              }
+              totalStudents: number
+              atRiskStudentsCount: number
+              totalClasses: number
+              attendance: {
+                rate: number
+                total: number
+                present: number
+                absent: number
+                excused: number
+              }
+              performance: {
+                averageScore: number
+                passingRate: number
+                totalRecords: number
+              }
+              riskFlags: {
+                total: number
+                critical: number
+                high: number
+                medium: number
+                low: number
+              }
+              interventions: {
+                total: number
+                planned: number
+                inProgress: number
+                completed: number
+                cancelled: number
+              }
+              messages: {
+                total: number
+                sent: number
+                delivered: number
+                failed: number
+                pending: number
+              }
+              classes: any[]
+              atRiskStudents: any[]
+              lowScoreAlerts: any[]
+              teacherInterventions: any[]
+            }
+          }>('/dashboard/teacher-stats')
         }
 
         async approveUser(userId: string) {
@@ -681,12 +958,38 @@ class ApiClient {
     )
   }
 
+  // Attendance API
+  async createAttendance(data: { studentId: string; date: string; status: string; notes?: string; reason?: string }) {
+    return this.request<{ success: boolean; data: any }>('/attendance/mark', {
+      method: 'POST',
+      body: JSON.stringify({ records: [data] })
+    })
+  }
+
+  async updateAttendance(attendanceId: string, data: { status?: string; notes?: string; reason?: string }) {
+    return this.request<{ success: boolean; data: any }>(`/attendance/${attendanceId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  }
+
   // Performance API
-  async addPerformance(data: any) {
+  async createPerformance(data: any) {
     return this.request<{ success: boolean; data: any }>('/performance', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(data)
     })
+  }
+
+  async updatePerformance(performanceId: string, data: any) {
+    return this.request<{ success: boolean; data: any }>(`/performance/${performanceId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async addPerformance(data: any) {
+    return this.createPerformance(data)
   }
 
   async importPerformance(file: File) {
@@ -815,6 +1118,17 @@ class ApiClient {
     })
   }
 
+  async updateStudent(id: string, studentData: any) {
+    return this.request<{
+      success: boolean
+      message: string
+      data: any
+    }>(`/students/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(studentData)
+    })
+  }
+
   async deleteStudent(id: string) {
     return this.request<{ success: boolean; message: string }>(`/students/${id}`, {
       method: 'DELETE'
@@ -823,6 +1137,27 @@ class ApiClient {
 
   async getClassStudents(id: string) {
     return this.request<{ success: boolean; data: any[] }>(`/classes/${id}/students`)
+  }
+
+  async assignTeacherToClass(classId: string, teacherId: string) {
+    return this.request<{ success: boolean; message: string; data: any }>(`/classes/${classId}/assign-teacher`, {
+      method: 'POST',
+      body: JSON.stringify({ teacherId })
+    })
+  }
+
+  async getTeacherMyClasses() {
+    return this.request<{
+      success: boolean
+      data: Array<{
+        _id: string
+        className: string
+        name: string
+        grade: string
+        section: string
+        studentCount: number
+      }>
+    }>('/classes/teacher/my-classes')
   }
 
   // Settings API

@@ -28,9 +28,8 @@ const registerSchema = z.object({
   schoolPhone: z.string().optional(),
   schoolEmail: z.string().email().optional().or(z.literal('')),
   adminTitle: z.string().optional(),
-  // Class selection for TEACHER
+  // School selection for TEACHER (class will be assigned by admin after approval)
   selectedSchool: z.string().optional(),
-  selectedClass: z.string().optional(),
   teacherTitle: z.string().optional(),
   acceptTerms: z.boolean().refine((val) => val === true, {
     message: 'You must accept the terms and conditions',
@@ -45,11 +44,11 @@ const registerSchema = z.object({
   path: ['schoolName']
 }).refine((data) => {
   if (data.role === 'TEACHER') {
-    return data.selectedSchool && data.selectedClass;
+    return data.selectedSchool;
   }
   return true;
 }, {
-  message: 'School and class selection are required for Teacher role',
+  message: 'School selection is required for Teacher role',
   path: ['selectedSchool']
 })
 
@@ -78,23 +77,6 @@ export function RegisterPage() {
   })
 
   const schools = schoolsData?.data || []
-  const selectedSchool = watch('selectedSchool')
-
-  // Fetch classes for selected school
-  const { data: classesData, isLoading: classesLoading } = useQuery({
-    queryKey: ['classes-for-school', selectedSchool],
-    queryFn: () => apiClient.getClassesForSchool(selectedSchool!),
-    enabled: !!selectedSchool, // Only fetch when a school is selected
-  })
-
-  const classes = classesData?.data || []
-
-  // Clear selected class when school changes
-  useEffect(() => {
-    if (selectedSchool) {
-      setValue('selectedClass', '')
-    }
-  }, [selectedSchool, setValue])
 
   const onSubmit = async (data: RegisterForm) => {
     try {
@@ -299,11 +281,11 @@ export function RegisterPage() {
                 </>
               )}
 
-              {/* Teacher School and Class Selection */}
+              {/* Teacher School Selection */}
               {watch('role') === 'TEACHER' && (
                 <>
                   <div className="border-t pt-6">
-                    <h3 className="text-lg font-medium text-neutral-900 mb-4">School & Class Selection</h3>
+                    <h3 className="text-lg font-medium text-neutral-900 mb-4">School Selection</h3>
                     
                     <div>
                       <label htmlFor="selectedSchool" className="block text-sm font-medium text-neutral-700">
@@ -339,44 +321,6 @@ export function RegisterPage() {
                     </div>
 
                     <div className="mt-4">
-                      <label htmlFor="selectedClass" className="block text-sm font-medium text-neutral-700">
-                        Select Class *
-                      </label>
-                      <select
-                        {...register('selectedClass')}
-                        className="mt-1 input"
-                        disabled={!selectedSchool || classesLoading}
-                      >
-                        <option value="">
-                          {!selectedSchool 
-                            ? 'Select a school first' 
-                            : classesLoading 
-                              ? 'Loading classes...' 
-                              : 'Select a class'
-                          }
-                        </option>
-                        {classes.map((classItem) => (
-                          <option key={classItem._id} value={classItem.className}>
-                            {classItem.className}
-                          </option>
-                        ))}
-                      </select>
-                      {errors.selectedClass && (
-                        <p className="mt-1 text-sm text-red-600">{errors.selectedClass.message}</p>
-                      )}
-                      {selectedSchool && classes.length === 0 && !classesLoading && (
-                        <p className="mt-1 text-sm text-amber-600">
-                          No classes available for this school. Please contact the school administrator.
-                        </p>
-                      )}
-                      {selectedSchool && classes.length > 0 && !classesLoading && (
-                        <p className="mt-1 text-sm text-green-600">
-                          {classes.length} class{classes.length !== 1 ? 'es' : ''} available for selection
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="mt-4">
                       <label htmlFor="teacherTitle" className="block text-sm font-medium text-neutral-700">
                         Your Teaching Subject/Title
                       </label>
@@ -389,6 +333,14 @@ export function RegisterPage() {
                       {errors.teacherTitle && (
                         <p className="mt-1 text-sm text-red-600">{errors.teacherTitle.message}</p>
                       )}
+                    </div>
+
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="text-sm text-blue-800">
+                        <strong>Note:</strong> After your account is approved by the school administrator, 
+                        you will be assigned to a class. The administrator will assign you to the appropriate 
+                        class based on your teaching subject and school needs.
+                      </p>
                     </div>
                   </div>
                 </>

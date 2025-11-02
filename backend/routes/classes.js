@@ -150,9 +150,69 @@ router.post('/', authenticateToken, authorize('ADMIN'), [
   try {
     const { className } = req.body;
     
+    if (!className || !className.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Class name is required'
+      });
+    }
+
+    // Parse className to extract grade and section
+    // Examples: "P1 B" -> grade: "P1", section: "B"
+    //           "P1" -> grade: "P1", section: "A" (default)
+    //           "S6 Science" -> grade: "S6", section: "Science"
+    //           "S3 PCB" -> grade: "S3", section: "PCB"
+    const trimmedName = className.trim();
+    let grade = trimmedName; // Default to className if parsing fails
+    let section = 'A'; // Default section
+    
+    // Try to extract grade and section from className
+    // Pattern: Grade (P1, S1, etc.) followed by optional section/stream
+    const gradeSectionPattern = /^([PS]\d+)\s*(.+)?$/i;
+    const match = trimmedName.match(gradeSectionPattern);
+    
+    if (match) {
+      grade = match[1] || trimmedName; // P1, S6, etc. or fallback to className
+      section = match[2] ? match[2].trim() : 'A'; // Section or default to 'A'
+    } else {
+      // If pattern doesn't match, try splitting by space
+      const parts = trimmedName.split(/\s+/).filter(p => p.length > 0);
+      if (parts.length >= 2) {
+        // First part might be grade, second part is section
+        const firstPart = parts[0];
+        if (/^[PS]\d+$/i.test(firstPart)) {
+          grade = firstPart;
+          section = parts.slice(1).join(' '); // Join remaining parts as section
+        } else {
+          // If doesn't match pattern, use first part as grade, second as section
+          grade = parts[0] || trimmedName;
+          section = parts[1] || 'A';
+        }
+      } else if (parts.length === 1) {
+        // Single word - try to extract grade, default section
+        const singleWordMatch = trimmedName.match(/^([PS]\d+)/i);
+        if (singleWordMatch) {
+          grade = singleWordMatch[1];
+          section = 'A';
+        } else {
+          // Last resort: use the whole string as grade, default section
+          grade = trimmedName;
+          section = 'A';
+        }
+      }
+    }
+    
+    // Ensure grade and section are never empty or undefined
+    if (!grade || grade.trim() === '') {
+      grade = trimmedName;
+    }
+    if (!section || section.trim() === '') {
+      section = 'A';
+    }
+    
     // Check if class already exists in the school
     const existingClass = await Class.findOne({
-      className,
+      className: trimmedName,
       schoolId: req.user.schoolId,
       isActive: true
     });
@@ -165,12 +225,31 @@ router.post('/', authenticateToken, authorize('ADMIN'), [
     }
 
     const newClass = new Class({
-      className,
+      className: trimmedName,
+      grade: grade.trim(), // Ensure it's trimmed
+      section: section.trim(), // Ensure it's trimmed
       schoolId: req.user.schoolId,
       createdBy: req.user._id
     });
 
-    await newClass.save();
+    try {
+      await newClass.save();
+    } catch (saveError) {
+      console.error('Create class validation error:', saveError);
+      // Return more detailed validation errors
+      if (saveError.name === 'ValidationError') {
+        const validationErrors = Object.keys(saveError.errors || {}).map(key => ({
+          field: key,
+          message: saveError.errors[key].message
+        }));
+        return res.status(400).json({
+          success: false,
+          message: 'Class validation failed',
+          errors: validationErrors
+        });
+      }
+      throw saveError; // Re-throw if it's not a validation error
+    }
 
     res.status(201).json({
       success: true,
@@ -179,9 +258,21 @@ router.post('/', authenticateToken, authorize('ADMIN'), [
     });
   } catch (error) {
     console.error('Create class error:', error);
+    
+    // Handle validation errors specifically
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors
+      });
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Failed to create class'
+      message: 'Failed to create class',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 });
@@ -331,7 +422,7 @@ router.post('/:id/assign-teacher', authenticateToken, authorize('ADMIN'), [
     }
 
     // Check if class belongs to admin's school
-    if (classData.schoolName !== req.user.schoolName) {
+    if (classData.schoolId?.toString() !== req.user.schoolId?.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Access denied. You can only assign teachers to classes in your school.'
@@ -340,7 +431,7 @@ router.post('/:id/assign-teacher', authenticateToken, authorize('ADMIN'), [
 
     // Check if teacher exists and belongs to the same school
     const teacher = await User.findById(teacherId);
-    if (!teacher || teacher.role !== 'TEACHER' || teacher.schoolName !== req.user.schoolName) {
+    if (!teacher || teacher.role !== 'TEACHER' || teacher.schoolId?.toString() !== req.user.schoolId?.toString()) {
       return res.status(400).json({
         success: false,
         message: 'Teacher not found or does not belong to your school'
@@ -353,6 +444,15 @@ router.post('/:id/assign-teacher', authenticateToken, authorize('ADMIN'), [
       { assignedTeacher: teacherId },
       { new: true }
     ).populate('assignedTeacher', 'name email role teacherTitle');
+
+    // Also update teacher's assignedClasses and className fields
+    if (!teacher.assignedClasses.includes(classId)) {
+      teacher.assignedClasses.push(classId);
+      teacher.className = classData.className;
+      teacher.classGrade = classData.grade;
+      teacher.classSection = classData.section;
+      await teacher.save();
+    }
 
     res.json({
       success: true,
@@ -389,6 +489,58 @@ router.get('/school/:schoolName', authenticateToken, authorize('SUPER_ADMIN'), a
     res.status(500).json({
       success: false,
       message: 'Failed to fetch school classes'
+    });
+  }
+});
+
+// @route   GET /api/classes/teacher/my-classes
+// @desc    Get teacher's assigned classes for student registration
+// @access  Private (Teacher)
+router.get('/teacher/my-classes', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'TEACHER') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only teachers can access this endpoint.'
+      });
+    }
+
+    // Get classes assigned to this teacher
+    const classes = await Class.find({
+      assignedTeacher: req.user._id,
+      isActive: true
+    })
+      .populate('schoolId', 'name district sector')
+      .select('_id className name grade section studentCount')
+      .sort({ grade: 1, name: 1, section: 1 });
+
+    // If no classes assigned, get classes from user's assignedClasses
+    if (classes.length === 0 && req.user.assignedClasses && req.user.assignedClasses.length > 0) {
+      const classIds = req.user.assignedClasses;
+      const assignedClasses = await Class.find({
+        _id: { $in: classIds },
+        isActive: true
+      })
+        .populate('schoolId', 'name district sector')
+        .select('_id className name grade section studentCount')
+        .sort({ grade: 1, name: 1, section: 1 });
+      
+      return res.json({
+        success: true,
+        data: assignedClasses
+      });
+    }
+
+    res.json({
+      success: true,
+      data: classes
+    });
+  } catch (error) {
+    console.error('Get teacher classes error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch teacher classes',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 });

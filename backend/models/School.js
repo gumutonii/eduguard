@@ -83,8 +83,8 @@ const schoolSchema = new mongoose.Schema({
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: [true, 'Created by user is required']
+    ref: 'User'
+    // Will be set after user is created during registration
   }
 }, {
   timestamps: true

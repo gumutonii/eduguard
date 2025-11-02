@@ -24,7 +24,12 @@ export function AdminStudentsPage() {
   const deleteStudentMutation = useMutation({
     mutationFn: (studentId: string) => apiClient.deleteStudent(studentId),
     onSuccess: () => {
+      // Invalidate all related queries to ensure real-time updates
       queryClient.invalidateQueries({ queryKey: ['admin-students'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['students'] })
+      queryClient.invalidateQueries({ queryKey: ['teacher-students'] })
     }
   })
 
@@ -251,7 +256,7 @@ export function AdminStudentsPage() {
                     <div>
                       <h4 className="text-sm font-medium text-gray-900 mb-2">Class Information</h4>
                       <div className="text-sm text-gray-600">
-                        <p>Class: {student.classroomId || 'Not assigned'}</p>
+                        <p>Class: {student.classId?.className || student.className || 'Not assigned'}</p>
                         <p>School: {student.schoolName}</p>
                       </div>
                     </div>

@@ -29,43 +29,30 @@ router.get('/districts-sectors', (req, res) => {
 
 // @route   GET /api/schools/for-registration
 // @desc    Get schools for teacher registration (simplified list)
+// @desc    Returns all active schools from the School model
 // @access  Public
 router.get('/for-registration', async (req, res) => {
   try {
-    // Get unique schools from users who are admins
-    const schools = await User.aggregate([
-      {
-        $match: {
-          role: 'ADMIN',
-          isApproved: true,
-          isActive: true,
-          schoolName: { $exists: true, $ne: null }
-        }
-      },
-      {
-        $group: {
-          _id: '$schoolName',
-          name: { $first: '$schoolName' },
-          district: { $first: '$schoolDistrict' },
-          sector: { $first: '$schoolSector' }
-        }
-      },
-      {
-        $project: {
-          _id: 1,
-          name: 1,
-          district: 1,
-          sector: 1
-        }
-      },
-      {
-        $sort: { name: 1 }
-      }
-    ]);
+    // Get all active schools from the School collection
+    // These are schools created by admins during registration or through the admin interface
+    const schools = await School.find({ 
+      isActive: true 
+    })
+    .select('_id name district sector')
+    .sort({ name: 1 })
+    .lean(); // Use lean() for better performance since we don't need Mongoose documents
+
+    // Transform to match expected format (ensure _id is string)
+    const formattedSchools = schools.map(school => ({
+      _id: school._id.toString(),
+      name: school.name,
+      district: school.district,
+      sector: school.sector
+    }));
 
     res.json({
       success: true,
-      data: schools
+      data: formattedSchools
     });
   } catch (error) {
     console.error('Get schools for registration error:', error);
@@ -451,6 +438,118 @@ router.get('/:id/statistics', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch school statistics'
+    });
+  }
+});
+
+// @route   GET /api/schools/:id
+// @desc    Get school by ID with details
+// @access  Private (Super Admin)
+router.get('/:id', authenticateToken, authorize('SUPER_ADMIN'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const school = await School.findById(id);
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        message: 'School not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: school
+    });
+  } catch (error) {
+    console.error('Get school by ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch school details'
+    });
+  }
+});
+
+// @route   GET /api/schools/:id/users
+// @desc    Get all users (admins and teachers) for a specific school
+// @access  Private (Super Admin)
+router.get('/:id/users', authenticateToken, authorize('SUPER_ADMIN'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify school exists
+    const school = await School.findById(id);
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        message: 'School not found'
+      });
+    }
+
+    // Get all users for this school
+    const users = await User.find({ schoolId: id })
+      .select('-password -passwordResetToken -passwordResetExpires -emailVerificationToken')
+      .sort({ role: 1, name: 1 });
+
+    res.json({
+      success: true,
+      data: users
+    });
+  } catch (error) {
+    console.error('Get school users error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch school users'
+    });
+  }
+});
+
+// @route   GET /api/schools/:id/classes
+// @desc    Get all classes for a specific school
+// @access  Private (Super Admin)
+router.get('/:id/classes', authenticateToken, authorize('SUPER_ADMIN'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify school exists
+    const school = await School.findById(id);
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        message: 'School not found'
+      });
+    }
+
+    // Get all classes for this school
+    const classes = await Class.find({ schoolId: id })
+      .populate('assignedTeacher', 'name email teacherTitle adminTitle')
+      .sort({ className: 1 });
+
+    // Transform the data to include teacher name
+    const transformedClasses = classes.map(cls => ({
+      _id: cls._id,
+      name: cls.className,
+      grade: cls.grade,
+      studentCount: cls.studentCount || 0,
+      isActive: cls.isActive,
+      teacher: cls.assignedTeacher ? {
+        _id: cls.assignedTeacher._id,
+        name: cls.assignedTeacher.name,
+        email: cls.assignedTeacher.email,
+        title: cls.assignedTeacher.teacherTitle || cls.assignedTeacher.adminTitle || 'Teacher'
+      } : null,
+      createdAt: cls.createdAt
+    }));
+
+    res.json({
+      success: true,
+      data: transformedClasses
+    });
+  } catch (error) {
+    console.error('Get school classes error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch school classes'
     });
   }
 });
