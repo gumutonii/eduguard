@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -10,13 +10,17 @@ import {
   UserGroupIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  EyeIcon
+  EyeIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline'
 import { apiClient } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 import type { Student, StudentFilters } from '@/types'
 
 export function StudentsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { user } = useAuthStore()
   const [filters, setFilters] = useState<StudentFilters & { page: number }>({
     search: '',
     classroomId: '',
@@ -30,6 +34,13 @@ export function StudentsPage() {
     queryFn: () => apiClient.getStudents(filters),
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiClient.deleteStudent(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students'] })
+    },
+  })
+
   const students = studentsResponse?.data || []
   const pagination = studentsResponse?.pagination
 
@@ -40,6 +51,21 @@ export function StudentsPage() {
   const handleStudentClick = (studentId: string) => {
     navigate(`/students/${studentId}`)
   }
+
+  const handleDelete = async (studentId: string, studentName: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (window.confirm(`Are you sure you want to delete ${studentName}? This action cannot be undone.`)) {
+      try {
+        await deleteMutation.mutateAsync(studentId)
+        alert('Student deleted successfully')
+      } catch (error) {
+        alert('Failed to delete student. Please try again.')
+        console.error('Delete error:', error)
+      }
+    }
+  }
+
+  const canDelete = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN'
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -199,18 +225,31 @@ export function StudentsPage() {
                           </Badge>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleStudentClick(student._id)
-                            }}
-                            className="flex items-center gap-2"
-                          >
-                            <EyeIcon className="h-4 w-4" />
-                            View Details
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleStudentClick(student._id)
+                              }}
+                              className="flex items-center gap-2"
+                            >
+                              <EyeIcon className="h-4 w-4" />
+                              View
+                            </Button>
+                            {canDelete && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => handleDelete(student._id, `${student.firstName} ${student.lastName}`, e)}
+                                className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                disabled={deleteMutation.isPending}
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}

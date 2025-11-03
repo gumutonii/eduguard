@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Shield with gradient -->
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e40af;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Shield background -->
+  <path d="M32 4 L8 12 L8 28 C8 40 16 50 32 60 C48 50 56 40 56 28 L56 12 Z" 
+        fill="url(#shieldGrad)" 
+        stroke="#1e3a8a" 
+        stroke-width="1.5"/>
+  
+  <!-- Graduation cap - simplified for small sizes -->
+  <g transform="translate(32, 28)">
+    <!-- Cap base (ellipse) -->
+    <ellipse cx="0" cy="6" rx="16" ry="5" fill="#ffffff"/>
+    <!-- Cap top -->
+    <path d="M-16 6 L-12 -2 L12 -2 L16 6 Z" fill="#ffffff"/>
+    <!-- Cap button -->
+    <circle cx="0" cy="-2" r="1.5" fill="#fbbf24"/>
+  </g>
+  
+  <!-- Book - simplified -->
+  <g transform="translate(32, 44)">
+    <rect x="-5" y="-1.5" width="10" height="7" fill="#ffffff" rx="0.5"/>
+    <line x1="0" y1="-1.5" x2="0" y2="5.5" stroke="#2563eb" stroke-width="0.8"/>
+  </g>
+</svg>
+

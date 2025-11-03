@@ -125,7 +125,7 @@ notificationSchema.statics.getUnreadCount = function(recipientId, schoolId) {
 };
 
 // Static method to get notifications for admin
-notificationSchema.statics.getAdminNotifications = function(schoolId, filters = {}) {
+notificationSchema.statics.getAdminNotifications = async function(schoolId, filters = {}) {
   const query = {
     schoolId,
     $or: [

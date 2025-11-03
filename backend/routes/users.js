@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
-const { authenticateToken, authorize } = require('../middleware/auth');
+const { authenticateToken, authorize, canAccessUser, canAccessSchool } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -130,20 +130,14 @@ router.get('/profile', authenticateToken, async (req, res) => {
 
 // @route   GET /api/users/:id
 // @desc    Get user by ID
-// @access  Private
-router.get('/:id', authenticateToken, async (req, res) => {
+// @access  Private (Admin, Super Admin, Teacher - own profile)
+router.get('/:id', authenticateToken, canAccessUser, async (req, res) => {
   try {
     const { id } = req.params;
-
-    // Users can only view their own profile unless they're admin
-    if (req.user.role !== 'ADMIN' && req.user._id.toString() !== id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied'
-      });
-    }
-
-    const user = await User.findById(id).select('-password -passwordResetToken -passwordResetExpires -emailVerificationToken');
+    const user = await User.findById(id)
+      .select('-password -passwordResetToken -passwordResetExpires -emailVerificationToken')
+      .populate('schoolId', 'name district sector phone email')
+      .populate('assignedClasses', 'className grade section');
     
     if (!user) {
       return res.status(404).json({
@@ -263,10 +257,9 @@ router.put('/profile', authenticateToken, [
 });
 
 // @route   PUT /api/users/:id
-// @desc    Update user
-// @access  Private
-router.put('/:id', [
-  authenticateToken,
+// @desc    Update user (Admin, Super Admin can update any user in their school, users can update own profile)
+// @access  Private (Admin, Super Admin, Teacher - own profile)
+router.put('/:id', authenticateToken, canAccessUser, [
   body('name').optional().trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters long'),
   body('phone').optional().matches(/^[\+]?250[\s]?[0-9]{3}[\s]?[0-9]{3}[\s]?[0-9]{3}$|^0[\s]?[0-9]{3}[\s]?[0-9]{3}[\s]?[0-9]{3}$/).withMessage('Please provide a valid phone number'),
   body('role').optional().isIn(['ADMIN', 'TEACHER']).withMessage('Invalid role')
@@ -284,32 +277,27 @@ router.put('/:id', [
     const { id } = req.params;
     const { name, phone, role } = req.body;
 
-    // Check permissions
-    if (req.user.role !== 'ADMIN' && req.user._id.toString() !== id) {
+    // Only ADMIN and SUPER_ADMIN can change roles
+    if (role && !['ADMIN', 'SUPER_ADMIN'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied'
-      });
-    }
-
-    // Only admin can change roles
-    if (role && req.user.role !== 'ADMIN') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only admin can change user roles'
+        message: 'Only administrators can change user roles'
       });
     }
 
     const updateData = {};
     if (name) updateData.name = name;
     if (phone) updateData.phone = phone;
-    if (role && req.user.role === 'ADMIN') updateData.role = role;
+    if (role && ['ADMIN', 'SUPER_ADMIN'].includes(req.user.role)) updateData.role = role;
 
     const user = await User.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
-    ).select('-password -passwordResetToken -passwordResetExpires -emailVerificationToken');
+    )
+    .select('-password -passwordResetToken -passwordResetExpires -emailVerificationToken')
+    .populate('schoolId', 'name district sector phone email')
+    .populate('assignedClasses', 'className grade section');
 
     if (!user) {
       return res.status(404).json({
@@ -452,13 +440,13 @@ router.put('/:id/status', [
 });
 
 // @route   DELETE /api/users/:id
-// @desc    Delete user (Admin only)
-// @access  Private (Admin)
-router.delete('/:id', authenticateToken, authorize('ADMIN'), async (req, res) => {
+// @desc    Delete user (Admin, Super Admin only)
+// @access  Private (Admin, Super Admin)
+router.delete('/:id', authenticateToken, authorize('ADMIN', 'SUPER_ADMIN'), async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Prevent admin from deleting themselves
+    // Prevent user from deleting themselves
     if (req.user._id.toString() === id) {
       return res.status(400).json({
         success: false,
@@ -474,8 +462,8 @@ router.delete('/:id', authenticateToken, authorize('ADMIN'), async (req, res) =>
       });
     }
 
-    // Check if user belongs to admin's school (for regular admins)
-    if (req.user.role === 'ADMIN' && user.schoolId && !user.schoolId.equals(req.user.schoolId)) {
+    // Check if user belongs to admin's school (for regular admins, SUPER_ADMIN can delete any)
+    if (req.user.role === 'ADMIN' && !canAccessSchool(req.user.schoolId, user.schoolId, req.user.role)) {
       return res.status(403).json({
         success: false,
         message: 'Access denied. You can only delete users from your school.'

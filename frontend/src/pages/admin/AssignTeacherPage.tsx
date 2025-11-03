@@ -76,6 +76,15 @@ export function AssignTeacherPage() {
   if (classLoading || teachersLoading) {
     return (
       <div className="space-y-6">
+        <div className="flex items-center space-x-4">
+          <Link to="/classes">
+            <Button variant="outline" size="sm">
+              <ArrowLeftIcon className="h-4 w-4 mr-2" />
+              Back to Classes
+            </Button>
+          </Link>
+          <h1 className="text-2xl font-bold text-neutral-900">Loading...</h1>
+        </div>
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
         </div>
@@ -86,14 +95,18 @@ export function AssignTeacherPage() {
   if (!classInfo) {
     return (
       <div className="space-y-6">
+        <div className="flex items-center space-x-4">
+          <Link to="/classes">
+            <Button variant="outline" size="sm">
+              <ArrowLeftIcon className="h-4 w-4 mr-2" />
+              Back to Classes
+            </Button>
+          </Link>
+          <h1 className="text-2xl font-bold text-neutral-900">Class not found</h1>
+        </div>
         <Card>
           <CardContent className="text-center py-12">
-            <p className="text-neutral-600">Class not found</p>
-            <Link to="/classes">
-              <Button variant="outline" className="mt-4">
-                Back to Classes
-              </Button>
-            </Link>
+            <p className="text-neutral-600">The class you are looking for does not exist or you do not have access to it.</p>
           </CardContent>
         </Card>
       </div>

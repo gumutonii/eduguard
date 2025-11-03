@@ -6,12 +6,8 @@ import { Badge } from '@/components/ui/Badge'
 import { 
   UserGroupIcon, 
   ArrowLeftIcon,
-  UserIcon,
-  PhoneIcon,
-  EnvelopeIcon,
-  MapPinIcon,
   AcademicCapIcon,
-  ExclamationTriangleIcon
+  EyeIcon
 } from '@heroicons/react/24/outline'
 import { apiClient } from '@/lib/api'
 
@@ -51,6 +47,31 @@ export function ClassStudentsPage() {
 
   const classInfo = classData?.data
   const students = studentsData?.data || []
+
+  if (!classInfo) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center space-x-4">
+          <Link to="/classes">
+            <Button variant="outline" size="sm">
+              <ArrowLeftIcon className="h-4 w-4 mr-2" />
+              Back to Classes
+            </Button>
+          </Link>
+          <h1 className="text-2xl font-bold text-gray-900">Class not found</h1>
+        </div>
+        <Card>
+          <CardContent className="text-center py-12">
+            <AcademicCapIcon className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-4 text-lg font-medium text-gray-900">Class not found</h3>
+            <p className="mt-2 text-gray-600">
+              The class you are looking for does not exist or you do not have access to it.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   const getRiskColor = (riskLevel: string) => {
     switch (riskLevel) {
@@ -131,121 +152,82 @@ export function ClassStudentsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {students.map((student: any, index: number) => (
-            <Card key={student._id || index}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="h-12 w-12 rounded-full bg-primary-100 flex items-center justify-center">
-                      <span className="text-lg font-medium text-primary-600">
-                        {student.firstName?.[0]}{student.lastName?.[0]}
-                      </span>
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg">
-                        {student.firstName} {student.lastName}
-                      </CardTitle>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <Badge className="bg-blue-100 text-blue-800">
-                          {student.gender}
-                        </Badge>
-                        <Badge className="bg-gray-100 text-gray-800">
-                          Age: {student.age}
-                        </Badge>
-                        {student.riskLevel && (
-                          <Badge className={getRiskColor(student.riskLevel)}>
-                            {getRiskDisplayName(student.riskLevel)}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Link to={`/students/${student._id}`}>
-                      <Button size="sm" variant="outline">
-                        View Details
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-900 mb-2">Contact Information</h4>
-                      <div className="space-y-1 text-sm text-gray-600">
-                        {student.guardianContacts && student.guardianContacts.length > 0 ? (
-                          student.guardianContacts.map((guardian: any, idx: number) => (
-                            <div key={idx} className="flex items-center space-x-2">
-                              <UserIcon className="h-4 w-4 text-gray-400" />
-                              <span>{guardian.name} ({guardian.relation})</span>
-                              {guardian.phone && (
-                                <div className="flex items-center space-x-1">
-                                  <PhoneIcon className="h-3 w-3 text-gray-400" />
-                                  <span className="text-xs">{guardian.phone}</span>
-                                </div>
-                              )}
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-gray-500">No guardian contacts</p>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-900 mb-2">Address</h4>
-                      <div className="text-sm text-gray-600">
-                        {student.address ? (
-                          <div className="flex items-start space-x-1">
-                            <MapPinIcon className="h-4 w-4 text-gray-400 mt-0.5" />
-                            <div>
-                              <p>{student.address.district}, {student.address.sector}</p>
-                              <p className="text-xs text-gray-500">
-                                {student.address.sector}, {student.address.district}
-                                {student.address.cell && student.address.village && (
-                                  <> • {student.address.cell}, {student.address.village}</>
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="text-gray-500">No address information</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {student.socioEconomic && (
-                    <div className="border-t pt-4">
-                      <h4 className="text-sm font-medium text-gray-900 mb-2">Socio-Economic Information</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-500">Ubudehe Level:</span>
-                          <span className="ml-1 font-medium">{student.socioEconomic.ubudeheLevel}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Siblings:</span>
-                          <span className="ml-1 font-medium">{student.socioEconomic.numberOfSiblings}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Parent Education:</span>
-                          <span className="ml-1 font-medium">{student.socioEconomic.parentEducationLevel}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Family Conflict:</span>
-                          <span className="ml-1 font-medium">
-                            {student.socioEconomic.familyConflict ? 'Yes' : 'No'}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Student
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Student ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Gender
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Age
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Risk Level
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {students.map((student: any, index: number) => (
+                  <tr key={student._id || index} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                          <span className="text-sm font-medium text-blue-600">
+                            {student.firstName?.charAt(0)}{student.lastName?.charAt(0)}
                           </span>
                         </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {student.firstName} {student.lastName}
+                          </div>
+                          {student.guardianContacts && student.guardianContacts.length > 0 && student.guardianContacts[0]?.name && (
+                            <div className="text-sm text-gray-500">
+                              {student.guardianContacts[0].name}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {student.studentId || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Badge className="bg-blue-100 text-blue-800">
+                        {student.gender || 'N/A'}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {student.age || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Badge className={getRiskColor(student.riskLevel)}>
+                        {getRiskDisplayName(student.riskLevel)}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <Link to={`/students/${student._id}`}>
+                        <Button size="sm" variant="outline">
+                          <EyeIcon className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

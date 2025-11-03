@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -10,13 +10,17 @@ import {
   FunnelIcon,
   EyeIcon,
   PlusIcon,
-  UserPlusIcon
+  UserPlusIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline'
 import { Link } from 'react-router-dom'
 import { apiClient } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 import { useState } from 'react'
 
 export function TeacherStudentsPage() {
+  const queryClient = useQueryClient()
+  const { user } = useAuthStore()
   const [searchTerm, setSearchTerm] = useState('')
   const [filterRisk, setFilterRisk] = useState('all')
 
@@ -32,6 +36,29 @@ export function TeacherStudentsPage() {
     queryKey: ['teacher-dashboard'],
     queryFn: () => apiClient.getTeacherDashboard(),
   })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiClient.deleteStudent(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teacher-students'] })
+      queryClient.invalidateQueries({ queryKey: ['teacher-dashboard'] })
+    },
+  })
+
+  const handleDelete = async (studentId: string, studentName: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (window.confirm(`Are you sure you want to delete ${studentName}? This action cannot be undone.`)) {
+      try {
+        await deleteMutation.mutateAsync(studentId)
+        alert('Student deleted successfully')
+      } catch (error: any) {
+        alert(error?.message || 'Failed to delete student. Please try again.')
+        console.error('Delete error:', error)
+      }
+    }
+  }
+
+  const canDelete = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'TEACHER'
 
   if (studentsLoading || dashboardLoading) {
     return (
@@ -288,12 +315,25 @@ export function TeacherStudentsPage() {
                       </Badge>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <Link to={`/students/${student._id}`}>
-                        <Button size="sm" variant="outline">
-                          <EyeIcon className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <Link to={`/students/${student._id}`}>
+                          <Button size="sm" variant="outline">
+                            <EyeIcon className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                        </Link>
+                        {canDelete && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => handleDelete(student._id, `${student.firstName} ${student.lastName}`, e)}
+                            className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            disabled={deleteMutation.isPending}
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

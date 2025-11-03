@@ -18,9 +18,7 @@ import {
 import { Link } from 'react-router-dom'
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, ComposedChart, 
-  ScatterChart, Scatter, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, 
-  Radar, Treemap, FunnelChart, Funnel, LabelList, Legend
+  BarChart, Bar, Legend
 } from 'recharts'
 import { apiClient } from '@/lib/api'
 
@@ -264,6 +262,66 @@ export function SuperAdminDashboardPage() {
         </Link>
       </div>
 
+      {/* Essential Charts - Right After Data Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* School Performance Comparison */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <ChartBarIcon className="h-5 w-5 mr-2 text-blue-600" />
+              School Performance Comparison
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.schoolPerformance?.slice(0, 5) || schoolPerformance.slice(0, 5)}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} fontSize={12} />
+                  <YAxis fontSize={12} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="students" fill="#3B82F6" name="Total Students" />
+                  <Bar dataKey="atRisk" fill="#EF4444" name="At Risk" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Attendance Trend */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <ClipboardDocumentCheckIcon className="h-5 w-5 mr-2 text-green-600" />
+              Attendance Trend (Last 6 Weeks)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={stats.attendanceTrend || [
+                  { week: 'W1', attendance: 95, target: 90 },
+                  { week: 'W2', attendance: 93, target: 90 },
+                  { week: 'W3', attendance: 96, target: 90 },
+                  { week: 'W4', attendance: 94, target: 90 },
+                  { week: 'W5', attendance: 97, target: 90 },
+                  { week: 'W6', attendance: 98, target: 90 }
+                ]}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="week" fontSize={12} />
+                  <YAxis domain={[80, 100]} fontSize={12} />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="attendance" stroke="#10B981" strokeWidth={2} name="Actual" />
+                  <Line type="monotone" dataKey="target" stroke="#6B7280" strokeDasharray="5 5" name="Target" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Risk Analysis */}
       <Card>
         <CardHeader>
@@ -295,248 +353,8 @@ export function SuperAdminDashboardPage() {
               <div className="text-sm text-gray-600">Total Active</div>
             </div>
           </div>
-          <div className="mt-6">
-            <div className="text-sm font-medium text-gray-700 mb-2">By Type</div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-              <div className="text-center p-2 bg-gray-50 rounded">
-                <div className="font-bold text-gray-900">{riskData.byType?.attendance || 0}</div>
-                <div className="text-xs text-gray-600">Attendance</div>
-              </div>
-              <div className="text-center p-2 bg-gray-50 rounded">
-                <div className="font-bold text-gray-900">{riskData.byType?.performance || 0}</div>
-                <div className="text-xs text-gray-600">Performance</div>
-              </div>
-              <div className="text-center p-2 bg-gray-50 rounded">
-                <div className="font-bold text-gray-900">{riskData.byType?.behavior || 0}</div>
-                <div className="text-xs text-gray-600">Behavior</div>
-              </div>
-              <div className="text-center p-2 bg-gray-50 rounded">
-                <div className="font-bold text-gray-900">{riskData.byType?.socioeconomic || 0}</div>
-                <div className="text-xs text-gray-600">Socioeconomic</div>
-              </div>
-              <div className="text-center p-2 bg-gray-50 rounded">
-                <div className="font-bold text-gray-900">{riskData.byType?.combined || 0}</div>
-                <div className="text-xs text-gray-600">Combined</div>
-              </div>
-              <div className="text-center p-2 bg-gray-50 rounded">
-                <div className="font-bold text-gray-900">{riskData.byType?.other || 0}</div>
-                <div className="text-xs text-gray-600">Other</div>
-              </div>
-            </div>
-          </div>
         </CardContent>
       </Card>
-
-      {/* Advanced Analytics Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* School Performance Trend */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <ChartBarIcon className="h-5 w-5 mr-2 text-blue-600" />
-              School Performance Trend (Last 6 Months)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={stats.performanceTrend || [
-                  { month: 'Jan', totalStudents: 1200, atRisk: 45, attendance: 95 },
-                  { month: 'Feb', totalStudents: 1250, atRisk: 52, attendance: 93 },
-                  { month: 'Mar', totalStudents: 1300, atRisk: 48, attendance: 96 },
-                  { month: 'Apr', totalStudents: 1280, atRisk: 41, attendance: 94 },
-                  { month: 'May', totalStudents: 1320, atRisk: 38, attendance: 97 },
-                  { month: 'Jun', totalStudents: 1350, atRisk: 35, attendance: 98 }
-                ]}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Area type="monotone" dataKey="totalStudents" stackId="1" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.6} name="Total Students" />
-                  <Area type="monotone" dataKey="atRisk" stackId="2" stroke="#EF4444" fill="#EF4444" fillOpacity={0.6} name="At Risk" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Risk Analysis Radar Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <ExclamationTriangleIcon className="h-5 w-5 mr-2 text-red-600" />
-              Risk Analysis by Category
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={stats.riskAnalysis || [
-                  { category: 'Academic', value: 75, fullMark: 100 },
-                  { category: 'Attendance', value: 60, fullMark: 100 },
-                  { category: 'Behavioral', value: 45, fullMark: 100 },
-                  { category: 'Social', value: 80, fullMark: 100 },
-                  { category: 'Health', value: 90, fullMark: 100 },
-                  { category: 'Family', value: 55, fullMark: 100 }
-                ]}>
-                  <PolarGrid />
-                  <PolarAngleAxis dataKey="category" />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                  <Radar name="Risk Level" dataKey="value" stroke="#EF4444" fill="#EF4444" fillOpacity={0.3} />
-                  <Tooltip />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Comprehensive Analytics Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* School Performance Comparison */}
-        <Card>
-          <CardHeader>
-            <CardTitle>School Performance Comparison</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.schoolPerformance || schoolPerformance}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="totalStudents" fill="#3B82F6" name="Total Students" />
-                  <Bar dataKey="atRiskStudents" fill="#EF4444" name="At Risk" />
-                  <Bar dataKey="attendanceRate" fill="#10B981" name="Attendance %" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* User Role Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle>User Role Distribution</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={roleDistribution}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(1)}%)`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {roleDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Attendance Trend */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <ClipboardDocumentCheckIcon className="h-5 w-5 mr-2 text-green-600" />
-              Attendance Trend
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stats.attendanceTrend || [
-                  { week: 'W1', attendance: 95, target: 90 },
-                  { week: 'W2', attendance: 93, target: 90 },
-                  { week: 'W3', attendance: 96, target: 90 },
-                  { week: 'W4', attendance: 94, target: 90 },
-                  { week: 'W5', attendance: 97, target: 90 },
-                  { week: 'W6', attendance: 98, target: 90 }
-                ]}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="week" />
-                  <YAxis domain={[80, 100]} />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="attendance" stroke="#10B981" strokeWidth={3} name="Actual" />
-                  <Line type="monotone" dataKey="target" stroke="#6B7280" strokeDasharray="5 5" name="Target" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Advanced Performance Metrics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Performance Funnel */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Student Performance Funnel</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <FunnelChart>
-                  <Funnel
-                    dataKey="value"
-                    data={stats.performanceFunnel || [
-                      { name: 'Total Students', value: 1000, fill: '#3B82F6' },
-                      { name: 'Regular Attendees', value: 850, fill: '#10B981' },
-                      { name: 'Good Performance', value: 720, fill: '#F59E0B' },
-                      { name: 'Excellent Performance', value: 480, fill: '#8B5CF6' }
-                    ]}
-                    isAnimationActive
-                  >
-                    <LabelList position="center" fill="#fff" fontSize="12" />
-                  </Funnel>
-                  <Tooltip />
-                </FunnelChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Geographic Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Geographic Distribution</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.geographicDistribution || [
-                  { district: 'Kigali', schools: 15, students: 4500 },
-                  { district: 'Musanze', schools: 8, students: 2400 },
-                  { district: 'Huye', schools: 6, students: 1800 },
-                  { district: 'Rubavu', schools: 5, students: 1500 },
-                  { district: 'Nyagatare', schools: 4, students: 1200 }
-                ]} layout="horizontal">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="district" type="category" width={80} />
-                  <Tooltip />
-                  <Bar dataKey="schools" fill="#3B82F6" name="Schools" />
-                  <Bar dataKey="students" fill="#10B981" name="Students" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Messaging Statistics */}
       <Card>

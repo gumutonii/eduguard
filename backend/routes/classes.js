@@ -1,6 +1,6 @@
 const express = require('express');
 const { body, param, query } = require('express-validator');
-const { authenticateToken, authorize } = require('../middleware/auth');
+const { authenticateToken, authorize, canAccessClass, canAccessSchool } = require('../middleware/auth');
 const Class = require('../models/Class');
 const User = require('../models/User');
 const Student = require('../models/Student');
@@ -87,14 +87,17 @@ router.get('/for-school', async (req, res) => {
   }
 });
 
-// @route   GET /api/classes/:id
-// @desc    Get specific class details
+// @route   GET /api/classes/:id/students
+// @desc    Get students in a specific class
 // @access  Private (Admin, Super Admin, Teacher)
-router.get('/:id', authenticateToken, async (req, res) => {
+// NOTE: This route must come before /:id to ensure proper matching
+router.get('/:id/students', authenticateToken, async (req, res) => {
   try {
     const classId = req.params.id;
+    
+    // Get class details
     const classData = await Class.findById(classId)
-      .populate('createdBy', 'name email role')
+      .populate('schoolId', 'name district sector')
       .populate('assignedTeacher', 'name email role teacherTitle');
 
     if (!classData) {
@@ -105,32 +108,62 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
 
     // Check access permissions
-    if (req.user.role === 'ADMIN' && classData.schoolName !== req.user.schoolName) {
+    if (req.user.role === 'ADMIN' && classData.schoolId && !classData.schoolId._id.equals(req.user.schoolId)) {
       return res.status(403).json({
         success: false,
         message: 'Access denied. You can only view classes from your school.'
       });
     }
 
-    if (req.user.role === 'TEACHER' && classData.assignedTeacher?.toString() !== req.user._id.toString()) {
+    if (req.user.role === 'TEACHER' && classData.assignedTeacher?._id?.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Access denied. You can only view your assigned class.'
       });
     }
 
-    // Get students in this class
+    // Get students in this class using classId (not classroomId)
     const students = await Student.find({ 
-      classroomId: classId, 
+      classId: classId, 
       isActive: true 
-    }).select('firstName lastName gender age riskLevel guardianContacts');
+    })
+    .populate('classId', 'className name grade section')
+    .select('firstName lastName studentId gender age dateOfBirth riskLevel guardianContacts address socioEconomic createdAt')
+    .sort({ firstName: 1, lastName: 1 });
 
     res.json({
       success: true,
-      data: {
-        class: classData,
-        students: students
-      }
+      data: students
+    });
+  } catch (error) {
+    console.error('Get class students error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch class students'
+    });
+  }
+});
+
+// @route   GET /api/classes/:id
+// @desc    Get specific class details
+// @access  Private (Admin, Super Admin, Teacher)
+router.get('/:id', authenticateToken, canAccessClass, async (req, res) => {
+  try {
+    const classData = await Class.findById(req.params.id)
+      .populate('createdBy', 'name email role')
+      .populate('assignedTeacher', 'name email role teacherTitle')
+      .populate('schoolId', 'name district sector');
+
+    if (!classData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Class not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: classData
     });
   } catch (error) {
     console.error('Get class details error:', error);
@@ -278,9 +311,9 @@ router.post('/', authenticateToken, authorize('ADMIN'), [
 });
 
 // @route   PUT /api/classes/:id
-// @desc    Update class (Admin only)
-// @access  Private (Admin)
-router.put('/:id', authenticateToken, authorize('ADMIN'), [
+// @desc    Update class (Admin, Super Admin only)
+// @access  Private (Admin, Super Admin)
+router.put('/:id', authenticateToken, authorize('ADMIN', 'SUPER_ADMIN'), canAccessClass, [
   body('name').optional().trim().isLength({ min: 1 }).withMessage('Class name cannot be empty'),
   body('grade').optional().trim().isLength({ min: 1 }).withMessage('Class grade cannot be empty'),
   body('section').optional().trim().isLength({ min: 1 }).withMessage('Class section cannot be empty'),
@@ -288,33 +321,21 @@ router.put('/:id', authenticateToken, authorize('ADMIN'), [
 ], async (req, res) => {
   try {
     const classId = req.params.id;
-    const { name, grade, section, description } = req.body;
-
-    const classData = await Class.findById(classId);
-
-    if (!classData) {
-      return res.status(404).json({
-        success: false,
-        message: 'Class not found'
-      });
-    }
-
-    // Check if class belongs to admin's school
-    if (classData.schoolName !== req.user.schoolName) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied. You can only update classes from your school.'
-      });
-    }
+    const { name, grade, section, description, className } = req.body;
+    const classData = req.classData; // From canAccessClass middleware
 
     // Check for duplicate if updating name/grade/section
-    if (name || grade || section) {
+    if (name || grade || section || className) {
+      const updateName = className || name || classData.className;
+      const updateGrade = grade || classData.grade;
+      const updateSection = section || classData.section;
+
       const existingClass = await Class.findOne({
         _id: { $ne: classId },
-        name: name || classData.name,
-        grade: grade || classData.grade,
-        section: section || classData.section,
-        schoolName: req.user.schoolName,
+        className: updateName,
+        grade: updateGrade,
+        section: updateSection,
+        schoolId: classData.schoolId,
         isActive: true
       });
 
@@ -328,6 +349,7 @@ router.put('/:id', authenticateToken, authorize('ADMIN'), [
 
     // Update class
     const updateData = {};
+    if (className) updateData.className = className;
     if (name) updateData.name = name;
     if (grade) updateData.grade = grade;
     if (section) updateData.section = section;
@@ -338,7 +360,8 @@ router.put('/:id', authenticateToken, authorize('ADMIN'), [
       updateData,
       { new: true, runValidators: true }
     ).populate('createdBy', 'name email role')
-     .populate('assignedTeacher', 'name email role teacherTitle');
+     .populate('assignedTeacher', 'name email role teacherTitle')
+     .populate('schoolId', 'name district sector');
 
     res.json({
       success: true,
@@ -355,31 +378,15 @@ router.put('/:id', authenticateToken, authorize('ADMIN'), [
 });
 
 // @route   DELETE /api/classes/:id
-// @desc    Delete class (Admin only)
-// @access  Private (Admin)
-router.delete('/:id', authenticateToken, authorize('ADMIN'), async (req, res) => {
+// @desc    Delete class (Admin, Super Admin only)
+// @access  Private (Admin, Super Admin)
+router.delete('/:id', authenticateToken, authorize('ADMIN', 'SUPER_ADMIN'), canAccessClass, async (req, res) => {
   try {
     const classId = req.params.id;
-
-    const classData = await Class.findById(classId);
-
-    if (!classData) {
-      return res.status(404).json({
-        success: false,
-        message: 'Class not found'
-      });
-    }
-
-    // Check if class belongs to admin's school
-    if (!classData.schoolId.equals(req.user.schoolId)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied. You can only delete classes from your school.'
-      });
-    }
+    const classData = req.classData; // From canAccessClass middleware
 
     // Check if class has students
-    const studentCount = await Student.countDocuments({ classroomId: classId, isActive: true });
+    const studentCount = await Student.countDocuments({ classId: classId, isActive: true });
     if (studentCount > 0) {
       return res.status(400).json({
         success: false,
@@ -404,37 +411,39 @@ router.delete('/:id', authenticateToken, authorize('ADMIN'), async (req, res) =>
 });
 
 // @route   POST /api/classes/:id/assign-teacher
-// @desc    Assign teacher to class (Admin only)
-// @access  Private (Admin)
-router.post('/:id/assign-teacher', authenticateToken, authorize('ADMIN'), [
+// @desc    Assign teacher to class (Admin, Super Admin only)
+// @access  Private (Admin, Super Admin)
+router.post('/:id/assign-teacher', authenticateToken, authorize('ADMIN', 'SUPER_ADMIN'), canAccessClass, [
   body('teacherId').isMongoId().withMessage('Valid teacher ID is required')
 ], async (req, res) => {
   try {
     const classId = req.params.id;
     const { teacherId } = req.body;
-
-    const classData = await Class.findById(classId);
-    if (!classData) {
-      return res.status(404).json({
-        success: false,
-        message: 'Class not found'
-      });
-    }
-
-    // Check if class belongs to admin's school
-    if (classData.schoolId?.toString() !== req.user.schoolId?.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied. You can only assign teachers to classes in your school.'
-      });
-    }
+    const classData = req.classData; // From canAccessClass middleware
 
     // Check if teacher exists and belongs to the same school
     const teacher = await User.findById(teacherId);
-    if (!teacher || teacher.role !== 'TEACHER' || teacher.schoolId?.toString() !== req.user.schoolId?.toString()) {
+    if (!teacher || teacher.role !== 'TEACHER') {
       return res.status(400).json({
         success: false,
-        message: 'Teacher not found or does not belong to your school'
+        message: 'Teacher not found or invalid role'
+      });
+    }
+
+    // Check if teacher belongs to the same school (for ADMIN, SUPER_ADMIN can assign any teacher)
+    if (req.user.role === 'ADMIN' && !canAccessSchool(req.user.schoolId, teacher.schoolId, req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Teacher must belong to your school.'
+      });
+    }
+
+    // Check if class belongs to teacher's school
+    const classSchoolId = classData.schoolId?._id || classData.schoolId;
+    if (!canAccessSchool(teacher.schoolId, classSchoolId, req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Teacher and class must belong to the same school'
       });
     }
 

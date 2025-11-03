@@ -24,14 +24,26 @@ router.get('/', authenticateToken, async (req, res) => {
       assignedTeacher 
     } = req.query;
 
-    let query = { 
-      schoolId: req.user.schoolId,
-      isActive: true 
-    };
+    let query = { isActive: true };
 
-    // Role-based filtering
-    if (req.user.role === 'TEACHER') {
-      query.assignedTeacher = req.user._id;
+    // SUPER_ADMIN: Can see all students
+    // ADMIN: Can see only their school's students
+    // TEACHER: Can see only assigned students
+    if (req.user.role === 'SUPER_ADMIN') {
+      // No school filter for super admin
+    } else if (req.user.role === 'ADMIN') {
+      query.schoolId = req.user.schoolId;
+    } else if (req.user.role === 'TEACHER') {
+      // Teachers can see students assigned to them or in their assigned classes
+      query.$or = [
+        { assignedTeacher: req.user._id },
+        { classId: { $in: req.user.assignedClasses || [] } }
+      ];
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: 'Insufficient permissions'
+      });
     }
 
     // Additional filters
@@ -535,10 +547,18 @@ router.post('/:id/notes', [
 
 // @route   DELETE /api/students/:id
 // @desc    Delete student (hard delete)
-// @access  Private (Admin)
-router.delete('/:id', authenticateToken, authorize('ADMIN'), async (req, res) => {
+// @access  Private (Admin, Teacher - only for their assigned students)
+router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Only ADMIN, SUPER_ADMIN, and TEACHER roles can delete students
+    if (!['ADMIN', 'SUPER_ADMIN', 'TEACHER'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only admins and teachers can delete students.'
+      });
+    }
 
     const student = await Student.findById(id);
     if (!student) {
@@ -548,13 +568,34 @@ router.delete('/:id', authenticateToken, authorize('ADMIN'), async (req, res) =>
       });
     }
 
-    // Check if student belongs to admin's school (for regular admins)
-    if (req.user.role === 'ADMIN' && student.schoolId && !student.schoolId.equals(req.user.schoolId)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied. You can only delete students from your school.'
-      });
+    // Check permissions based on role
+    if (req.user.role === 'ADMIN') {
+      // Admin can only delete students from their school
+      if (student.schoolId && !student.schoolId.equals(req.user.schoolId)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You can only delete students from your school.'
+        });
+      }
+    } else if (req.user.role === 'TEACHER') {
+      // Teacher can only delete students assigned to them or in their classes
+      const isAssignedTeacher = student.assignedTeacher && 
+        student.assignedTeacher.toString() === req.user._id.toString();
+      
+      const isInTeacherClass = student.classId && 
+        req.user.assignedClasses && 
+        req.user.assignedClasses.some((classId) => 
+          classId.toString() === student.classId.toString()
+        );
+      
+      if (!isAssignedTeacher && !isInTeacherClass) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You can only delete students assigned to your classes.'
+        });
+      }
     }
+    // SUPER_ADMIN can delete any student (no additional checks)
 
     // Hard delete the student
     await Student.findByIdAndDelete(id);

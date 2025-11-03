@@ -171,9 +171,190 @@ const optionalAuth = async (req, res, next) => {
   }
 };
 
+// Helper: Check if user can access a school resource
+const canAccessSchool = (userSchoolId, resourceSchoolId, userRole) => {
+  if (userRole === 'SUPER_ADMIN') return true;
+  if (userRole === 'ADMIN') {
+    if (!userSchoolId || !resourceSchoolId) return false;
+    return userSchoolId.toString() === resourceSchoolId.toString();
+  }
+  return false;
+};
+
+// Helper: Check if teacher can access a class
+const canTeacherAccessClass = (teacherId, teacherAssignedClasses, classId) => {
+  if (!classId) return false;
+  if (!teacherAssignedClasses || teacherAssignedClasses.length === 0) return false;
+  
+  const classIdStr = classId.toString();
+  return teacherAssignedClasses.some((assignedClassId) => 
+    assignedClassId.toString() === classIdStr
+  );
+};
+
+// Helper: Check if teacher can access a student
+const canTeacherAccessStudent = (teacherId, teacherAssignedClasses, student) => {
+  if (!student) return false;
+  
+  // Check if student is directly assigned to teacher
+  if (student.assignedTeacher && student.assignedTeacher.toString() === teacherId.toString()) {
+    return true;
+  }
+  
+  // Check if student's class is in teacher's assigned classes
+  if (student.classId && teacherAssignedClasses && teacherAssignedClasses.length > 0) {
+    const studentClassIdStr = student.classId.toString();
+    return teacherAssignedClasses.some((classId) => 
+      classId.toString() === studentClassIdStr
+    );
+  }
+  
+  return false;
+};
+
+// Middleware: Check if user can access a class
+const canAccessClass = async (req, res, next) => {
+  try {
+    const classId = req.params.id || req.params.classId;
+    const user = req.user;
+
+    if (!classId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Class ID is required'
+      });
+    }
+
+    const Class = require('../models/Class');
+    const classData = await Class.findOne({ _id: classId, isActive: true })
+      .populate('schoolId', '_id name');
+
+    if (!classData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Class not found'
+      });
+    }
+
+    // SUPER_ADMIN: Full access
+    if (user.role === 'SUPER_ADMIN') {
+      req.classData = classData;
+      return next();
+    }
+
+    // ADMIN: Can access only their school's classes
+    if (user.role === 'ADMIN') {
+      if (!canAccessSchool(user.schoolId, classData.schoolId?._id || classData.schoolId, user.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You can only access classes from your school.'
+        });
+      }
+      req.classData = classData;
+      return next();
+    }
+
+    // TEACHER: Can access only assigned classes
+    if (user.role === 'TEACHER') {
+      const isAssigned = 
+        (classData.assignedTeacher && classData.assignedTeacher.toString() === user._id.toString()) ||
+        canTeacherAccessClass(user._id, user.assignedClasses, classData._id);
+      
+      if (!isAssigned) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. This class is not assigned to you.'
+        });
+      }
+      req.classData = classData;
+      return next();
+    }
+
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions'
+    });
+  } catch (error) {
+    console.error('Class access check error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking class access'
+    });
+  }
+};
+
+// Middleware: Check if user can access another user
+const canAccessUser = async (req, res, next) => {
+  try {
+    const targetUserId = req.params.id || req.params.userId;
+    const user = req.user;
+
+    if (!targetUserId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+
+    // Users can always access their own profile
+    if (targetUserId === user._id.toString()) {
+      return next();
+    }
+
+    const targetUser = await User.findById(targetUserId);
+
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // SUPER_ADMIN: Full access
+    if (user.role === 'SUPER_ADMIN') {
+      return next();
+    }
+
+    // ADMIN: Can access only users from their school
+    if (user.role === 'ADMIN') {
+      if (!canAccessSchool(user.schoolId, targetUser.schoolId, user.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You can only access users from your school.'
+        });
+      }
+      return next();
+    }
+
+    // TEACHER: Can only access their own profile
+    if (user.role === 'TEACHER') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You can only view your own profile.'
+      });
+    }
+
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions'
+    });
+  } catch (error) {
+    console.error('User access check error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking user access'
+    });
+  }
+};
+
 module.exports = {
   authenticateToken,
   authorize,
   canAccessStudent,
+  canAccessClass,
+  canAccessUser,
+  canAccessSchool,
+  canTeacherAccessClass,
+  canTeacherAccessStudent,
   optionalAuth
 };

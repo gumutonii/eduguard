@@ -230,6 +230,39 @@ export function DashboardPage() {
         </Link>
       </div>
 
+      {/* Essential Charts - Right After Data Cards */}
+      {classPerformance.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <ChartBarIcon className="h-5 w-5 mr-2 text-blue-600" />
+              Class Performance Comparison
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={classPerformance.slice(0, 6)}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="name" 
+                    angle={-45} 
+                    textAnchor="end" 
+                    height={80}
+                    fontSize={12}
+                  />
+                  <YAxis fontSize={12} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="totalStudents" fill="#3B82F6" name="Total Students" />
+                  <Bar dataKey="atRiskStudents" fill="#EF4444" name="At Risk" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Risk Overview */}
       <Card>
         <CardHeader>
@@ -500,44 +533,6 @@ export function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Class Performance Analytics */}
-      {classPerformance.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <ChartBarIcon className="h-5 w-5 mr-2 text-blue-600" />
-              Class Performance Comparison
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-96">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={classPerformance}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="name" 
-                    angle={-45} 
-                    textAnchor="end" 
-                    height={100}
-                    interval={0}
-                  />
-                  <YAxis />
-                  <Tooltip 
-                    formatter={(value: any, name: string) => {
-                      if (name === 'Total Students') return [value, 'Total Students'];
-                      if (name === 'At Risk Students') return [value, 'At Risk Students'];
-                      return [value, name];
-                    }}
-                  />
-                  <Legend />
-                  <Bar dataKey="totalStudents" fill="#3B82F6" name="Total Students" />
-                  <Bar dataKey="atRiskStudents" fill="#EF4444" name="At Risk Students" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Class Performance Overview */}
       <Card>
