@@ -1,4 +1,8 @@
-name: CI/CD Pipeline
+name: CI Pipeline (Tests & Build Validation)
+
+# This workflow runs tests and builds to validate code quality
+# Actual deployments are handled by Vercel (frontend) and Render (backend) via webhooks
+# Vercel and Render automatically deploy on push to main branch independently
 
 on:
   push:
@@ -8,7 +12,7 @@ on:
 
 jobs:
   backend-test:
-    name: Backend Tests
+    name: Backend Tests & Validation
     runs-on: ubuntu-latest
     
     defaults:
@@ -38,7 +42,7 @@ jobs:
         continue-on-error: true
 
   frontend-test:
-    name: Frontend Tests
+    name: Frontend Tests & Build
     runs-on: ubuntu-latest
     
     defaults:
@@ -63,18 +67,22 @@ jobs:
         run: npm run lint || echo "Linting skipped"
         continue-on-error: true
       
-      - name: Build frontend
+      - name: Build frontend (validate build works)
         run: npm run build
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL || 'http://localhost:3000/api' }}
+          # Use production API URL from secrets, or fallback for CI validation
+          # Note: This is only for build validation. Vercel uses its own VITE_API_URL env var.
+          VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://eduguard-w5tr.onrender.com/api' }}
 
-  notify-success:
-    name: Notify Success
+  validation-complete:
+    name: Validation Complete
     runs-on: ubuntu-latest
     needs: [backend-test, frontend-test]
     if: success()
     
     steps:
-      - name: Deployment successful
-        run: echo "✅ All checks passed! Ready for deployment."
+      - name: Validation successful
+        run: echo "✅ All checks passed! Code is ready for deployment."
+      - name: Note
+        run: echo "ℹ️  Vercel and Render will handle actual deployments via webhooks."
 
