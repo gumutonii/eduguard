@@ -38,24 +38,24 @@ export function TopBar() {
           <Bars3Icon className="h-6 w-6" aria-hidden="true" />
         </button>
 
-        <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
-          <div className="relative flex flex-1 items-center">
-            <MagnifyingGlassIcon className="pointer-events-none absolute inset-y-0 left-0 h-full w-5 text-neutral-400 pl-3" />
+        <div className="flex flex-1 gap-x-2 sm:gap-x-4 self-stretch lg:gap-x-6">
+          <div className="relative flex flex-1 items-center min-w-0">
+            <MagnifyingGlassIcon className="pointer-events-none absolute inset-y-0 left-0 h-full w-4 sm:w-5 text-neutral-400 pl-2 sm:pl-3" />
             <input
               type="text"
-              className="block h-full w-full border-0 py-0 pl-10 pr-0 text-neutral-900 placeholder:text-neutral-400 focus:ring-0 sm:text-sm"
-              placeholder="Search students, classes, or reports..."
+              className="block h-full w-full border-0 py-0 pl-8 sm:pl-10 pr-2 text-neutral-900 placeholder:text-neutral-400 focus:ring-0 text-xs sm:text-sm"
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-        <div className="flex items-center gap-x-4 lg:gap-x-6">
+        <div className="flex items-center gap-x-2 sm:gap-x-4 lg:gap-x-6">
           <Link
             to="/notifications"
             className="-m-2.5 p-2.5 text-neutral-400 hover:text-neutral-500"
           >
             <span className="sr-only">View notifications</span>
-            <BellIcon className="h-6 w-6" aria-hidden="true" />
+            <BellIcon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
           </Link>
 
           <div className="hidden lg:block lg:h-6 lg:w-px lg:bg-neutral-200" aria-hidden="true" />
@@ -93,9 +93,9 @@ export function TopBar() {
 
     {/* Mobile menu overlay */}
     {mobileMenuOpen && (
-      <div className="lg:hidden">
-        <div className="fixed inset-0 z-50" />
-        <div className="fixed inset-y-0 left-0 z-50 w-full overflow-y-auto bg-white px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-neutral-900/10">
+      <div className="lg:hidden" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-50 bg-gray-600 bg-opacity-75" onClick={() => setMobileMenuOpen(false)} />
+        <div className="fixed inset-y-0 left-0 z-50 w-full overflow-y-auto bg-white px-4 py-6 sm:max-w-sm sm:ring-1 sm:ring-neutral-900/10">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-primary-600">EduGuard</h1>
             <button

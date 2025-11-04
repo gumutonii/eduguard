@@ -77,12 +77,12 @@ export function AllSchoolsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Schools</h1>
-          <p className="text-gray-600">Manage and view all schools in the system</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Schools</h1>
+          <p className="text-sm sm:text-base text-gray-600">Manage and view all schools in the system</p>
         </div>
-        <div className="text-sm text-gray-500">
+        <div className="text-xs sm:text-sm text-gray-500">
           {schools.length} total schools
         </div>
       </div>
@@ -146,85 +146,93 @@ export function AllSchoolsPage() {
             <p className="mt-2 text-gray-600">No schools have been registered yet.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">School Name</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Total Users</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Admins</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Teachers</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Classes</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Students</th>
-                    <th className="text-center py-3 px-4 font-medium text-gray-700">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-          {schools.map((school, index) => (
-                    <tr 
-                      key={school._id || index}
-                      className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="py-4 px-4">
-                  <div className="flex items-center space-x-3">
-                          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <BuildingOfficeIcon className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                            <p className="font-medium text-gray-900">{school.name || school.schoolName || 'N/A'}</p>
-                      </div>
-                    </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <p className="text-sm font-medium text-gray-900">{school.totalUsers || 0}</p>
-                      </td>
-                      <td className="py-4 px-4">
-                        <p className="text-sm text-gray-900">{school.admins || 0}</p>
-                      </td>
-                      <td className="py-4 px-4">
-                        <p className="text-sm text-gray-900">{school.teachers || 0}</p>
-                      </td>
-                      <td className="py-4 px-4">
-                        <p className="text-sm text-gray-900">{school.totalClasses || school.classes || 0}</p>
-                      </td>
-                      <td className="py-4 px-4">
-                        <p className="text-sm font-medium text-gray-900">{school.totalStudents || 0}</p>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center justify-center space-x-1">
-                          <Link 
-                            to={`/schools/${school._id}`}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              className="h-8 w-8 p-0"
-                              title="View"
-                            >
-                              <EyeIcon className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDelete(school)
-                            }}
-                            disabled={deleteSchoolMutation.isPending}
-                            title="Delete"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-                    </div>
+            <div className="overflow-x-auto -mx-3 sm:mx-0">
+              <div className="inline-block min-w-full align-middle">
+                <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                  <table className="min-w-full divide-y divide-gray-300">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="py-3 px-3 sm:px-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">School</th>
+                        <th scope="col" className="py-3 px-3 sm:px-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider hidden md:table-cell">Users</th>
+                        <th scope="col" className="py-3 px-3 sm:px-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider hidden lg:table-cell">Admins</th>
+                        <th scope="col" className="py-3 px-3 sm:px-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider hidden lg:table-cell">Teachers</th>
+                        <th scope="col" className="py-3 px-3 sm:px-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider hidden md:table-cell">Classes</th>
+                        <th scope="col" className="py-3 px-3 sm:px-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider hidden sm:table-cell">Students</th>
+                        <th scope="col" className="py-3 px-3 sm:px-4 text-center text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {schools.map((school, index) => (
+                        <tr 
+                          key={school._id || index}
+                          className="hover:bg-gray-50 transition-colors"
+                        >
+                          <td className="py-3 px-3 sm:px-4 whitespace-nowrap">
+                            <div className="flex items-center space-x-2 sm:space-x-3">
+                              <div className="h-8 w-8 sm:h-10 sm:w-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <BuildingOfficeIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm sm:text-base font-medium text-gray-900 truncate">{school.name || school.schoolName || 'N/A'}</p>
+                                {/* Mobile: Show key stats inline */}
+                                <div className="md:hidden mt-1 text-xs text-gray-500">
+                                  {school.totalUsers || 0} users • {school.totalClasses || school.classes || 0} classes
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 sm:px-4 whitespace-nowrap hidden md:table-cell">
+                            <p className="text-sm font-medium text-gray-900">{school.totalUsers || 0}</p>
+                          </td>
+                          <td className="py-3 px-3 sm:px-4 whitespace-nowrap hidden lg:table-cell">
+                            <p className="text-sm text-gray-900">{school.admins || 0}</p>
+                          </td>
+                          <td className="py-3 px-3 sm:px-4 whitespace-nowrap hidden lg:table-cell">
+                            <p className="text-sm text-gray-900">{school.teachers || 0}</p>
+                          </td>
+                          <td className="py-3 px-3 sm:px-4 whitespace-nowrap hidden md:table-cell">
+                            <p className="text-sm text-gray-900">{school.totalClasses || school.classes || 0}</p>
+                          </td>
+                          <td className="py-3 px-3 sm:px-4 whitespace-nowrap hidden sm:table-cell">
+                            <p className="text-sm font-medium text-gray-900">{school.totalStudents || 0}</p>
+                          </td>
+                          <td className="py-3 px-3 sm:px-4 whitespace-nowrap text-center">
+                            <div className="flex items-center justify-center space-x-1">
+                              <Link 
+                                to={`/schools/${school._id}`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+                                  title="View"
+                                >
+                                  <EyeIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                                </Button>
+                              </Link>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDelete(school)
+                                }}
+                                disabled={deleteSchoolMutation.isPending}
+                                title="Delete"
+                              >
+                                <TrashIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
                   )}
               </CardContent>
             </Card>

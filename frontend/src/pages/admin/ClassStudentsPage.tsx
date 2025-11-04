@@ -118,17 +118,18 @@ export function ClassStudentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           <Link to={backLink}>
-            <Button variant="outline" size="sm">
-              <ArrowLeftIcon className="h-4 w-4 mr-2" />
-              {backText}
+            <Button variant="outline" size="sm" className="text-xs sm:text-sm">
+              <ArrowLeftIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">{backText}</span>
+              <span className="sm:hidden">Back</span>
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{classInfo?.className || classInfo?.fullName}</h1>
-            <p className="text-gray-600">Students in this class</p>
+            <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 truncate">{classInfo?.className || classInfo?.fullName}</h1>
+            <p className="text-xs sm:text-sm text-gray-600">Students in this class</p>
           </div>
         </div>
       </div>
@@ -176,109 +177,121 @@ export function ClassStudentsPage() {
         </Card>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Student
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Student ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Gender
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Age
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Risk Level
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {students.map((student: any, index: number) => (
-                  <tr key={student._id || index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {student.profilePicture ? (
-                          <img
-                            src={student.profilePicture}
-                            alt={`${student.firstName} ${student.lastName}`}
-                            className="h-10 w-10 rounded-full object-cover border-2 border-primary-200"
-                          />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center border-2 border-primary-200">
-                            <span className="text-sm font-medium text-blue-600">
-                              {student.firstName?.charAt(0)}{student.lastName?.charAt(0)}
-                            </span>
-                          </div>
-                        )}
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {student.firstName} {student.lastName}
-                          </div>
-                          {student.guardianContacts && student.guardianContacts.length > 0 && student.guardianContacts[0]?.name && (
-                            <div className="text-sm text-gray-500">
-                              {student.guardianContacts[0].name}
+          <div className="overflow-x-auto -mx-3 sm:mx-0">
+            <div className="inline-block min-w-full align-middle">
+              <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                <table className="min-w-full divide-y divide-gray-300">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="py-3 px-3 sm:px-4 lg:px-6 text-left text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Student
+                      </th>
+                      <th scope="col" className="py-3 px-3 sm:px-4 lg:px-6 text-left text-xs font-medium text-gray-700 uppercase tracking-wider hidden md:table-cell">
+                        Student ID
+                      </th>
+                      <th scope="col" className="py-3 px-3 sm:px-4 lg:px-6 text-left text-xs font-medium text-gray-700 uppercase tracking-wider hidden lg:table-cell">
+                        Gender
+                      </th>
+                      <th scope="col" className="py-3 px-3 sm:px-4 lg:px-6 text-left text-xs font-medium text-gray-700 uppercase tracking-wider hidden lg:table-cell">
+                        Age
+                      </th>
+                      <th scope="col" className="py-3 px-3 sm:px-4 lg:px-6 text-left text-xs font-medium text-gray-700 uppercase tracking-wider hidden sm:table-cell">
+                        Risk Level
+                      </th>
+                      <th scope="col" className="py-3 px-3 sm:px-4 lg:px-6 text-center text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {students.map((student: any, index: number) => (
+                      <tr key={student._id || index} className="hover:bg-gray-50">
+                        <td className="py-3 px-3 sm:px-4 lg:px-6 whitespace-nowrap">
+                          <div className="flex items-center space-x-2 sm:space-x-3">
+                            {student.profilePicture ? (
+                              <img
+                                src={student.profilePicture}
+                                alt={`${student.firstName} ${student.lastName}`}
+                                className="h-8 w-8 sm:h-10 sm:w-10 rounded-full object-cover border-2 border-primary-200 flex-shrink-0"
+                              />
+                            ) : (
+                              <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-blue-100 flex items-center justify-center border-2 border-primary-200 flex-shrink-0">
+                                <span className="text-xs sm:text-sm font-medium text-blue-600">
+                                  {student.firstName?.charAt(0)}{student.lastName?.charAt(0)}
+                                </span>
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-gray-900 truncate">
+                                {student.firstName} {student.lastName}
+                              </div>
+                              {student.guardianContacts && student.guardianContacts.length > 0 && student.guardianContacts[0]?.name && (
+                                <div className="text-xs text-gray-500 truncate">
+                                  {student.guardianContacts[0].name}
+                                </div>
+                              )}
+                              {/* Mobile: Show key info inline */}
+                              <div className="md:hidden mt-1 flex items-center gap-2 flex-wrap">
+                                <span className="text-xs text-gray-500">ID: {student.studentId || 'N/A'}</span>
+                                <span className="text-xs text-gray-500">•</span>
+                                <Badge className={`text-xs ${getRiskColor(student.riskLevel)}`}>
+                                  {getRiskDisplayName(student.riskLevel)}
+                                </Badge>
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {student.studentId || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge className="bg-blue-100 text-blue-800">
-                        {student.gender || 'N/A'}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {student.age || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge className={getRiskColor(student.riskLevel)}>
-                        {getRiskDisplayName(student.riskLevel)}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-2">
-                        <Link to={`/students/${student._id}`}>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="h-8 w-8 p-0"
-                            title="View student"
-                          >
-                            <EyeIcon className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            if (window.confirm(`Are you sure you want to delete ${student.firstName} ${student.lastName}? This action cannot be undone.`)) {
-                              deleteStudentMutation.mutate(student._id)
-                            }
-                          }}
-                          disabled={deleteStudentMutation.isPending}
-                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          title="Delete student"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 sm:px-4 lg:px-6 whitespace-nowrap text-sm text-gray-900 hidden md:table-cell">
+                          {student.studentId || 'N/A'}
+                        </td>
+                        <td className="py-3 px-3 sm:px-4 lg:px-6 whitespace-nowrap hidden lg:table-cell">
+                          <Badge className="bg-blue-100 text-blue-800">
+                            {student.gender || 'N/A'}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-3 sm:px-4 lg:px-6 whitespace-nowrap text-sm text-gray-900 hidden lg:table-cell">
+                          {student.age || 'N/A'}
+                        </td>
+                        <td className="py-3 px-3 sm:px-4 lg:px-6 whitespace-nowrap hidden sm:table-cell">
+                          <Badge className={getRiskColor(student.riskLevel)}>
+                            {getRiskDisplayName(student.riskLevel)}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-3 sm:px-4 lg:px-6 whitespace-nowrap text-center">
+                          <div className="flex items-center justify-center gap-1 sm:gap-2">
+                            <Link to={`/students/${student._id}`}>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+                                title="View student"
+                              >
+                                <EyeIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                              </Button>
+                            </Link>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (window.confirm(`Are you sure you want to delete ${student.firstName} ${student.lastName}? This action cannot be undone.`)) {
+                                  deleteStudentMutation.mutate(student._id)
+                                }
+                              }}
+                              disabled={deleteStudentMutation.isPending}
+                              className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              title="Delete student"
+                            >
+                              <TrashIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       )}

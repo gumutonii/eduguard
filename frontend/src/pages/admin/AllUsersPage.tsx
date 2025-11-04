@@ -136,40 +136,40 @@ export function AllUsersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-          <p className="text-gray-600">Manage all administrators and teachers in the system</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Users</h1>
+          <p className="text-sm sm:text-base text-gray-600">Manage all administrators and teachers in the system</p>
         </div>
-        <div className="text-sm text-gray-500">
+        <div className="text-xs sm:text-sm text-gray-500">
           {filteredUsers.length} of {users.length} users
         </div>
       </div>
 
       {/* Filters and Search */}
       <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row gap-4">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             {/* Search */}
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="relative">
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search users by name, email, or phone..."
+                  placeholder="Search users..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
 
             {/* Role Filter */}
-            <div className="sm:w-48">
+            <div className="w-full sm:w-40 lg:w-48">
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="ALL">All Roles</option>
                 <option value="SUPER_ADMIN">Super Admin</option>
@@ -179,11 +179,11 @@ export function AllUsersPage() {
             </div>
 
             {/* Status Filter */}
-            <div className="sm:w-48">
+            <div className="w-full sm:w-40 lg:w-48">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="ALL">All Status</option>
                 <option value="ACTIVE">Active</option>
@@ -210,126 +210,140 @@ export function AllUsersPage() {
               <p>No users found matching your criteria</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">User</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Role</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Title</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">School</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
-                    <th className="text-center py-3 px-4 font-medium text-gray-700">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUsers.map((user: User) => (
-                    <tr 
-                      key={user._id} 
-                      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => window.location.href = `/users/${user._id}`}
-                    >
-                      <td className="py-4 px-4">
-                        <div className="flex items-center space-x-3">
-                          {user.profilePicture ? (
-                            <img
-                              src={user.profilePicture}
-                              alt={user.name}
-                              className="h-10 w-10 rounded-full object-cover border-2 border-primary-200"
-                            />
-                          ) : (
-                            <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center border-2 border-primary-200">
-                              <span className="text-sm font-medium text-blue-600">
-                                {user.name.split(' ').map((n: string) => n[0]).join('')}
-                              </span>
+            <div className="overflow-x-auto -mx-3 sm:mx-0">
+              <div className="inline-block min-w-full align-middle">
+                <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                  <table className="min-w-full divide-y divide-gray-300">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="py-3 px-3 sm:px-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">User</th>
+                        <th scope="col" className="py-3 px-3 sm:px-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider hidden sm:table-cell">Role</th>
+                        <th scope="col" className="py-3 px-3 sm:px-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider hidden md:table-cell">Title</th>
+                        <th scope="col" className="py-3 px-3 sm:px-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider hidden lg:table-cell">School</th>
+                        <th scope="col" className="py-3 px-3 sm:px-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider hidden sm:table-cell">Status</th>
+                        <th scope="col" className="py-3 px-3 sm:px-4 text-center text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredUsers.map((user: User) => (
+                        <tr 
+                          key={user._id} 
+                          className="hover:bg-gray-50 cursor-pointer transition-colors"
+                          onClick={() => window.location.href = `/users/${user._id}`}
+                        >
+                          <td className="py-3 px-3 sm:px-4 whitespace-nowrap">
+                            <div className="flex items-center space-x-2 sm:space-x-3">
+                              {user.profilePicture ? (
+                                <img
+                                  src={user.profilePicture}
+                                  alt={user.name}
+                                  className="h-8 w-8 sm:h-10 sm:w-10 rounded-full object-cover border-2 border-primary-200 flex-shrink-0"
+                                />
+                              ) : (
+                                <div className="h-8 w-8 sm:h-10 sm:w-10 bg-blue-100 rounded-full flex items-center justify-center border-2 border-primary-200 flex-shrink-0">
+                                  <span className="text-xs sm:text-sm font-medium text-blue-600">
+                                    {user.name.split(' ').map((n: string) => n[0]).join('')}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+                                <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                                {/* Mobile: Show role and status inline */}
+                                <div className="sm:hidden mt-1 flex items-center gap-2">
+                                  <Badge variant={getRoleBadgeVariant(user)} className="text-xs">
+                                    {user.role === 'SUPER_ADMIN' ? 'Super Admin' :
+                                     user.role === 'ADMIN' ? 'Admin' : 'Teacher'}
+                                  </Badge>
+                                  <Badge variant={getStatusBadgeVariant(user)} className="text-xs">
+                                    {getStatusText(user)}
+                                  </Badge>
+                                </div>
+                              </div>
                             </div>
-                          )}
-                          <div>
-                            <p className="font-medium text-gray-900">{user.name}</p>
-                            <p className="text-sm text-gray-500">{user.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <Badge variant={getRoleBadgeVariant(user.role)}>
-                          {user.role === 'SUPER_ADMIN' ? 'Super Admin' :
-                           user.role === 'ADMIN' ? 'Administrator' : 'Teacher'}
-                        </Badge>
-                      </td>
-                      <td className="py-4 px-4">
-                        <p className="text-sm text-gray-900">{getUserTitle(user)}</p>
-                        {user.className && (
-                          <p className="text-xs text-gray-500">Class: {user.className}</p>
-                        )}
-                      </td>
-                      <td className="py-4 px-4">
-                        {user.schoolName ? (
-                          <div>
-                            <p className="text-sm text-gray-900 font-medium">{user.schoolName}</p>
-                            {user.schoolDistrict && user.schoolSector && (
-                            <p className="text-xs text-gray-500">
-                              {user.schoolDistrict}, {user.schoolSector}
-                            </p>
+                          </td>
+                          <td className="py-3 px-3 sm:px-4 whitespace-nowrap hidden sm:table-cell">
+                            <Badge variant={getRoleBadgeVariant(user)}>
+                              {user.role === 'SUPER_ADMIN' ? 'Super Admin' :
+                               user.role === 'ADMIN' ? 'Administrator' : 'Teacher'}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-3 sm:px-4 whitespace-nowrap hidden md:table-cell">
+                            <p className="text-sm text-gray-900">{getUserTitle(user)}</p>
+                            {user.className && (
+                              <p className="text-xs text-gray-500">Class: {user.className}</p>
                             )}
-                          </div>
-                        ) : user.role === 'SUPER_ADMIN' ? (
-                          <span className="text-sm text-gray-400 italic">System-wide access</span>
-                        ) : (
-                          <span className="text-sm text-gray-400">No school assigned</span>
-                        )}
-                      </td>
-                      <td className="py-4 px-4">
-                        <Badge variant={getStatusBadgeVariant(user)}>
-                          {getStatusText(user)}
-                        </Badge>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center justify-center space-x-1">
-                          <Link 
-                            to={`/users/${user._id}`}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              className="h-8 w-8 p-0"
-                              title="View"
-                            >
-                              <EyeIcon className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                          <Link 
-                            to={`/users/${user._id}/edit`}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              className="h-8 w-8 p-0"
-                              title="Edit"
-                            >
-                              <PencilIcon className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDelete(user)
-                            }}
-                            disabled={deleteUserMutation.isPending}
-                            title="Delete"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          </td>
+                          <td className="py-3 px-3 sm:px-4 whitespace-nowrap hidden lg:table-cell">
+                            {user.schoolName ? (
+                              <div>
+                                <p className="text-sm text-gray-900 font-medium">{user.schoolName}</p>
+                                {user.schoolDistrict && user.schoolSector && (
+                                <p className="text-xs text-gray-500">
+                                  {user.schoolDistrict}, {user.schoolSector}
+                                </p>
+                                )}
+                              </div>
+                            ) : user.role === 'SUPER_ADMIN' ? (
+                              <span className="text-sm text-gray-400 italic">System-wide</span>
+                            ) : (
+                              <span className="text-sm text-gray-400">No school</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 sm:px-4 whitespace-nowrap hidden sm:table-cell">
+                            <Badge variant={getStatusBadgeVariant(user)}>
+                              {getStatusText(user)}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-3 sm:px-4 whitespace-nowrap text-center">
+                            <div className="flex items-center justify-center space-x-1">
+                              <Link 
+                                to={`/users/${user._id}`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+                                  title="View"
+                                >
+                                  <EyeIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                                </Button>
+                              </Link>
+                              <Link 
+                                to={`/users/${user._id}/edit`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+                                  title="Edit"
+                                >
+                                  <PencilIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                                </Button>
+                              </Link>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDelete(user)
+                                }}
+                                disabled={deleteUserMutation.isPending}
+                                title="Delete"
+                              >
+                                <TrashIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
