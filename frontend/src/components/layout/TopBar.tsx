@@ -23,7 +23,7 @@ export function TopBar() {
 
   const profilePicture = userProfile?.data?.profilePicture
   const userName = userProfile?.data?.name || user?.name || 'User'
-  const userInitials = userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+  const userInitials = userName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
 
   return (
     <>

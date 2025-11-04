@@ -200,10 +200,13 @@ export function AdminClassesPage() {
               className="hover:shadow-md transition-shadow"
             >
               <CardHeader 
-                className="pb-3 cursor-pointer"
-                onClick={() => window.location.href = `/classes/${classItem._id}`}
+                className="pb-3"
               >
-                <div className="flex items-center justify-between">
+                <div 
+                  className="cursor-pointer"
+                  onClick={() => window.location.href = `/classes/${classItem._id}`}
+                >
+                  <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
                       <AcademicCapIcon className="h-4 w-4 text-blue-600" />
@@ -238,6 +241,7 @@ export function AdminClassesPage() {
                     >
                       <TrashIcon className="h-3 w-3" />
                     </Button>
+                  </div>
                   </div>
                 </div>
               </CardHeader>

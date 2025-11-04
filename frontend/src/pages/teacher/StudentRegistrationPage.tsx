@@ -40,12 +40,18 @@ const studentRegistrationSchema = z.object({
     ubudeheLevel: z.number().min(1).max(4),
     hasParents: z.union([
       z.boolean(),
-      z.string().transform((val) => val === 'true' || val === true)
-    ]).pipe(z.boolean()),
+      z.string()
+    ]).transform((val) => {
+      if (typeof val === 'string') return val === 'true';
+      return Boolean(val);
+    }),
     familyConflict: z.union([
       z.boolean(),
-      z.string().transform((val) => val === 'true' || val === true)
-    ]).pipe(z.boolean()),
+      z.string()
+    ]).transform((val) => {
+      if (typeof val === 'string') return val === 'true';
+      return Boolean(val);
+    }),
     numberOfSiblings: z.number().min(0).max(20)
   }),
   

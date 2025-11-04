@@ -304,7 +304,7 @@ export function AdminNotificationsPage() {
                               <Badge variant={getPriorityBadgeVariant(notification.priority)} className="text-xs">
                                 {notification.priority}
                               </Badge>
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="neutral" className="text-xs">
                                 {notification.entityType}
                               </Badge>
                               {!notification.isRead && (

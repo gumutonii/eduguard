@@ -77,7 +77,7 @@ export function AppSidebar() {
 
   const profilePicture = userProfile?.data?.profilePicture
   const userName = userProfile?.data?.name || user?.name || 'User'
-  const userInitials = userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+  const userInitials = userName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
 
   return (
     <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">

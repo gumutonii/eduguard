@@ -977,8 +977,8 @@ export function TeacherStudentDetailPage() {
                               {attendance.notes && (
                                 <p className="text-sm text-neutral-600">{attendance.notes}</p>
                               )}
-                              {attendance.reason && attendance.reason !== 'NONE' && (
-                                <p className="text-xs text-neutral-500">Reason: {attendance.reason}</p>
+                              {(attendance as any).reason && (attendance as any).reason !== 'NONE' && (
+                                <p className="text-xs text-neutral-500">Reason: {(attendance as any).reason}</p>
                               )}
                             </div>
                             <div className="flex items-center space-x-3">
@@ -1228,17 +1228,17 @@ export function TeacherStudentDetailPage() {
                             <div className="flex-1">
                               <p className="font-medium text-neutral-900">{performance.subject}</p>
                               <p className="text-sm text-neutral-600">
-                                {performance.term} • {performance.assessmentType} • {performance.academicYear || 'N/A'}
+                                {performance.term} • {(performance as any).assessmentType || 'EXAM'} • {(performance as any).academicYear || 'N/A'}
                               </p>
-                              {performance.remarks && (
-                                <p className="text-sm text-neutral-500 mt-1">{performance.remarks}</p>
+                              {(performance as any).remarks && (
+                                <p className="text-sm text-neutral-500 mt-1">{(performance as any).remarks}</p>
                               )}
                             </div>
                             <div className="flex items-center space-x-3">
                               <div className="text-right">
                                 <p className="text-2xl font-bold text-neutral-900">{performance.score}%</p>
                                 <Badge variant={performance.score >= 80 ? 'success' : performance.score >= 60 ? 'warning' : 'error'}>
-                                  Grade: {performance.grade}
+                                  Grade: {(performance as any).grade || 'N/A'}
                                 </Badge>
                               </div>
                               {editingPerformanceId === performance._id ? (
@@ -1309,8 +1309,8 @@ export function TeacherStudentDetailPage() {
                                   onClick={() => {
                                     setEditingPerformanceId(performance._id)
                                     setEditPerformanceScore(performance.score)
-                                    setEditPerformanceGrade(performance.grade || 'C')
-                                    setEditPerformanceRemarks(performance.remarks || '')
+                                    setEditPerformanceGrade((performance as any).grade || 'C')
+                                    setEditPerformanceRemarks((performance as any).remarks || '')
                                   }}
                                 >
                                   <PencilIcon className="h-4 w-4" />
