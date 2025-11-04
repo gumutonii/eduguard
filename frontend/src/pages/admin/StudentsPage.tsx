@@ -193,11 +193,19 @@ export function StudentsPage() {
                       >
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="h-10 w-10 bg-primary-100 rounded-full flex items-center justify-center">
-                              <span className="text-sm font-medium text-primary-600">
-                                {student.firstName.charAt(0)}{student.lastName.charAt(0)}
-                              </span>
-                            </div>
+                            {(student as any).profilePicture ? (
+                              <img
+                                src={(student as any).profilePicture}
+                                alt={`${student.firstName} ${student.lastName}`}
+                                className="h-10 w-10 rounded-full object-cover border-2 border-primary-200"
+                              />
+                            ) : (
+                              <div className="h-10 w-10 bg-primary-100 rounded-full flex items-center justify-center border-2 border-primary-200">
+                                <span className="text-sm font-medium text-primary-600">
+                                  {student.firstName.charAt(0)}{student.lastName.charAt(0)}
+                                </span>
+                              </div>
+                            )}
                             <div className="ml-4">
                               <div className="text-sm font-medium text-neutral-900">
                                 {student.firstName} {student.lastName}

@@ -219,11 +219,19 @@ export function SchoolDetailPage() {
               {admins.map((admin: any) => (
                 <div key={admin._id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
                   <div className="flex items-center space-x-3">
-                    <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-green-600">
-                        {admin.name.split(' ').map((n: string) => n[0]).join('')}
-                      </span>
-                    </div>
+                    {admin.profilePicture ? (
+                      <img
+                        src={admin.profilePicture}
+                        alt={admin.name}
+                        className="h-10 w-10 rounded-full object-cover border-2 border-primary-200"
+                      />
+                    ) : (
+                      <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center border-2 border-primary-200">
+                        <span className="text-sm font-medium text-green-600">
+                          {admin.name.split(' ').map((n: string) => n[0]).join('')}
+                        </span>
+                      </div>
+                    )}
                     <div>
                       <p className="font-medium text-gray-900">{admin.name}</p>
                       <p className="text-sm text-gray-500">
@@ -281,11 +289,19 @@ export function SchoolDetailPage() {
                     >
                       <td className="py-4 px-4">
                         <div className="flex items-center space-x-3">
-                          <div className="h-10 w-10 bg-purple-100 rounded-full flex items-center justify-center">
-                            <span className="text-sm font-medium text-purple-600">
-                              {teacher.name.split(' ').map((n: string) => n[0]).join('')}
-                            </span>
-                          </div>
+                          {teacher.profilePicture ? (
+                            <img
+                              src={teacher.profilePicture}
+                              alt={teacher.name}
+                              className="h-10 w-10 rounded-full object-cover border-2 border-primary-200"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 bg-purple-100 rounded-full flex items-center justify-center border-2 border-primary-200">
+                              <span className="text-sm font-medium text-purple-600">
+                                {teacher.name.split(' ').map((n: string) => n[0]).join('')}
+                              </span>
+                            </div>
+                          )}
                           <div>
                             <p className="font-medium text-gray-900">{teacher.name}</p>
                             <p className="text-sm text-gray-500">{teacher.email}</p>

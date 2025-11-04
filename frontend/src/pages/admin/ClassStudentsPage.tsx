@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -7,7 +7,8 @@ import {
   UserGroupIcon, 
   ArrowLeftIcon,
   AcademicCapIcon,
-  EyeIcon
+  EyeIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline'
 import { apiClient } from '@/lib/api'
 
@@ -15,6 +16,7 @@ export function ClassStudentsPage() {
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
   const schoolId = searchParams.get('schoolId')
+  const queryClient = useQueryClient()
 
   const { data: classData, isLoading: classLoading } = useQuery({
     queryKey: ['class', id],
@@ -24,6 +26,21 @@ export function ClassStudentsPage() {
   const { data: studentsData, isLoading: studentsLoading } = useQuery({
     queryKey: ['class-students', id],
     queryFn: () => apiClient.getClassStudents(id!),
+  })
+
+  const deleteStudentMutation = useMutation({
+    mutationFn: (studentId: string) => apiClient.deleteStudent(studentId),
+    onSuccess: () => {
+      // Invalidate all related queries to ensure real-time updates
+      queryClient.invalidateQueries({ queryKey: ['class-students', id] })
+      queryClient.invalidateQueries({ queryKey: ['class', id] })
+      queryClient.invalidateQueries({ queryKey: ['admin-students'] })
+      queryClient.invalidateQueries({ queryKey: ['teacher-students'] })
+      queryClient.invalidateQueries({ queryKey: ['students'] })
+      if (schoolId) {
+        queryClient.invalidateQueries({ queryKey: ['school', schoolId] })
+      }
+    }
   })
 
   // Determine back link based on schoolId parameter
@@ -188,11 +205,19 @@ export function ClassStudentsPage() {
                   <tr key={student._id || index} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                          <span className="text-sm font-medium text-blue-600">
-                            {student.firstName?.charAt(0)}{student.lastName?.charAt(0)}
-                          </span>
-                        </div>
+                        {student.profilePicture ? (
+                          <img
+                            src={student.profilePicture}
+                            alt={`${student.firstName} ${student.lastName}`}
+                            className="h-10 w-10 rounded-full object-cover border-2 border-primary-200"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center border-2 border-primary-200">
+                            <span className="text-sm font-medium text-blue-600">
+                              {student.firstName?.charAt(0)}{student.lastName?.charAt(0)}
+                            </span>
+                          </div>
+                        )}
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">
                             {student.firstName} {student.lastName}
@@ -222,12 +247,33 @@ export function ClassStudentsPage() {
                       </Badge>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <Link to={`/students/${student._id}`}>
-                        <Button size="sm" variant="outline">
-                          <EyeIcon className="h-4 w-4 mr-1" />
-                          View
+                      <div className="flex items-center gap-2">
+                        <Link to={`/students/${student._id}`}>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="h-8 w-8 p-0"
+                            title="View student"
+                          >
+                            <EyeIcon className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (window.confirm(`Are you sure you want to delete ${student.firstName} ${student.lastName}? This action cannot be undone.`)) {
+                              deleteStudentMutation.mutate(student._id)
+                            }
+                          }}
+                          disabled={deleteStudentMutation.isPending}
+                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          title="Delete student"
+                        >
+                          <TrashIcon className="h-4 w-4" />
                         </Button>
-                      </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

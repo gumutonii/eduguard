@@ -21,6 +21,7 @@ interface User {
   email: string
   phone?: string
   role: 'SUPER_ADMIN' | 'ADMIN' | 'TEACHER'
+  profilePicture?: string
   schoolName?: string
   schoolDistrict?: string
   schoolSector?: string
@@ -230,11 +231,19 @@ export function AllUsersPage() {
                     >
                       <td className="py-4 px-4">
                         <div className="flex items-center space-x-3">
-                          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span className="text-sm font-medium text-blue-600">
-                              {user.name.split(' ').map((n: string) => n[0]).join('')}
-                            </span>
-                          </div>
+                          {user.profilePicture ? (
+                            <img
+                              src={user.profilePicture}
+                              alt={user.name}
+                              className="h-10 w-10 rounded-full object-cover border-2 border-primary-200"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center border-2 border-primary-200">
+                              <span className="text-sm font-medium text-blue-600">
+                                {user.name.split(' ').map((n: string) => n[0]).join('')}
+                              </span>
+                            </div>
+                          )}
                           <div>
                             <p className="font-medium text-gray-900">{user.name}</p>
                             <p className="text-sm text-gray-500">{user.email}</p>

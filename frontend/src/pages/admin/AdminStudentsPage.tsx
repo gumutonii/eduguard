@@ -203,11 +203,21 @@ export function AdminStudentsPage() {
           {students.map((student, index) => (
             <Card key={student._id || index}>
               <CardHeader>
-                <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                      <UserGroupIcon className="h-6 w-6 text-blue-600" />
-                    </div>
+                    {student.profilePicture ? (
+                      <img
+                        src={student.profilePicture}
+                        alt={`${student.firstName} ${student.lastName}`}
+                        className="h-12 w-12 rounded-full object-cover border-2 border-primary-200"
+                      />
+                    ) : (
+                      <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center border-2 border-primary-200">
+                        <span className="text-sm font-medium text-blue-600">
+                          {student.firstName?.charAt(0)}{student.lastName?.charAt(0)}
+                        </span>
+                      </div>
+                    )}
                     <div>
                       <CardTitle className="text-lg">
                         {student.firstName} {student.lastName}

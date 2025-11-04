@@ -25,6 +25,7 @@ interface User {
   email: string
   phone?: string
   role: 'SUPER_ADMIN' | 'ADMIN' | 'TEACHER'
+  profilePicture?: string
   schoolName?: string
   schoolDistrict?: string
   schoolSector?: string
@@ -162,6 +163,28 @@ export function UserDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-200">
+                {user.profilePicture ? (
+                  <img
+                    src={user.profilePicture}
+                    alt={user.name}
+                    className="h-20 w-20 rounded-full object-cover border-2 border-primary-200"
+                  />
+                ) : (
+                  <div className="h-20 w-20 rounded-full bg-primary-100 flex items-center justify-center border-2 border-primary-200">
+                    <span className="text-2xl font-semibold text-primary-600">
+                      {user.name.split(' ').map((n: string) => n[0]).join('')}
+                    </span>
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">{user.name}</h3>
+                  <p className="text-sm text-gray-500">
+                    {user.role === 'SUPER_ADMIN' ? 'Super Admin' : 
+                     user.role === 'ADMIN' ? 'Administrator' : 'Teacher'}
+                  </p>
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700">Full Name</label>
