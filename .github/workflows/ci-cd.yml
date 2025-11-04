@@ -119,6 +119,7 @@ jobs:
         env:
           # Use production API URL for realistic build validation
           # Vercel uses its own VITE_API_URL from dashboard settings
+          # Note: No GitHub secrets required - this workflow works as-is
           VITE_API_URL: 'https://eduguard-w5tr.onrender.com/api'
       
       - name: Verify build output
