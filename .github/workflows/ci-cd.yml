@@ -70,9 +70,9 @@ jobs:
       - name: Build frontend (validate build works)
         run: npm run build
         env:
-          # Use production API URL from secrets, or fallback for CI validation
-          # Note: This is only for build validation. Vercel uses its own VITE_API_URL env var.
-          VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://eduguard-w5tr.onrender.com/api' }}
+          # Use production API URL for CI validation
+          # Note: This is only for build validation. Vercel uses its own VITE_API_URL env var set in dashboard.
+          VITE_API_URL: 'https://eduguard-w5tr.onrender.com/api'
 
   validation-complete:
     name: Validation Complete
