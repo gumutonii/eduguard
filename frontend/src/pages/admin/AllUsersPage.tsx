@@ -251,7 +251,7 @@ export function AllUsersPage() {
                                 <p className="text-xs text-gray-500 truncate">{user.email}</p>
                                 {/* Mobile: Show role and status inline */}
                                 <div className="sm:hidden mt-1 flex items-center gap-2">
-                                  <Badge variant={getRoleBadgeVariant(user)} className="text-xs">
+                                  <Badge variant={getRoleBadgeVariant(user.role)} className="text-xs">
                                     {user.role === 'SUPER_ADMIN' ? 'Super Admin' :
                                      user.role === 'ADMIN' ? 'Admin' : 'Teacher'}
                                   </Badge>
@@ -263,7 +263,7 @@ export function AllUsersPage() {
                             </div>
                           </td>
                           <td className="py-3 px-3 sm:px-4 whitespace-nowrap hidden sm:table-cell">
-                            <Badge variant={getRoleBadgeVariant(user)}>
+                            <Badge variant={getRoleBadgeVariant(user.role)}>
                               {user.role === 'SUPER_ADMIN' ? 'Super Admin' :
                                user.role === 'ADMIN' ? 'Administrator' : 'Teacher'}
                             </Badge>
