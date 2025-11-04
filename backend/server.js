@@ -182,9 +182,13 @@ const startServer = async () => {
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     app.listen(PORT, () => {
+      // Get the actual public URL (Render provides RENDER_EXTERNAL_URL, or use custom env var)
+      const publicUrl = process.env.RENDER_EXTERNAL_URL || process.env.API_URL || `http://localhost:${PORT}`;
+      const apiBaseUrl = `${publicUrl}/api`;
+      
       console.log(`🚀 EduGuard Backend running on port ${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+      console.log(`🔗 API Base URL: ${apiBaseUrl}`);
       console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
       console.log(`💾 MongoDB: ${process.env.MONGODB_URI ? 'Configured' : 'Using default (localhost)'}`);
     });
