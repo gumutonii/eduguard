@@ -23,13 +23,38 @@ export function TeacherNotificationsPage() {
     page: 1,
   })
 
-  const { data: notificationsResponse, isLoading } = useQuery({
-    queryKey: ['notifications', filters],
-    queryFn: () => apiClient.getNotifications(filters),
+  const { data: messagesResponse, isLoading } = useQuery({
+    queryKey: ['messages', filters],
+    queryFn: () => apiClient.getMessages(filters),
   })
 
-  const notifications = notificationsResponse?.data || []
-  const pagination = notificationsResponse?.pagination
+  // Transform messages to match NotificationHistory interface
+  const notifications = (messagesResponse?.data || []).map((message: any) => {
+    // Extract studentId - handle both populated object and string ID
+    let studentId = '';
+    if (message.studentId) {
+      if (typeof message.studentId === 'object') {
+        // Populated student object - use _id or studentId field
+        studentId = message.studentId._id || message.studentId.studentId || '';
+      } else {
+        // String ID
+        studentId = message.studentId;
+      }
+    }
+    
+    return {
+      _id: message._id,
+      studentId: studentId,
+      recipient: message.recipientName || '',
+      channel: message.channel === 'BOTH' ? 'EMAIL' : (message.channel || 'EMAIL'), // Map BOTH to EMAIL for display
+      template: message.template || message.type || '',
+      status: message.status || 'PENDING',
+      sentAt: message.sentAt || message.createdAt || new Date().toISOString(),
+      deliveredAt: message.deliveredAt,
+    };
+  }) as NotificationHistory[]
+
+  const pagination = messagesResponse?.pagination
 
   const handlePageChange = (newPage: number) => {
     setFilters({ ...filters, page: newPage })
@@ -191,15 +216,21 @@ export function TeacherNotificationsPage() {
                     {notifications.map((notification: NotificationHistory) => (
                       <tr key={notification._id} className="hover:bg-neutral-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
-                          {new Date(notification.sentAt).toLocaleDateString()}
+                          {notification.sentAt 
+                            ? new Date(notification.sentAt).toLocaleDateString() 
+                            : 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-neutral-900">
-                            {notification.recipient}
+                            {notification.recipient || 'N/A'}
                           </div>
+                          {notification.studentId && (
                           <div className="text-sm text-neutral-500">
-                            Student ID: {notification.studentId.slice(-8)}
+                              Student ID: {typeof notification.studentId === 'string' 
+                                ? notification.studentId.slice(-8) 
+                                : String(notification.studentId).slice(-8)}
                           </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
@@ -220,11 +251,13 @@ export function TeacherNotificationsPage() {
                           </Badge>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          {notification.studentId && (
                           <Link to={`/students/${notification.studentId}`}>
                             <Button variant="outline" size="sm">
                               View Student
                             </Button>
                           </Link>
+                          )}
                         </td>
                       </tr>
                     ))}

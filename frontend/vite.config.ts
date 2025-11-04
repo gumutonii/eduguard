@@ -11,11 +11,21 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: true, // Allow external connections
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
+        ws: true, // Enable WebSocket proxying
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, res) => {
+            console.log('Proxy error:', err);
+          });
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log('Proxying:', req.method, req.url);
+          });
+        },
       },
     },
   },

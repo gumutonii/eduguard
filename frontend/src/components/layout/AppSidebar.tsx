@@ -1,5 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
+import { apiClient } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import {
   HomeIcon,
@@ -26,9 +28,9 @@ const getNavigation = (role: string) => {
     case 'SUPER_ADMIN':
       return [
         { name: 'System Overview', href: '/dashboard', icon: HomeIcon },
-        { name: 'All Schools', href: '/schools', icon: ChartBarIcon },
-        { name: 'All Users', href: '/users', icon: UserGroupIcon },
-        { name: 'User Approvals', href: '/approvals', icon: UserPlusIcon },
+        { name: 'Schools', href: '/schools', icon: ChartBarIcon },
+        { name: 'Users', href: '/users', icon: UserGroupIcon },
+        { name: 'Approvals', href: '/approvals', icon: UserPlusIcon },
         { name: 'Profile', href: '/profile', icon: Cog6ToothIcon },
       ]
     case 'ADMIN':
@@ -62,6 +64,20 @@ export function AppSidebar() {
   const { user } = useAuthStore()
   
   const navigation = getNavigation(user?.role || 'ADMIN')
+
+  // Fetch user profile to get profile picture
+  // Use user ID in query key to ensure cache isolation per user
+  const { data: userProfile } = useQuery({
+    queryKey: ['user-profile', user?._id],
+    queryFn: () => apiClient.getProfile(),
+    enabled: !!user?._id, // Only fetch if user is authenticated
+    staleTime: 0, // Always refetch to ensure fresh data
+    refetchOnMount: true,
+  })
+
+  const profilePicture = userProfile?.data?.profilePicture
+  const userName = userProfile?.data?.name || user?.name || 'User'
+  const userInitials = userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
 
   return (
     <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
@@ -108,15 +124,26 @@ export function AppSidebar() {
               </ul>
             </li>
             <li className="mt-auto">
-              <div className="flex items-center gap-x-4 px-2 py-3 text-sm font-medium text-neutral-700">
-                <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
-                  <span className="text-sm font-medium text-primary-600">
-                    {user?.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                  </span>
-                </div>
+              <Link
+                to="/profile"
+                className="flex items-center gap-x-4 px-2 py-3 text-sm font-medium text-neutral-700 hover:text-primary-600 hover:bg-neutral-50 rounded-xl transition-colors"
+              >
+                {profilePicture ? (
+                  <img
+                    src={profilePicture}
+                    alt={userName}
+                    className="h-8 w-8 rounded-full object-cover border-2 border-primary-200"
+                  />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center border-2 border-primary-200">
+                    <span className="text-sm font-semibold text-primary-600">
+                      {userInitials}
+                    </span>
+                  </div>
+                )}
                 <span className="sr-only">Your profile</span>
-                <span aria-hidden="true">{user?.name}</span>
-              </div>
+                <span aria-hidden="true" className="truncate">{userName}</span>
+              </Link>
             </li>
           </ul>
         </nav>

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -8,13 +8,15 @@ import {
   UserGroupIcon,
   AcademicCapIcon,
   ExclamationTriangleIcon,
-  PhoneIcon,
-  EnvelopeIcon
+  EyeIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline'
 import { Link } from 'react-router-dom'
 import { apiClient } from '@/lib/api'
 
 export function AllSchoolsPage() {
+  const queryClient = useQueryClient()
+
   const { data: schoolsData, isLoading: schoolsLoading, error: schoolsError } = useQuery({
     queryKey: ['all-schools'],
     queryFn: () => apiClient.getAllSchools(),
@@ -25,11 +27,26 @@ export function AllSchoolsPage() {
     queryFn: () => apiClient.getSystemStats(),
   })
 
+  // Delete school mutation
+  const deleteSchoolMutation = useMutation({
+    mutationFn: (schoolId: string) => apiClient.deleteSchool(schoolId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-schools'] })
+      queryClient.invalidateQueries({ queryKey: ['super-admin-stats'] })
+    },
+  })
+
+  const handleDelete = (school: any) => {
+    if (window.confirm(`Are you sure you want to delete ${school.name || school.schoolName}? This action cannot be undone.`)) {
+      deleteSchoolMutation.mutate(school._id)
+    }
+  }
+
   if (schoolsLoading || statsLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">All Schools</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Schools</h1>
         </div>
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -42,7 +59,7 @@ export function AllSchoolsPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">All Schools</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Schools</h1>
         </div>
         <Card>
           <CardContent className="text-center py-12">
@@ -62,7 +79,7 @@ export function AllSchoolsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">All Schools</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Schools</h1>
           <p className="text-gray-600">Manage and view all schools in the system</p>
         </div>
         <div className="text-sm text-gray-500">
@@ -114,103 +131,103 @@ export function AllSchoolsPage() {
       </div>
 
       {/* Schools List */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <BuildingOfficeIcon className="h-5 w-5 mr-2 text-blue-600" />
+            Schools ({schools.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
       {schools.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-12">
+            <div className="text-center py-12">
             <BuildingOfficeIcon className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-4 text-lg font-medium text-gray-900">No schools found</h3>
             <p className="mt-2 text-gray-600">No schools have been registered yet.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-6">
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">School Name</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Total Users</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Admins</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Teachers</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Classes</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Students</th>
+                    <th className="text-center py-3 px-4 font-medium text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
           {schools.map((school, index) => (
-            <Link key={school._id || index} to={`/schools/${school._id}`}>
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
+                    <tr 
+                      key={school._id || index}
+                      className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="py-4 px-4">
                   <div className="flex items-center space-x-3">
-                    <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                      <BuildingOfficeIcon className="h-6 w-6 text-blue-600" />
+                          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <BuildingOfficeIcon className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg">{school.name || school.schoolName}</CardTitle>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <Badge className="bg-blue-100 text-blue-800">
-                          {school.district || school.schoolDistrict}
-                        </Badge>
-                        <Badge className="bg-gray-100 text-gray-800">
-                          {school.sector || school.schoolSector}
-                        </Badge>
+                            <p className="font-medium text-gray-900">{school.name || school.schoolName || 'N/A'}</p>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {school.totalUsers || 0} users
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {(school.phone || school.schoolPhone) && (
-                      <div className="flex items-center space-x-2">
-                        <PhoneIcon className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">{school.phone || school.schoolPhone}</span>
-                      </div>
-                    )}
-                    {(school.email || school.schoolEmail) && (
-                      <div className="flex items-center space-x-2">
-                        <EnvelopeIcon className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">{school.email || school.schoolEmail}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div className="text-center">
-                        <div className="font-medium text-gray-900">{school.totalUsers || 0}</div>
-                        <div className="text-gray-500">Total Users</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-medium text-gray-900">{school.admins || 0}</div>
-                        <div className="text-gray-500">Admins</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-medium text-gray-900">{school.teachers || 0}</div>
-                        <div className="text-gray-500">Teachers</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-medium text-gray-900">{school.totalStudents || 0}</div>
-                        <div className="text-gray-500">Students</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {(school.atRiskStudents || 0) > 0 && (
-                    <div className="border-t pt-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <ExclamationTriangleIcon className="w-4 h-4 text-red-500" />
-                          <span className="text-sm font-medium text-red-700">
-                            {school.atRiskStudents || 0} at-risk students
-                          </span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-sm font-medium text-gray-900">{school.totalUsers || 0}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-sm text-gray-900">{school.admins || 0}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-sm text-gray-900">{school.teachers || 0}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-sm text-gray-900">{school.totalClasses || school.classes || 0}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-sm font-medium text-gray-900">{school.totalStudents || 0}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center justify-center space-x-1">
+                          <Link 
+                            to={`/schools/${school._id}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                              title="View"
+                            >
+                              <EyeIcon className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(school)
+                            }}
+                            disabled={deleteSchoolMutation.isPending}
+                            title="Delete"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <Badge className="bg-red-100 text-red-800">
-                          {school.riskRate || 0}% risk rate
-                        </Badge>
-                      </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
                     </div>
                   )}
-
-                </div>
               </CardContent>
             </Card>
-            </Link>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

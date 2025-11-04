@@ -108,7 +108,7 @@ export function UserApprovalPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-neutral-900">User Approvals</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">Approvals</h1>
         </div>
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>

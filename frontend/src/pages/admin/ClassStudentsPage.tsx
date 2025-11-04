@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -13,6 +13,8 @@ import { apiClient } from '@/lib/api'
 
 export function ClassStudentsPage() {
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
+  const schoolId = searchParams.get('schoolId')
 
   const { data: classData, isLoading: classLoading } = useQuery({
     queryKey: ['class', id],
@@ -24,15 +26,19 @@ export function ClassStudentsPage() {
     queryFn: () => apiClient.getClassStudents(id!),
   })
 
+  // Determine back link based on schoolId parameter
+  const backLink = schoolId ? `/schools/${schoolId}` : '/classes'
+  const backText = schoolId ? 'Back to School' : 'Back to Classes'
+
   if (classLoading || studentsLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Link to="/classes">
+            <Link to={backLink}>
               <Button variant="outline" size="sm">
                 <ArrowLeftIcon className="h-4 w-4 mr-2" />
-                Back to Classes
+                {backText}
               </Button>
             </Link>
             <h1 className="text-2xl font-bold text-gray-900">Loading...</h1>
@@ -52,10 +58,10 @@ export function ClassStudentsPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center space-x-4">
-          <Link to="/classes">
+          <Link to={backLink}>
             <Button variant="outline" size="sm">
               <ArrowLeftIcon className="h-4 w-4 mr-2" />
-              Back to Classes
+              {backText}
             </Button>
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">Class not found</h1>
@@ -97,10 +103,10 @@ export function ClassStudentsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Link to="/classes">
+          <Link to={backLink}>
             <Button variant="outline" size="sm">
               <ArrowLeftIcon className="h-4 w-4 mr-2" />
-              Back to Classes
+              {backText}
             </Button>
           </Link>
           <div>

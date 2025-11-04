@@ -115,37 +115,107 @@ router.get('/at-risk-overview', authenticateToken, async (req, res) => {
 });
 
 // @route   GET /api/dashboard/attendance-trend
-// @desc    Get attendance trend data
+// @desc    Get attendance trend data (weekly aggregation from real attendance records)
 // @access  Private
 router.get('/attendance-trend', authenticateToken, async (req, res) => {
   try {
-    const { days = 30 } = req.query;
+    const { weeks = 6 } = req.query;
     const user = req.user;
-    let query = { schoolId: user.schoolId, isActive: true };
-
-    // Role-based filtering
-    if (user.role === 'TEACHER') {
-      query.assignedTeacherId = user._id;
-    }
-
-    // Mock attendance trend data (in real app, this would come from attendance records)
-    const trendData = [];
+    const Attendance = require('../models/Attendance');
+    const Student = require('../models/Student');
+    
+    // Calculate date range for last N weeks
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setDate(endDate.getDate() - parseInt(days));
+    startDate.setDate(endDate.getDate() - (parseInt(weeks) * 7));
+    
+    // Build student query based on role
+    let studentQuery = { schoolId: user.schoolId, isActive: true };
+    if (user.role === 'TEACHER') {
+      studentQuery.assignedTeacher = user._id;
+    }
 
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toISOString().split('T')[0];
-      const rate = Math.random() * 20 + 80; // Random rate between 80-100
-      
-      trendData.push({
-        date: dateStr,
-        rate: Math.round(rate * 10) / 10,
-        present: Math.floor(Math.random() * 25) + 20,
-        absent: Math.floor(Math.random() * 5),
-        excused: Math.floor(Math.random() * 3)
+    // Get all students for this school/teacher
+    const students = await Student.find(studentQuery).select('_id');
+    const studentIds = students.map(s => s._id);
+    
+    if (studentIds.length === 0) {
+      // No students, return empty trend with target line
+    const trendData = [];
+      for (let i = parseInt(weeks) - 1; i >= 0; i--) {
+        const weekStart = new Date(endDate);
+        weekStart.setDate(weekStart.getDate() - (i * 7));
+        trendData.push({
+          week: `W${parseInt(weeks) - i}`,
+          attendance: 0,
+          target: 90
+        });
+      }
+      return res.json({
+        success: true,
+        data: trendData
       });
     }
+    
+    // Get attendance records for the date range
+    const attendanceRecords = await Attendance.find({
+      studentId: { $in: studentIds },
+      date: { $gte: startDate, $lte: endDate }
+    }).select('date status');
+    
+    // Group attendance by week
+    const weeklyData = new Map();
+    const targetRate = 90;
+    
+    // Initialize weeks
+    for (let i = parseInt(weeks) - 1; i >= 0; i--) {
+      const weekStart = new Date(endDate);
+      weekStart.setDate(weekStart.getDate() - (i * 7));
+      const weekKey = `W${parseInt(weeks) - i}`;
+      weeklyData.set(weekKey, {
+        week: weekKey,
+        present: 0,
+        absent: 0,
+        excused: 0,
+        total: 0,
+        target: targetRate
+      });
+    }
+    
+    // Process attendance records
+    attendanceRecords.forEach(record => {
+      const recordDate = new Date(record.date);
+      const weekNum = Math.floor((endDate - recordDate) / (7 * 24 * 60 * 60 * 1000));
+      
+      if (weekNum >= 0 && weekNum < parseInt(weeks)) {
+        const weekKey = `W${parseInt(weeks) - weekNum}`;
+        const weekData = weeklyData.get(weekKey);
+        
+        if (weekData) {
+          weekData.total++;
+          if (record.status === 'PRESENT') {
+            weekData.present++;
+          } else if (record.status === 'ABSENT') {
+            weekData.absent++;
+          } else if (record.status === 'EXCUSED') {
+            weekData.excused++;
+          }
+        }
+      }
+    });
+    
+    // Calculate attendance rates
+    const trendData = Array.from(weeklyData.values()).map(week => {
+      const attendanceRate = week.total > 0 
+        ? Math.round(((week.present + week.excused) / week.total) * 100 * 10) / 10
+        : 0;
+      
+      return {
+        week: week.week,
+        attendance: attendanceRate,
+        target: week.target
+      };
+    });
 
     res.json({
       success: true,
@@ -161,38 +231,87 @@ router.get('/attendance-trend', authenticateToken, async (req, res) => {
 });
 
 // @route   GET /api/dashboard/performance-trend
-// @desc    Get performance trend data
+// @desc    Get performance trend data (from real performance records)
 // @access  Private
 router.get('/performance-trend', authenticateToken, async (req, res) => {
   try {
-    const { days = 30 } = req.query;
+    const { weeks = 6 } = req.query;
     const user = req.user;
-    let query = { schoolId: user.schoolId, isActive: true };
-
-    // Role-based filtering
-    if (user.role === 'TEACHER') {
-      query.assignedTeacherId = user._id;
-    }
-
-    // Mock performance trend data
-    const subjects = ['Mathematics', 'Science', 'English', 'History'];
-    const trendData = [];
+    const Performance = require('../models/Performance');
+    const Student = require('../models/Student');
+    
+    // Calculate date range for last N weeks
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setDate(endDate.getDate() - parseInt(days));
+    startDate.setDate(endDate.getDate() - (parseInt(weeks) * 7));
+    
+    // Build student query based on role
+    let studentQuery = { schoolId: user.schoolId, isActive: true };
+    if (user.role === 'TEACHER') {
+      studentQuery.assignedTeacher = user._id;
+    }
 
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toISOString().split('T')[0];
-      
-      subjects.forEach(subject => {
-        const average = Math.random() * 30 + 70; // Random average between 70-100
-        trendData.push({
-          date: dateStr,
-          average: Math.round(average * 10) / 10,
-          subject
-        });
+    // Get all students for this school/teacher
+    const students = await Student.find(studentQuery).select('_id');
+    const studentIds = students.map(s => s._id);
+    
+    if (studentIds.length === 0) {
+      // No students, return empty trend
+      return res.json({
+        success: true,
+        data: []
       });
     }
+    
+    // Get performance records for the date range
+    const performanceRecords = await Performance.find({
+      studentId: { $in: studentIds },
+      date: { $gte: startDate, $lte: endDate }
+    }).select('date score subject');
+    
+    // Group performance by week and subject
+    const weeklyData = new Map();
+    
+    // Initialize weeks
+    for (let i = parseInt(weeks) - 1; i >= 0; i--) {
+      const weekStart = new Date(endDate);
+      weekStart.setDate(weekStart.getDate() - (i * 7));
+      const weekKey = `W${parseInt(weeks) - i}`;
+      weeklyData.set(weekKey, {
+        week: weekKey,
+        scores: [],
+        total: 0
+      });
+    }
+    
+    // Process performance records
+    performanceRecords.forEach(record => {
+      const recordDate = new Date(record.date);
+      const weekNum = Math.floor((endDate - recordDate) / (7 * 24 * 60 * 60 * 1000));
+      
+      if (weekNum >= 0 && weekNum < parseInt(weeks)) {
+        const weekKey = `W${parseInt(weeks) - weekNum}`;
+        const weekData = weeklyData.get(weekKey);
+        
+        if (weekData && record.score !== undefined && record.score !== null) {
+          weekData.scores.push(record.score);
+          weekData.total++;
+        }
+      }
+    });
+    
+    // Calculate average scores per week
+    const trendData = Array.from(weeklyData.values()).map(week => {
+      const average = week.scores.length > 0
+        ? Math.round((week.scores.reduce((a, b) => a + b, 0) / week.scores.length) * 10) / 10
+        : 0;
+      
+      return {
+        week: week.week,
+        average: average,
+        total: week.total
+      };
+      });
 
     res.json({
       success: true,
@@ -208,31 +327,67 @@ router.get('/performance-trend', authenticateToken, async (req, res) => {
 });
 
 // @route   GET /api/dashboard/intervention-pipeline
-// @desc    Get intervention pipeline data
+// @desc    Get intervention pipeline data (from real intervention records)
 // @access  Private
 router.get('/intervention-pipeline', authenticateToken, async (req, res) => {
   try {
     const user = req.user;
+    const Intervention = require('../models/Intervention');
+    
     let query = { schoolId: user.schoolId, isActive: true };
 
     // Role-based filtering
     if (user.role === 'TEACHER') {
-      query.assignedTeacherId = user._id;
+      query.assignedTo = user._id;
     }
 
-    // Mock intervention data (in real app, this would come from intervention records)
-    const planned = Math.floor(Math.random() * 10) + 5;
-    const inProgress = Math.floor(Math.random() * 8) + 3;
-    const completed = Math.floor(Math.random() * 15) + 10;
-    const total = planned + inProgress + completed;
+    // Get real intervention data from database
+    const interventionStats = await Intervention.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: null,
+          planned: { $sum: { $cond: [{ $eq: ['$status', 'PLANNED'] }, 1, 0] } },
+          inProgress: { $sum: { $cond: [{ $eq: ['$status', 'IN_PROGRESS'] }, 1, 0] } },
+          completed: { $sum: { $cond: [{ $eq: ['$status', 'COMPLETED'] }, 1, 0] } },
+          cancelled: { $sum: { $cond: [{ $eq: ['$status', 'CANCELLED'] }, 1, 0] } },
+          overdue: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $in: ['$status', ['PLANNED', 'IN_PROGRESS']] },
+                    { $lt: ['$dueDate', new Date()] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          },
+          total: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const stats = interventionStats[0] || { 
+      planned: 0, 
+      inProgress: 0, 
+      completed: 0, 
+      cancelled: 0, 
+      overdue: 0,
+      total: 0 
+    };
 
     res.json({
       success: true,
       data: {
-        planned,
-        inProgress,
-        completed,
-        total
+        planned: stats.planned,
+        inProgress: stats.inProgress,
+        completed: stats.completed,
+        cancelled: stats.cancelled,
+        overdue: stats.overdue,
+        total: stats.total
       }
     });
   } catch (error) {
@@ -257,20 +412,30 @@ router.get('/teacher/classes', authenticateToken, async (req, res) => {
       });
     }
 
-    // Get unique classrooms for this teacher
-    const classrooms = await Student.aggregate([
-      { $match: { assignedTeacherId: req.user._id, isActive: true } },
-      { $group: { _id: '$classroomId', count: { $sum: 1 } } },
-      { $sort: { _id: 1 } }
-    ]);
+    // Get teacher's assigned classes from Class model
+    const Class = require('../models/Class');
+    const teacherClasses = await Class.find({
+      assignedTeacher: req.user._id,
+      isActive: true
+    })
+    .populate('schoolId', 'name')
+    .sort({ className: 1 });
 
-    // Mock class schedule data
-    const classes = classrooms.map((classroom, index) => ({
-      id: classroom._id,
-      name: `${classroom._id}`,
-      time: ['9:00 AM', '11:00 AM', '2:00 PM'][index % 3],
-      studentCount: classroom.count,
-      teacherId: req.user._id
+    // Get student counts for each class
+    const classes = await Promise.all(teacherClasses.map(async (cls) => {
+      const studentCount = await Student.countDocuments({
+        classId: cls._id,
+        isActive: true
+      });
+      
+      return {
+        id: cls._id,
+        name: cls.className,
+        studentCount: studentCount,
+        teacherId: req.user._id,
+        grade: cls.grade,
+        section: cls.section
+      };
     }));
 
     res.json({
@@ -460,6 +625,64 @@ router.get('/system-stats', authenticateToken, async (req, res) => {
 
     const messages = messageStats[0] || { total: 0, sent: 0, delivered: 0, failed: 0, pending: 0 };
 
+    // Get attendance trend (weekly for last 6 weeks) - system-wide
+    const weeks = 6;
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - (weeks * 7));
+    
+    const attendanceRecords = await Attendance.find({
+      date: { $gte: startDate, $lte: endDate }
+    }).select('date status').lean();
+    
+    const weeklyData = new Map();
+    const targetRate = 90;
+    
+    for (let i = weeks - 1; i >= 0; i--) {
+      const weekKey = `W${weeks - i}`;
+      weeklyData.set(weekKey, {
+        week: weekKey,
+        present: 0,
+        absent: 0,
+        excused: 0,
+        total: 0,
+        target: targetRate
+      });
+    }
+    
+    attendanceRecords.forEach(record => {
+      const recordDate = new Date(record.date);
+      const weekNum = Math.floor((endDate - recordDate) / (7 * 24 * 60 * 60 * 1000));
+      
+      if (weekNum >= 0 && weekNum < weeks) {
+        const weekKey = `W${weeks - weekNum}`;
+        const weekData = weeklyData.get(weekKey);
+        
+        if (weekData) {
+          weekData.total++;
+          if (record.status === 'PRESENT') {
+            weekData.present++;
+          } else if (record.status === 'ABSENT') {
+            weekData.absent++;
+          } else if (record.status === 'EXCUSED') {
+            weekData.excused++;
+          }
+        }
+      }
+    });
+    
+    const attendanceTrend = Array.from(weeklyData.values()).map(week => {
+      const attendanceRate = week.total > 0 
+        ? Math.round(((week.present + week.excused) / week.total) * 100 * 10) / 10
+        : 0;
+      
+      return {
+        week: week.week,
+        attendance: attendanceRate,
+        target: week.target
+      };
+    });
+
     // Get school performance data
     const schoolPerformance = await School.aggregate([
       { $match: { isActive: true } },
@@ -585,6 +808,9 @@ router.get('/system-stats', authenticateToken, async (req, res) => {
           pending: messages.pending
         },
         
+        // Attendance Trend
+        attendanceTrend: attendanceTrend,
+        
         // School performance
         schoolPerformance
       }
@@ -669,13 +895,58 @@ router.get('/all-schools', authenticateToken, async (req, res) => {
     }
 
     const School = require('../models/School');
+    const User = require('../models/User');
+    const Student = require('../models/Student');
+    const Class = require('../models/Class');
+
     const schools = await School.find({ isActive: true })
       .populate('createdBy', 'name email role')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Get statistics for each school
+    const schoolsWithStats = await Promise.all(schools.map(async (school) => {
+      // Count users by role
+      const totalUsers = await User.countDocuments({ 
+        schoolId: school._id, 
+        isActive: true 
+      });
+      const admins = await User.countDocuments({ 
+        schoolId: school._id, 
+        role: 'ADMIN',
+        isActive: true 
+      });
+      const teachers = await User.countDocuments({ 
+        schoolId: school._id, 
+        role: 'TEACHER',
+        isActive: true 
+      });
+
+      // Count students
+      const totalStudents = await Student.countDocuments({ 
+        schoolId: school._id, 
+        isActive: true 
+      });
+
+      // Count classes
+      const totalClasses = await Class.countDocuments({ 
+        schoolId: school._id, 
+        isActive: true 
+      });
+
+      return {
+        ...school,
+        totalUsers,
+        admins,
+        teachers,
+        totalStudents,
+        totalClasses
+      };
+    }));
 
     res.json({
       success: true,
-      data: schools
+      data: schoolsWithStats
     });
   } catch (error) {
     console.error('Get all schools error:', error);
@@ -699,12 +970,35 @@ router.get('/all-users', authenticateToken, async (req, res) => {
     }
 
     const users = await User.find()
-      .select('-password')
-      .sort({ createdAt: -1 });
+      .select('-password -passwordResetToken -passwordResetExpires -emailVerificationToken')
+      .populate('schoolId', 'name district sector')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Transform users to include school information in the expected format
+    const transformedUsers = users.map(user => {
+      const userObj = { ...user };
+      
+      // If schoolId is populated (it's an object), extract the school data
+      if (user.schoolId && typeof user.schoolId === 'object' && user.schoolId.name) {
+        userObj.schoolName = user.schoolId.name;
+        userObj.schoolDistrict = user.schoolId.district || null;
+        userObj.schoolSector = user.schoolId.sector || null;
+      } else if (user.schoolId) {
+        // If schoolId exists but wasn't populated (school might have been deleted)
+        // This shouldn't happen normally, but handle it gracefully
+        userObj.schoolName = null;
+        userObj.schoolDistrict = null;
+        userObj.schoolSector = null;
+      }
+      // For SUPER_ADMIN users, schoolId might be null/undefined - that's expected
+      
+      return userObj;
+    });
 
     res.json({
       success: true,
-      data: users
+      data: transformedUsers
     });
   } catch (error) {
     console.error('Get all users error:', error);
@@ -909,6 +1203,65 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
 
     const messages = messageStats[0] || { total: 0, sent: 0, delivered: 0, failed: 0, pending: 0 };
 
+    // Get attendance trend (weekly for last 6 weeks)
+    const weeks = 6;
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - (weeks * 7));
+    
+    const attendanceRecords = await Attendance.find({
+      schoolId,
+      date: { $gte: startDate, $lte: endDate }
+    }).select('date status').lean();
+    
+    const weeklyData = new Map();
+    const targetRate = 90;
+    
+    for (let i = weeks - 1; i >= 0; i--) {
+      const weekKey = `W${weeks - i}`;
+      weeklyData.set(weekKey, {
+        week: weekKey,
+        present: 0,
+        absent: 0,
+        excused: 0,
+        total: 0,
+        target: targetRate
+      });
+    }
+    
+    attendanceRecords.forEach(record => {
+      const recordDate = new Date(record.date);
+      const weekNum = Math.floor((endDate - recordDate) / (7 * 24 * 60 * 60 * 1000));
+      
+      if (weekNum >= 0 && weekNum < weeks) {
+        const weekKey = `W${weeks - weekNum}`;
+        const weekData = weeklyData.get(weekKey);
+        
+        if (weekData) {
+          weekData.total++;
+          if (record.status === 'PRESENT') {
+            weekData.present++;
+          } else if (record.status === 'ABSENT') {
+            weekData.absent++;
+          } else if (record.status === 'EXCUSED') {
+            weekData.excused++;
+          }
+        }
+      }
+    });
+    
+    const attendanceTrend = Array.from(weeklyData.values()).map(week => {
+      const attendanceRate = week.total > 0 
+        ? Math.round(((week.present + week.excused) / week.total) * 100 * 10) / 10
+        : 0;
+      
+      return {
+        week: week.week,
+        attendance: attendanceRate,
+        target: week.target
+      };
+    });
+
     // Get class performance data - real-time from database
     const classPerformance = await Class.aggregate([
       { $match: { schoolId, isActive: true } },
@@ -1022,6 +1375,9 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
           failed: messages.failed,
           pending: messages.pending
         },
+        
+        // Attendance Trend
+        attendanceTrend: attendanceTrend,
         
         // Class performance
         classPerformance,
@@ -1189,6 +1545,71 @@ router.get('/teacher-stats', authenticateToken, async (req, res) => {
 
     const messages = messageStats[0] || { total: 0, sent: 0, delivered: 0, failed: 0, pending: 0 };
 
+    // Get attendance trend (weekly for last 6 weeks)
+    const weeks = 6;
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - (weeks * 7));
+    
+    const students = await Student.find({ 
+      assignedTeacher: teacherId, 
+      isActive: true 
+    }).select('_id');
+    const studentIds = students.map(s => s._id);
+    
+    const attendanceRecords = studentIds.length > 0 ? await Attendance.find({
+      studentId: { $in: studentIds },
+      date: { $gte: startDate, $lte: endDate }
+    }).select('date status') : [];
+    
+    const weeklyData = new Map();
+    const targetRate = 90;
+    
+    for (let i = weeks - 1; i >= 0; i--) {
+      const weekKey = `W${weeks - i}`;
+      weeklyData.set(weekKey, {
+        week: weekKey,
+        present: 0,
+        absent: 0,
+        excused: 0,
+        total: 0,
+        target: targetRate
+      });
+    }
+    
+    attendanceRecords.forEach(record => {
+      const recordDate = new Date(record.date);
+      const weekNum = Math.floor((endDate - recordDate) / (7 * 24 * 60 * 60 * 1000));
+      
+      if (weekNum >= 0 && weekNum < weeks) {
+        const weekKey = `W${weeks - weekNum}`;
+        const weekData = weeklyData.get(weekKey);
+        
+        if (weekData) {
+          weekData.total++;
+          if (record.status === 'PRESENT') {
+            weekData.present++;
+          } else if (record.status === 'ABSENT') {
+            weekData.absent++;
+          } else if (record.status === 'EXCUSED') {
+            weekData.excused++;
+          }
+        }
+      }
+    });
+    
+    const attendanceTrend = Array.from(weeklyData.values()).map(week => {
+      const attendanceRate = week.total > 0 
+        ? Math.round(((week.present + week.excused) / week.total) * 100 * 10) / 10
+        : 0;
+      
+      return {
+        week: week.week,
+        attendance: attendanceRate,
+        target: week.target
+      };
+    });
+
     // Get at-risk students details
     const atRiskStudentsList = await Student.find({
       assignedTeacher: teacherId,
@@ -1296,6 +1717,9 @@ router.get('/teacher-stats', authenticateToken, async (req, res) => {
           failed: messages.failed,
           pending: messages.pending
         },
+        
+        // Attendance Trend
+        attendanceTrend: attendanceTrend,
         
         // Classes
         classes: classes.map(cls => ({

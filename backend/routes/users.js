@@ -1,9 +1,22 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
+const multer = require('multer');
 const User = require('../models/User');
 const { authenticateToken, authorize, canAccessUser, canAccessSchool } = require('../middleware/auth');
+const cloudinary = require('../config/cloudinary');
 
 const router = express.Router();
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  }
+});
 
 // @route   GET /api/users
 // @desc    Get all users (Admin only)
@@ -252,6 +265,72 @@ router.put('/profile', authenticateToken, [
     res.status(500).json({
       success: false,
       message: 'Internal server error'
+    });
+  }
+});
+
+// @route   POST /api/users/profile/upload-picture
+// @desc    Upload profile picture for current user
+// @access  Private
+router.post('/profile/upload-picture', authenticateToken, upload.single('profilePicture'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    // Convert buffer to base64
+    const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+
+    // Upload to Cloudinary
+    const uploadResult = await cloudinary.uploader.upload(base64Image, {
+      folder: 'eduguard/profiles',
+      public_id: `user_${req.user._id}_${Date.now()}`,
+      overwrite: true,
+      resource_type: 'image',
+      transformation: [
+        { width: 400, height: 400, crop: 'fill', gravity: 'face' },
+        { quality: 'auto' }
+      ]
+    });
+
+    // Update user profile picture
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { profilePicture: uploadResult.secure_url },
+      { new: true }
+    ).select('-password -passwordResetToken -passwordResetExpires -emailVerificationToken')
+     .populate('schoolId', 'name district sector phone email');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Add school information to response
+    const userProfile = user.toObject();
+    if (user.schoolId) {
+      userProfile.schoolName = user.schoolId.name;
+      userProfile.schoolDistrict = user.schoolId.district;
+      userProfile.schoolSector = user.schoolId.sector;
+      userProfile.schoolPhone = user.schoolId.phone;
+      userProfile.schoolEmail = user.schoolId.email;
+    }
+
+    res.json({
+      success: true,
+      message: 'Profile picture uploaded successfully',
+      data: userProfile
+    });
+  } catch (error) {
+    console.error('Upload profile picture error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to upload profile picture'
     });
   }
 });

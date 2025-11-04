@@ -3,6 +3,13 @@ import { persist } from 'zustand/middleware'
 import type { User } from '@/types'
 import { apiClient } from '@/lib/api'
 
+// Get query client instance - we'll set this from main.tsx
+let queryClientInstance: any = null
+
+export const setQueryClient = (client: any) => {
+  queryClientInstance = client
+}
+
 interface AuthState {
   user: User | null
   isAuthenticated: boolean
@@ -34,6 +41,13 @@ export const useAuthStore = create<AuthState>()(
           
           if (response.success) {
             console.log('✅ Login successful, setting user:', response.data.user);
+            
+            // Clear all React Query cache on login to prevent showing previous user's data
+            if (queryClientInstance) {
+              queryClientInstance.clear()
+              console.log('🧹 Cleared React Query cache on login')
+            }
+            
             set({ 
               user: response.data.user, 
               isAuthenticated: true,
@@ -58,6 +72,11 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           console.error('Logout error:', error)
         } finally {
+          // Clear all React Query cache on logout
+          if (queryClientInstance) {
+            queryClientInstance.clear()
+            console.log('🧹 Cleared React Query cache on logout')
+          }
           set({ user: null, isAuthenticated: false, error: null })
         }
       },

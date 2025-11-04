@@ -268,13 +268,13 @@ export function TeacherDashboardPage() {
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stats.attendanceTrend || [
-                  { week: 'W1', attendance: 88, target: 90 },
-                  { week: 'W2', attendance: 85, target: 90 },
-                  { week: 'W3', attendance: 92, target: 90 },
-                  { week: 'W4', attendance: 89, target: 90 },
-                  { week: 'W5', attendance: 94, target: 90 },
-                  { week: 'W6', attendance: 96, target: 90 }
+                <LineChart data={stats.attendanceTrend && stats.attendanceTrend.length > 0 ? stats.attendanceTrend : [
+                  { week: 'W1', attendance: 0, target: 90 },
+                  { week: 'W2', attendance: 0, target: 90 },
+                  { week: 'W3', attendance: 0, target: 90 },
+                  { week: 'W4', attendance: 0, target: 90 },
+                  { week: 'W5', attendance: 0, target: 90 },
+                  { week: 'W6', attendance: 0, target: 90 }
                 ]}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="week" fontSize={12} />

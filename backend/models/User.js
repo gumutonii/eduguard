@@ -98,7 +98,11 @@ const userSchema = new mongoose.Schema({
   emailVerificationExpires: Date,
   passwordResetToken: String,
   passwordResetExpires: Date,
-  lastLogin: Date
+  lastLogin: Date,
+  profilePicture: {
+    type: String,
+    trim: true
+  }
 }, {
   timestamps: true,
   toJSON: { virtuals: true },

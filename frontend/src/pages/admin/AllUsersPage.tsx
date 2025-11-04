@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -10,7 +10,8 @@ import {
   PencilIcon,
   EyeIcon,
   PlusIcon,
-  FunnelIcon
+  FunnelIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline'
 import { apiClient } from '@/lib/api'
 
@@ -36,6 +37,7 @@ export function AllUsersPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('ALL')
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
+  const queryClient = useQueryClient()
 
   // Fetch all users
   const { data: usersData, isLoading, error } = useQuery({
@@ -43,7 +45,21 @@ export function AllUsersPage() {
     queryFn: () => apiClient.getAllUsers(),
   })
 
+  // Delete user mutation
+  const deleteUserMutation = useMutation({
+    mutationFn: (userId: string) => apiClient.deleteUser(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-users'] })
+    },
+  })
+
   const users = usersData?.data || []
+
+  const handleDelete = (user: User) => {
+    if (window.confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) {
+      deleteUserMutation.mutate(user._id)
+    }
+  }
 
   // Filter users based on search and filters
   const filteredUsers = users.filter((user: User) => {
@@ -92,7 +108,7 @@ export function AllUsersPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">All Users</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
         </div>
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -105,7 +121,7 @@ export function AllUsersPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">All Users</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
         </div>
         <Card>
           <CardContent className="text-center py-12">
@@ -121,7 +137,7 @@ export function AllUsersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">All Users</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
           <p className="text-gray-600">Manage all administrators and teachers in the system</p>
         </div>
         <div className="text-sm text-gray-500">
@@ -202,7 +218,6 @@ export function AllUsersPage() {
                     <th className="text-left py-3 px-4 font-medium text-gray-700">Title</th>
                     <th className="text-left py-3 px-4 font-medium text-gray-700">School</th>
                     <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Contact</th>
                     <th className="text-center py-3 px-4 font-medium text-gray-700">Actions</th>
                   </tr>
                 </thead>
@@ -241,11 +256,15 @@ export function AllUsersPage() {
                       <td className="py-4 px-4">
                         {user.schoolName ? (
                           <div>
-                            <p className="text-sm text-gray-900">{user.schoolName}</p>
+                            <p className="text-sm text-gray-900 font-medium">{user.schoolName}</p>
+                            {user.schoolDistrict && user.schoolSector && (
                             <p className="text-xs text-gray-500">
                               {user.schoolDistrict}, {user.schoolSector}
                             </p>
+                            )}
                           </div>
+                        ) : user.role === 'SUPER_ADMIN' ? (
+                          <span className="text-sm text-gray-400 italic">System-wide access</span>
                         ) : (
                           <span className="text-sm text-gray-400">No school assigned</span>
                         )}
@@ -256,39 +275,46 @@ export function AllUsersPage() {
                         </Badge>
                       </td>
                       <td className="py-4 px-4">
-                        <div className="text-sm text-gray-900">
-                          <p className="flex items-center">
-                            <span className="w-4 h-4 mr-1">📧</span>
-                            {user.email}
-                          </p>
-                          {user.phone && (
-                            <p className="flex items-center text-gray-500">
-                              <span className="w-4 h-4 mr-1">📞</span>
-                              {user.phone}
-                            </p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center justify-center space-x-2">
+                        <div className="flex items-center justify-center space-x-1">
                           <Link 
                             to={`/users/${user._id}`}
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <Button size="sm" variant="outline">
-                              <EyeIcon className="h-4 w-4 mr-1" />
-                              View
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                              title="View"
+                            >
+                              <EyeIcon className="h-4 w-4" />
                             </Button>
                           </Link>
                           <Link 
                             to={`/users/${user._id}/edit`}
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <Button size="sm" variant="outline">
-                              <PencilIcon className="h-4 w-4 mr-1" />
-                              Edit
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                              title="Edit"
+                            >
+                              <PencilIcon className="h-4 w-4" />
                             </Button>
                           </Link>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(user)
+                            }}
+                            disabled={deleteUserMutation.isPending}
+                            title="Delete"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </Button>
                         </div>
                       </td>
                     </tr>

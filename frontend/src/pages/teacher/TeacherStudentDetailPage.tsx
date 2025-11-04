@@ -55,6 +55,7 @@ export function TeacherStudentDetailPage() {
   const [editPerformanceScore, setEditPerformanceScore] = useState(0)
   const [editPerformanceGrade, setEditPerformanceGrade] = useState('C')
   const [editPerformanceRemarks, setEditPerformanceRemarks] = useState('')
+  const [uploadingPicture, setUploadingPicture] = useState(false)
   const queryClient = useQueryClient()
 
   const { data: studentData, isLoading: studentLoading } = useQuery({
@@ -64,6 +65,43 @@ export function TeacherStudentDetailPage() {
   })
 
   const student = studentData?.data
+
+  // Upload profile picture mutation
+  const uploadPictureMutation = useMutation({
+    mutationFn: (file: File) => apiClient.uploadStudentProfilePicture(id!, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['student', id] })
+      setUploadingPicture(false)
+    },
+    onError: (error: any) => {
+      alert(error.message || 'Failed to upload profile picture')
+      setUploadingPicture(false)
+    }
+  })
+
+  const handlePictureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file')
+      return
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size must be less than 5MB')
+      return
+    }
+
+    setUploadingPicture(true)
+    uploadPictureMutation.mutate(file, {
+      onSettled: () => {
+        e.target.value = '' // Reset input
+      }
+    })
+  }
 
   // Form setup
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm({
@@ -1447,10 +1485,35 @@ export function TeacherStudentDetailPage() {
       {/* Student Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
         <div className="flex items-center space-x-3 sm:space-x-4">
-          <div className="h-12 w-12 sm:h-16 sm:w-16 bg-primary-100 rounded-full flex items-center justify-center">
+          <div className="relative group">
+            {student.profilePicture ? (
+              <img
+                src={student.profilePicture}
+                alt={`${student.firstName} ${student.lastName}`}
+                className="h-12 w-12 sm:h-16 sm:w-16 rounded-full object-cover border-2 border-primary-200"
+              />
+            ) : (
+              <div className="h-12 w-12 sm:h-16 sm:w-16 bg-primary-100 rounded-full flex items-center justify-center border-2 border-primary-200">
             <span className="text-lg sm:text-2xl font-medium text-primary-600">
               {student.firstName.charAt(0)}{student.lastName.charAt(0)}
             </span>
+              </div>
+            )}
+            {uploadingPicture && (
+              <div className="absolute inset-0 rounded-full bg-black bg-opacity-50 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-white"></div>
+              </div>
+            )}
+            <label className="absolute inset-0 rounded-full cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity bg-black bg-opacity-50 flex items-center justify-center">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePictureUpload}
+                disabled={uploadingPicture}
+                className="hidden"
+              />
+              <span className="text-white text-xs font-medium">Upload</span>
+            </label>
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">

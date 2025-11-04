@@ -66,6 +66,7 @@ function App() {
           <Route path="/dashboard" element={<SuperAdminDashboardPage />} />
           <Route path="/schools" element={<AllSchoolsPage />} />
           <Route path="/schools/:schoolId" element={<SchoolDetailPage />} />
+          <Route path="/classes/:id" element={<ClassStudentsPage />} />
           <Route path="/users" element={<AllUsersPage />} />
           <Route path="/users/:userId" element={<UserDetailPage />} />
           <Route path="/users/:userId/edit" element={<UserEditPage />} />
@@ -83,6 +84,7 @@ function App() {
         <Routes>
           <Route path="/dashboard" element={<AdminDashboardPage />} />
           <Route path="/teachers" element={<AdminTeachersPage />} />
+          <Route path="/teachers/:userId" element={<UserDetailPage />} />
           <Route path="/classes" element={<AdminClassesPage />} />
           <Route path="/classes/:id" element={<ClassStudentsPage />} />
           <Route path="/classes/:id/assign-teacher" element={<AssignTeacherPage />} />

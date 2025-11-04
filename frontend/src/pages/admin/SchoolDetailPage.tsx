@@ -13,35 +13,23 @@ import {
   EnvelopeIcon,
   ArrowLeftIcon,
   ChartBarIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  EyeIcon,
+  PencilIcon
 } from '@heroicons/react/24/outline'
 import { apiClient } from '@/lib/api'
 
 export function SchoolDetailPage() {
   const { schoolId } = useParams<{ schoolId: string }>()
 
-  // Fetch school details
+  // Fetch school details (includes school, classes, users, statistics)
   const { data: schoolData, isLoading: schoolLoading } = useQuery({
     queryKey: ['school-detail', schoolId],
     queryFn: () => apiClient.getSchoolById(schoolId!),
     enabled: !!schoolId
   })
 
-  // Fetch school users (admins and teachers)
-  const { data: usersData, isLoading: usersLoading } = useQuery({
-    queryKey: ['school-users', schoolId],
-    queryFn: () => apiClient.getSchoolUsers(schoolId!),
-    enabled: !!schoolId
-  })
-
-  // Fetch school classes
-  const { data: classesData, isLoading: classesLoading } = useQuery({
-    queryKey: ['school-classes', schoolId],
-    queryFn: () => apiClient.getSchoolClasses(schoolId!),
-    enabled: !!schoolId
-  })
-
-  const isLoading = schoolLoading || usersLoading || classesLoading
+  const isLoading = schoolLoading
 
   if (isLoading) {
     return (
@@ -65,9 +53,10 @@ export function SchoolDetailPage() {
     )
   }
 
-  const school = schoolData?.data
-  const users = usersData?.data || []
-  const classes = classesData?.data || []
+  // Extract data from the response
+  const school = schoolData?.data?.school || schoolData?.data
+  const users = schoolData?.data?.users || []
+  const classes = schoolData?.data?.classes || []
 
   if (!school) {
     return (
@@ -103,7 +92,7 @@ export function SchoolDetailPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{school.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{school.name || school.schoolName || 'School'}</h1>
           <p className="text-gray-600">School Details & Management</p>
         </div>
       </div>
@@ -174,7 +163,7 @@ export function SchoolDetailPage() {
                 <BuildingOfficeIcon className="h-5 w-5 text-gray-400" />
                 <div>
                   <p className="text-sm font-medium text-gray-900">School Name</p>
-                  <p className="text-sm text-gray-600">{school.name}</p>
+                  <p className="text-sm text-gray-600">{school.name || school.schoolName || 'N/A'}</p>
                 </div>
               </div>
 
@@ -183,7 +172,7 @@ export function SchoolDetailPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-900">Location</p>
                   <p className="text-sm text-gray-600">
-                    {school.district}, {school.sector}
+                    {school.district || 'N/A'}, {school.sector || 'N/A'}
                   </p>
                 </div>
               </div>
@@ -326,27 +315,33 @@ export function SchoolDetailPage() {
                         </div>
                       </td>
                       <td className="py-4 px-4">
-                        <div className="flex items-center justify-center space-x-2">
+                        <div className="flex items-center justify-center space-x-1">
+                          <Link 
+                            to={`/teachers/${teacher._id}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              window.location.href = `/users/${teacher._id}`
-                            }}
+                              className="h-8 w-8 p-0"
+                              title="View"
+                            >
+                              <EyeIcon className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <Link 
+                            to={`/users/${teacher._id}/edit`}
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            View
-                          </Button>
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              window.location.href = `/users/${teacher._id}/edit`
-                            }}
-                          >
-                            Edit
+                              className="h-8 w-8 p-0"
+                              title="Edit"
+                            >
+                              <PencilIcon className="h-4 w-4" />
                           </Button>
+                          </Link>
                         </div>
                       </td>
                     </tr>
@@ -377,15 +372,20 @@ export function SchoolDetailPage() {
           {classes.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {classes.map((classItem: any) => (
-                <div key={classItem._id} className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                <Link 
+                  key={classItem._id} 
+                  to={`/classes/${classItem._id}?schoolId=${schoolId}`}
+                  className="block"
+                >
+                  <div className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-medium text-gray-900">{classItem.name}</h3>
+                      <h3 className="font-medium text-gray-900">{classItem.className || classItem.name}</h3>
                     <Badge variant="info">{classItem.studentCount || 0} students</Badge>
                   </div>
-                  <p className="text-sm text-gray-500 mb-3">Class {classItem.name}</p>
-                  {classItem.teacher && (
-                    <p className="text-xs text-gray-400">
-                      {classItem.teacher.title}: {classItem.teacher.name}
+                    <p className="text-sm text-gray-500 mb-3">Class {classItem.className || classItem.name}</p>
+                    {classItem.assignedTeacher && (
+                      <p className="text-xs text-gray-400 mb-2">
+                        {classItem.assignedTeacher.teacherTitle || 'Teacher'}: {classItem.assignedTeacher.name}
                     </p>
                   )}
                   <div className="mt-3 flex items-center justify-between">
@@ -397,6 +397,7 @@ export function SchoolDetailPage() {
                     </Badge>
                   </div>
                 </div>
+                </Link>
               ))}
             </div>
           ) : (
@@ -407,6 +408,7 @@ export function SchoolDetailPage() {
           )}
         </CardContent>
       </Card>
+
     </div>
   )
 }

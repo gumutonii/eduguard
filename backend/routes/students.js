@@ -5,9 +5,23 @@ const { authenticateToken, authorize, canAccessStudent } = require('../middlewar
 const multer = require('multer');
 const csv = require('fast-csv');
 const { stringify } = require('csv-stringify/sync');
+const cloudinary = require('../config/cloudinary');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Separate upload for profile pictures with size and type restrictions
+const profilePictureUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  }
+});
 
 // @route   GET /api/students
 // @desc    Get all students with filtering
@@ -359,6 +373,75 @@ router.put('/:id', [
     res.status(500).json({
       success: false,
       message: 'Failed to update student'
+    });
+  }
+});
+
+// @route   POST /api/students/:id/upload-picture
+// @desc    Upload profile picture for student (Teachers can upload for their students)
+// @access  Private (Admin, Teacher)
+router.post('/:id/upload-picture', authenticateToken, authorize('ADMIN', 'TEACHER'), profilePictureUpload.single('profilePicture'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    const { id } = req.params;
+
+    // Check access permissions
+    const student = await Student.findById(id);
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    // Teachers can only upload for their assigned students
+    if (req.user.role === 'TEACHER' && student.assignedTeacher.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this student'
+      });
+    }
+
+    // Convert buffer to base64
+    const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+
+    // Upload to Cloudinary
+    const uploadResult = await cloudinary.uploader.upload(base64Image, {
+      folder: 'eduguard/profiles',
+      public_id: `student_${id}_${Date.now()}`,
+      overwrite: true,
+      resource_type: 'image',
+      transformation: [
+        { width: 400, height: 400, crop: 'fill', gravity: 'face' },
+        { quality: 'auto' }
+      ]
+    });
+
+    // Update student profile picture
+    const updatedStudent = await Student.findByIdAndUpdate(
+      id,
+      { profilePicture: uploadResult.secure_url },
+      { new: true }
+    ).populate('assignedTeacher', 'name email')
+     .populate('schoolId', 'name district sector')
+     .populate('classId', 'className name grade section');
+
+    res.json({
+      success: true,
+      message: 'Profile picture uploaded successfully',
+      data: updatedStudent
+    });
+  } catch (error) {
+    console.error('Upload student profile picture error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to upload profile picture'
     });
   }
 });

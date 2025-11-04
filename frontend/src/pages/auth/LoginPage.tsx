@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { AuthHeader } from '@/components/layout/AuthHeader'
@@ -21,6 +22,7 @@ type LoginForm = z.infer<typeof loginSchema>
 export function LoginPage() {
   const navigate = useNavigate()
   const { login, isLoading, error, clearError } = useAuthStore()
+  const queryClient = useQueryClient()
   const [showPassword, setShowPassword] = useState(false)
 
   const {
@@ -34,7 +36,13 @@ export function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
         try {
           clearError()
+          
+          // Clear all queries before login to prevent showing previous user's data
+          queryClient.clear()
+          
           await login(data.email, data.password)
+          
+          // Navigate after successful login
           navigate('/dashboard')
         } catch (error: any) {
           // Check if it's an approval error

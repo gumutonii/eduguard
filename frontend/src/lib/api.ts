@@ -226,6 +226,31 @@ class ApiClient {
     })
   }
 
+  async uploadProfilePicture(file: File) {
+    const formData = new FormData()
+    formData.append('profilePicture', file)
+    
+    const url = `${this.baseURL}/users/profile/upload-picture`
+    const headers: Record<string, string> = {}
+    
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`
+    }
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+    
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to upload profile picture')
+    }
+    
+    return response.json()
+  }
+
   // Dashboard methods
   async getDashboardStats() {
     return this.request<{
@@ -1129,6 +1154,31 @@ class ApiClient {
     })
   }
 
+  async uploadStudentProfilePicture(studentId: string, file: File) {
+    const formData = new FormData()
+    formData.append('profilePicture', file)
+    
+    const url = `${this.baseURL}/students/${studentId}/upload-picture`
+    const headers: Record<string, string> = {}
+    
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`
+    }
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+    
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to upload profile picture')
+    }
+    
+    return response.json()
+  }
+
   async deleteStudent(id: string) {
     return this.request<{ success: boolean; message: string }>(`/students/${id}`, {
       method: 'DELETE'
@@ -1180,9 +1230,31 @@ class ApiClient {
   }
 
   // Messages API
-  async getMessages(params: any = {}) {
-    const searchParams = new URLSearchParams(params)
-    return this.request<{ success: boolean; data: any[] }>(`/messages?${searchParams}`)
+  async getMessages(params: {
+    page?: number
+    limit?: number
+    status?: string
+    channel?: string
+    search?: string
+    studentId?: string
+    type?: string
+  } = {}) {
+    const searchParams = new URLSearchParams()
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString())
+      }
+    })
+    return this.request<{
+      success: boolean
+      data: any[]
+      pagination?: {
+        page: number
+        limit: number
+        total: number
+        pages: number
+      }
+    }>(`/messages?${searchParams.toString()}`)
   }
 
   async sendMessage(data: any) {

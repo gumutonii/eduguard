@@ -23,9 +23,13 @@ export function TeacherSettingsPage() {
   const queryClient = useQueryClient()
   
   // Fetch user profile data dynamically
+  // Use user ID in query key to ensure cache isolation per user
   const { data: userProfile, isLoading: profileLoading } = useQuery({
-    queryKey: ['user-profile'],
+    queryKey: ['user-profile', user?._id],
     queryFn: () => apiClient.getProfile(),
+    enabled: !!user?._id, // Only fetch if user is authenticated
+    staleTime: 0, // Always refetch to ensure fresh data
+    refetchOnMount: true,
   })
 
   const [profileForm, setProfileForm] = useState({
@@ -57,6 +61,47 @@ export function TeacherSettingsPage() {
     confirmPassword: '',
   })
   const [updateMessage, setUpdateMessage] = useState('')
+  const [uploadingPicture, setUploadingPicture] = useState(false)
+
+  // Upload profile picture mutation
+  const uploadPictureMutation = useMutation({
+    mutationFn: (file: File) => apiClient.uploadProfilePicture(file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] })
+      queryClient.invalidateQueries({ queryKey: ['user-profile', user?._id] })
+      setUpdateMessage('Profile picture uploaded successfully!')
+      setUploadingPicture(false)
+    },
+    onError: (error: any) => {
+      setUpdateMessage(error.message || 'Failed to upload profile picture')
+      setUploadingPicture(false)
+    }
+  })
+
+  const handlePictureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setUpdateMessage('Please select an image file')
+      return
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setUpdateMessage('Image size must be less than 5MB')
+      return
+    }
+
+    setUploadingPicture(true)
+    setUpdateMessage('')
+    uploadPictureMutation.mutate(file, {
+      onSettled: () => {
+        e.target.value = '' // Reset input
+      }
+    })
+  }
 
   // Update forms when profile data is fetched
   useEffect(() => {
@@ -99,6 +144,7 @@ export function TeacherSettingsPage() {
         setUpdateMessage('Profile updated successfully!')
         setTimeout(() => setUpdateMessage(''), 3000)
         queryClient.invalidateQueries({ queryKey: ['user-profile'] })
+        queryClient.invalidateQueries({ queryKey: ['user-profile', user?._id] })
         queryClient.invalidateQueries({ queryKey: ['dashboard'] })
         queryClient.invalidateQueries({ queryKey: ['teacher-classes'] })
       }
@@ -190,6 +236,55 @@ export function TeacherSettingsPage() {
           {updateMessage}
         </div>
       )}
+
+      {/* Profile Picture Avatar */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-6">
+            <div className="relative">
+              {userProfile?.data?.profilePicture ? (
+                <img
+                  src={userProfile.data.profilePicture}
+                  alt="Profile"
+                  className="w-24 h-24 rounded-full object-cover border-2 border-primary-200"
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-full bg-primary-100 flex items-center justify-center border-2 border-primary-200">
+                  <span className="text-3xl font-semibold text-primary-600">
+                    {userProfile?.data?.name?.charAt(0)?.toUpperCase() || user?.name?.charAt(0)?.toUpperCase() || 'T'}
+                  </span>
+                </div>
+              )}
+              {uploadingPicture && (
+                <div className="absolute inset-0 rounded-full bg-black bg-opacity-50 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                </div>
+              )}
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                {userProfile?.data?.name || user?.name || 'Teacher'}
+              </h3>
+              <p className="text-sm text-gray-600 mb-3">
+                {userProfile?.data?.email || user?.email || ''}
+              </p>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Profile Picture
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePictureUpload}
+                disabled={uploadingPicture}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                JPG, PNG or GIF. Max size 5MB.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Profile Information */}
@@ -526,6 +621,31 @@ export function TeacherSettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {/* Profile Picture Display */}
+          <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-200">
+            {userProfile?.data?.profilePicture ? (
+              <img
+                src={userProfile.data.profilePicture}
+                alt={userProfile?.data?.name || user?.name || 'Profile'}
+                className="h-16 w-16 rounded-full object-cover border-2 border-primary-200"
+              />
+            ) : (
+              <div className="h-16 w-16 rounded-full bg-primary-100 flex items-center justify-center border-2 border-primary-200">
+                <span className="text-xl font-semibold text-primary-600">
+                  {(userProfile?.data?.name || user?.name || 'T').charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {userProfile?.data?.name || user?.name || 'User'}
+              </h3>
+              <p className="text-sm text-gray-500">
+                {user?.role === 'TEACHER' ? 'Teacher' : user?.role}
+              </p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div className="flex items-center gap-3">

@@ -72,6 +72,8 @@ export function StudentRegistrationPage() {
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [districts, setDistricts] = useState(getDistricts())
   const [sectors, setSectors] = useState<string[]>([])
+  const [profilePicture, setProfilePicture] = useState<File | null>(null)
+  const [profilePicturePreview, setProfilePicturePreview] = useState<string | null>(null)
 
   // Fetch teacher's assigned classes
   const { data: teacherClassesData, isLoading: classesLoading } = useQuery({
@@ -85,7 +87,17 @@ export function StudentRegistrationPage() {
   // Mutation for creating student
   const createStudentMutation = useMutation({
     mutationFn: (studentData: any) => apiClient.createStudent(studentData),
-    onSuccess: () => {
+    onSuccess: async (response) => {
+      // Upload profile picture if provided
+      if (profilePicture && response?.data?._id) {
+        try {
+          await apiClient.uploadStudentProfilePicture(response.data._id, profilePicture)
+        } catch (error: any) {
+          console.error('Failed to upload profile picture:', error)
+          // Don't block success if picture upload fails
+        }
+      }
+      
       // Invalidate all related queries to ensure real-time updates
       queryClient.invalidateQueries({ queryKey: ['teacher-students'] })
       queryClient.invalidateQueries({ queryKey: ['admin-students'] })
@@ -99,6 +111,8 @@ export function StudentRegistrationPage() {
       // Reset form and redirect after success
       setTimeout(() => {
         setSubmitSuccess(false)
+        setProfilePicture(null)
+        setProfilePicturePreview(null)
         window.location.href = '/students'
       }, 2000)
     },
@@ -397,6 +411,71 @@ export function StudentRegistrationPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Optional Profile Picture Upload */}
+              <div className="mb-6 pb-6 border-b border-gray-200">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Profile Picture (Optional)
+                </label>
+                <div className="flex items-center gap-6">
+                  <div className="relative">
+                    {profilePicturePreview ? (
+                      <img
+                        src={profilePicturePreview}
+                        alt="Preview"
+                        className="w-24 h-24 rounded-full object-cover border-2 border-gray-300"
+                      />
+                    ) : (
+                      <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center border-2 border-gray-300">
+                        <UserIcon className="h-12 w-12 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          // Validate file type
+                          if (!file.type.startsWith('image/')) {
+                            alert('Please select an image file')
+                            return
+                          }
+                          // Validate file size (5MB)
+                          if (file.size > 5 * 1024 * 1024) {
+                            alert('Image size must be less than 5MB')
+                            return
+                          }
+                          setProfilePicture(file)
+                          const reader = new FileReader()
+                          reader.onloadend = () => {
+                            setProfilePicturePreview(reader.result as string)
+                          }
+                          reader.readAsDataURL(file)
+                        }
+                      }}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      JPG, PNG or GIF. Max size 5MB.
+                    </p>
+                    {profilePicture && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfilePicture(null)
+                          setProfilePicturePreview(null)
+                        }}
+                        className="mt-2 text-xs text-red-600 hover:text-red-800"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
                 <div className="flex flex-col">
                   <label className="block text-sm font-medium text-gray-700 mb-2">

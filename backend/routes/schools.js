@@ -109,7 +109,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
 
     // Check access permissions
-    if (req.user.role === 'ADMIN' && school.name !== req.user.schoolName) {
+    if (req.user.role === 'ADMIN' && school._id.toString() !== req.user.schoolId?.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Access denied. You can only view your school.'
@@ -119,22 +119,39 @@ router.get('/:id', authenticateToken, async (req, res) => {
     // Get school statistics
     const statistics = await school.updateStatistics();
 
-    // Get classes for this school
-    const classes = await Class.find({ schoolName: school.name, isActive: true })
+    // Get classes for this school - use schoolId
+    const classes = await Class.find({ schoolId: school._id, isActive: true })
       .populate('assignedTeacher', 'name email role teacherTitle')
-      .sort({ grade: 1, name: 1, section: 1 });
+      .sort({ grade: 1, className: 1, section: 1 })
+      .lean();
 
-    // Get users for this school
-    const users = await User.find({ schoolName: school.name, isActive: true })
+    // Get student count for each class
+    const Student = require('../models/Student');
+    const classesWithStudentCount = await Promise.all(classes.map(async (cls) => {
+      const studentCount = await Student.countDocuments({ 
+        classId: cls._id, 
+        isActive: true 
+      });
+      return {
+        ...cls,
+        studentCount,
+        name: cls.className || cls.name
+      };
+    }));
+
+    // Get users for this school - use schoolId
+    const users = await User.find({ schoolId: school._id, isActive: true })
       .select('-password -passwordResetToken -passwordResetExpires -emailVerificationToken')
-      .sort({ role: 1, name: 1 });
+      .populate('schoolId', 'name district sector')
+      .sort({ role: 1, name: 1 })
+      .lean();
 
     res.json({
       success: true,
       data: {
-        school,
+        school: school.toObject ? school.toObject() : school,
         statistics,
-        classes,
+        classes: classesWithStudentCount,
         users
       }
     });
@@ -352,9 +369,9 @@ router.put('/:id', authenticateToken, authorize('ADMIN'), [
 });
 
 // @route   DELETE /api/schools/:id
-// @desc    Delete school (Admin only)
-// @access  Private (Admin)
-router.delete('/:id', authenticateToken, authorize('ADMIN'), async (req, res) => {
+// @desc    Delete school (Admin, Super Admin only)
+// @access  Private (Admin, Super Admin)
+router.delete('/:id', authenticateToken, authorize('ADMIN', 'SUPER_ADMIN'), async (req, res) => {
   try {
     const schoolId = req.params.id;
 
@@ -367,8 +384,8 @@ router.delete('/:id', authenticateToken, authorize('ADMIN'), async (req, res) =>
       });
     }
 
-    // Check if school belongs to admin
-    if (school.name !== req.user.schoolName) {
+    // SUPER_ADMIN can delete any school, ADMIN can only delete their own school
+    if (req.user.role === 'ADMIN' && school.name !== req.user.schoolName) {
       return res.status(403).json({
         success: false,
         message: 'Access denied. You can only delete your school.'
@@ -376,9 +393,18 @@ router.delete('/:id', authenticateToken, authorize('ADMIN'), async (req, res) =>
     }
 
     // Check if school has users or students
-    const userCount = await User.countDocuments({ schoolName: school.name, isActive: true });
-    const studentCount = await Student.countDocuments({ schoolName: school.name, isActive: true });
-    const classCount = await Class.countDocuments({ schoolName: school.name, isActive: true });
+    const userCount = await User.countDocuments({ 
+      schoolId: school._id, 
+      isActive: true 
+    });
+    const studentCount = await Student.countDocuments({ 
+      schoolId: school._id, 
+      isActive: true 
+    });
+    const classCount = await Class.countDocuments({ 
+      schoolId: school._id, 
+      isActive: true 
+    });
 
     if (userCount > 0 || studentCount > 0 || classCount > 0) {
       return res.status(400).json({

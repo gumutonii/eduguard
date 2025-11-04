@@ -1,13 +1,29 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/Button'
+import { apiClient } from '@/lib/api'
 import { MagnifyingGlassIcon, BellIcon, Bars3Icon } from '@heroicons/react/24/outline'
 
 export function TopBar() {
   const { user, logout } = useAuthStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Fetch user profile to get profile picture
+  // Use user ID in query key to ensure cache isolation per user
+  const { data: userProfile } = useQuery({
+    queryKey: ['user-profile', user?._id],
+    queryFn: () => apiClient.getProfile(),
+    enabled: !!user?._id, // Only fetch if user is authenticated
+    staleTime: 0, // Always refetch to ensure fresh data
+    refetchOnMount: true,
+  })
+
+  const profilePicture = userProfile?.data?.profilePicture
+  const userName = userProfile?.data?.name || user?.name || 'User'
+  const userInitials = userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
 
   return (
     <>
@@ -46,10 +62,26 @@ export function TopBar() {
 
           <div className="flex items-center gap-x-4 lg:gap-x-6">
             <div className="hidden lg:block lg:h-6 lg:w-px lg:bg-neutral-200" aria-hidden="true" />
-            <div className="flex items-center gap-x-4">
+            <div className="flex items-center gap-x-3">
+              {/* Profile Picture Avatar */}
+              <Link to="/profile" className="hidden lg:flex items-center gap-x-3 hover:opacity-80 transition-opacity">
+                {profilePicture ? (
+                  <img
+                    src={profilePicture}
+                    alt={userName}
+                    className="h-8 w-8 rounded-full object-cover border-2 border-primary-200"
+                  />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center border-2 border-primary-200">
+                    <span className="text-xs font-semibold text-primary-600">
+                      {userInitials}
+                    </span>
+                  </div>
+                )}
               <div className="hidden lg:block">
-                <span className="text-sm font-medium text-neutral-700">{user?.name}</span>
+                  <span className="text-sm font-medium text-neutral-700">{userName}</span>
               </div>
+              </Link>
               <Button variant="ghost" onClick={logout}>
                 Sign out
               </Button>
@@ -116,21 +148,29 @@ export function TopBar() {
                 </a>
               </div>
               <div className="py-6">
-                <div className="flex items-center gap-x-4">
-                  <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
-                    <span className="text-sm font-medium text-primary-600">
-                      {user?.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                <Link to="/profile" className="flex items-center gap-x-4 hover:opacity-80 transition-opacity">
+                  {profilePicture ? (
+                    <img
+                      src={profilePicture}
+                      alt={userName}
+                      className="h-10 w-10 rounded-full object-cover border-2 border-primary-200"
+                    />
+                  ) : (
+                    <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center border-2 border-primary-200">
+                      <span className="text-sm font-semibold text-primary-600">
+                        {userInitials}
                     </span>
                   </div>
+                  )}
                   <div>
-                    <div className="text-sm font-medium text-neutral-700">{user?.name}</div>
+                    <div className="text-sm font-medium text-neutral-700">{userName}</div>
                     <div className="text-xs text-neutral-500">
                       {user?.role === 'SUPER_ADMIN' ? 'Super Admin' : 
                        user?.role === 'ADMIN' ? 'Admin' : 
                        user?.role === 'TEACHER' ? 'Teacher' : user?.role}
                     </div>
                   </div>
-                </div>
+                </Link>
                 <div className="mt-4">
                   <Button variant="ghost" onClick={logout} className="w-full justify-start">
                     Sign out

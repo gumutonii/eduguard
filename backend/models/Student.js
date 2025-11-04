@@ -240,7 +240,13 @@ const studentSchema = new mongoose.Schema({
       type: Boolean,
       default: false
     }
-  }]
+  }],
+  
+  // Profile picture
+  profilePicture: {
+    type: String,
+    trim: true
+  }
 }, {
   timestamps: true,
   toJSON: { virtuals: true },

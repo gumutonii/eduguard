@@ -9,7 +9,17 @@ const logger = require('../utils/logger');
 // Get messages with filtering
 router.get('/', auth, async (req, res) => {
   try {
-    const { studentId, type, status, channel, startDate, endDate } = req.query;
+    const { 
+      studentId, 
+      type, 
+      status, 
+      channel, 
+      startDate, 
+      endDate,
+      page = 1,
+      limit = 20,
+      search
+    } = req.query;
     const query = { schoolId: req.user.schoolId };
 
     if (studentId) query.studentId = studentId;
@@ -24,25 +34,80 @@ router.get('/', auth, async (req, res) => {
       };
     }
 
+    // Search functionality - combine with other filters using $and
+    if (search) {
+      const searchConditions = {
+        $or: [
+          { recipientName: { $regex: search, $options: 'i' } },
+          { recipientPhone: { $regex: search, $options: 'i' } },
+          { recipientEmail: { $regex: search, $options: 'i' } },
+          { content: { $regex: search, $options: 'i' } },
+          { template: { $regex: search, $options: 'i' } }
+        ]
+      };
+      
+      // Build base query without search
+      const baseQuery = { schoolId: query.schoolId };
+      if (query.studentId) baseQuery.studentId = query.studentId;
+      if (query.type) baseQuery.type = query.type;
+      if (query.status) baseQuery.status = query.status;
+      if (query.channel) baseQuery.channel = query.channel;
+      if (query.createdAt) baseQuery.createdAt = query.createdAt;
+      
+      // Combine base query with search using $and
+      query.$and = [
+        baseQuery,
+        searchConditions
+      ];
+      
+      // Remove individual filter fields from query since they're now in $and
+      delete query.studentId;
+      delete query.type;
+      delete query.status;
+      delete query.channel;
+      delete query.createdAt;
+    }
+
     // For teachers, filter by their assigned students
     if (req.user.role === 'TEACHER') {
       const students = await Student.find({
         assignedTeacherId: req.user._id,
         schoolId: req.user.schoolId
       }).select('_id');
-      query.studentId = { $in: students.map(s => s._id) };
+      const studentIds = students.map(s => s._id);
+      
+      if (query.studentId) {
+        // If studentId filter exists, intersect with assigned students
+        if (typeof query.studentId === 'object' && query.studentId.$in) {
+          query.studentId.$in = query.studentId.$in.filter(id => studentIds.includes(id.toString()));
+        } else {
+          query.studentId = studentIds.includes(query.studentId.toString()) ? query.studentId : { $in: [] };
+    }
+      } else {
+        query.studentId = { $in: studentIds };
+      }
     }
 
+    // Get total count for pagination
+    const total = await Message.countDocuments(query);
+    const pages = Math.ceil(total / parseInt(limit));
+
     const messages = await Message.find(query)
-      .populate('studentId', 'firstName lastName fullName')
+      .populate('studentId', 'firstName lastName fullName studentId')
       .populate('sentBy', 'name email')
       .sort({ createdAt: -1 })
-      .limit(100);
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
 
     res.json({
       success: true,
-      count: messages.length,
-      data: messages
+      data: messages,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages
+      }
     });
   } catch (error) {
     logger.error('Error fetching messages:', error);

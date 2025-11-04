@@ -13,7 +13,8 @@ import {
   CalendarIcon,
   CheckCircleIcon,
   TrashIcon,
-  PencilIcon
+  PencilIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline'
 import { apiClient } from '@/lib/api'
 
@@ -123,7 +124,7 @@ export function TeachersPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-neutral-900">All Users</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">Users</h1>
         </div>
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -136,7 +137,7 @@ export function TeachersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">All Users</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">Users</h1>
           <p className="text-neutral-600">Manage and view all users in the system</p>
         </div>
         <div className="text-sm text-neutral-500">
@@ -206,7 +207,7 @@ export function TeachersPage() {
                     <tr 
                       key={user._id} 
                       className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => window.location.href = `/users/${user._id}`}
+                      onClick={() => window.location.href = `/teachers/${user._id}`}
                     >
                       <td className="py-4 px-4">
                         <div className="flex items-center space-x-3">
@@ -262,38 +263,43 @@ export function TeachersPage() {
                         </div>
                       </td>
                       <td className="py-4 px-4">
-                        <div className="flex items-center justify-center space-x-2">
+                        <div className="flex items-center justify-center space-x-1">
                           <Button 
                             size="sm" 
                             variant="outline"
+                            className="h-8 w-8 p-0"
                             onClick={(e) => {
                               e.stopPropagation()
-                              window.location.href = `/users/${user._id}`
+                              window.location.href = `/teachers/${user._id}`
                             }}
+                            title="View"
                           >
-                            View
+                            <EyeIcon className="h-4 w-4" />
                           </Button>
                           <Button 
                             size="sm" 
                             variant="outline"
+                            className="h-8 w-8 p-0"
                             onClick={(e) => {
                               e.stopPropagation()
                               window.location.href = `/users/${user._id}/edit`
                             }}
+                            title="Edit"
                           >
-                            Edit
+                            <PencilIcon className="h-4 w-4" />
                           </Button>
                           <Button 
                             size="sm" 
                             variant="outline"
-                            className="text-red-600 hover:text-red-700"
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                             onClick={(e) => {
                               e.stopPropagation()
-                              if (window.confirm(`Are you sure you want to delete ${user.name}?`)) {
+                              if (window.confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) {
                                 deleteUserMutation.mutate(user._id);
                               }
                             }}
                             disabled={deleteUserMutation.isPending}
+                            title="Delete"
                           >
                             <TrashIcon className="h-4 w-4" />
                           </Button>
