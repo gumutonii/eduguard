@@ -9,9 +9,11 @@ A comprehensive, data-driven platform designed to help educational institutions 
 
 ### Figma UI Design: [Click Here](https://www.figma.com/design/hACT4bbmrQ3VqLkud1xntM/EduGuard?node-id=0-1&t=AuO482VYgGrCe8xM-1)
 
-### Demo video: [Click Here](https://youtu.be/oNuvGJMJltY)
+### Demo video: [Click Here](https://youtu.be/dWZjJd4SyCo)
 
 ### GitHub Repository: [Click Here](https://github.com/gumutonii/eduguard)
+
+### Deployed Version of the app: [Click Here](https://eduguard-theta.vercel.app/)
 
 ## 🎯 Project Overview
 
