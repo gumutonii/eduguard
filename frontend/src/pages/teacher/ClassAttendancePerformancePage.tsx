@@ -58,7 +58,7 @@ export function ClassAttendancePerformancePage() {
   const students = studentsData?.data || []
 
   // Get existing attendance for the selected week
-  const { data: attendanceRecords } = useQuery({
+  const { data: attendanceRecords, refetch: refetchAttendance } = useQuery({
     queryKey: ['class-attendance', id, selectedWeek[0].toISOString().split('T')[0]],
     queryFn: async () => {
       const startDate = selectedWeek[0].toISOString().split('T')[0]
@@ -91,7 +91,7 @@ export function ClassAttendancePerformancePage() {
   })
 
   // Get existing performance records
-  const { data: performanceRecords } = useQuery({
+  const { data: performanceRecords, refetch: refetchPerformance } = useQuery({
     queryKey: ['class-performance', id, selectedTerm],
     queryFn: async () => {
       const currentYear = new Date().getFullYear()
