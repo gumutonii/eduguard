@@ -359,7 +359,7 @@ class ApiClient {
       success: boolean
       message: string
       data: any
-    }>('/attendance', {
+    }>('/attendance/mark', {
       method: 'POST',
       body: JSON.stringify({ records: attendanceRecords }),
     })
