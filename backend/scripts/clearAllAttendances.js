@@ -15,9 +15,17 @@ async function clearAllAttendances() {
       return;
     }
 
-    // Delete all attendance records
+    // Delete ALL attendance records (force delete)
     const deleteResult = await Attendance.deleteMany({});
     console.log(`🗑️  Deleted ${deleteResult.deletedCount} attendance records`);
+    
+    // Double-check: delete any remaining records
+    const remainingCount = await Attendance.countDocuments();
+    if (remainingCount > 0) {
+      console.log(`⚠️  Found ${remainingCount} remaining records, deleting again...`);
+      const secondDelete = await Attendance.deleteMany({});
+      console.log(`🗑️  Deleted additional ${secondDelete.deletedCount} records`);
+    }
 
     const finalCount = await Attendance.countDocuments();
     console.log(`✅ Final attendance records: ${finalCount}`);
