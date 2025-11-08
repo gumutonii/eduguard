@@ -171,16 +171,36 @@ const settingsSchema = new mongoose.Schema({
 settingsSchema.index({ schoolName: 1, schoolDistrict: 1 });
 
 // Static method to get or create settings for a school
-settingsSchema.statics.getOrCreateForSchool = async function(schoolName, schoolDistrict, schoolSector) {
-  let settings = await this.findOne({ schoolName, schoolDistrict });
+settingsSchema.statics.getOrCreateForSchool = async function(schoolIdOrName, schoolDistrict, schoolSector) {
+  let schoolName, district, sector;
+  
+  // If first parameter is an ObjectId, fetch school details
+  if (mongoose.Types.ObjectId.isValid(schoolIdOrName) && !schoolDistrict) {
+    // Use mongoose.model to avoid circular dependency
+    const School = mongoose.model('School');
+    const school = await School.findById(schoolIdOrName);
+    if (!school) {
+      throw new Error('School not found');
+    }
+    schoolName = school.name;
+    district = school.district;
+    sector = school.sector;
+  } else {
+    // Legacy support: use provided parameters
+    schoolName = schoolIdOrName;
+    district = schoolDistrict;
+    sector = schoolSector;
+  }
+  
+  let settings = await this.findOne({ schoolName, schoolDistrict: district });
   
   if (!settings) {
     // Create default settings
     const currentYear = new Date().getFullYear();
     settings = await this.create({
       schoolName,
-      schoolDistrict,
-      schoolSector,
+      schoolDistrict: district,
+      schoolSector: sector,
       academicCalendar: {
         currentYear: `${currentYear}/${currentYear + 1}`,
         terms: [

@@ -56,9 +56,9 @@ router.get('/', auth, async (req, res) => {
     }
 
     const attendance = await Attendance.find(query)
-      .populate('studentId', 'firstName lastName fullName classroomId')
+      .populate('studentId', 'firstName lastName fullName classroomId studentId profilePicture')
       .populate('markedBy', 'name email')
-      .sort({ date: -1 });
+      .sort({ date: -1, createdAt: -1 });
 
     res.json({
       success: true,
@@ -119,12 +119,19 @@ router.post('/mark', auth, async (req, res) => {
           await existingAttendance.save();
           createdRecords.push(existingAttendance);
         } else {
-          // Create new record
+          // Create new record - ensure date is properly set
+          const attendanceDate = new Date(record.date);
+          attendanceDate.setHours(0, 0, 0, 0);
+          
           const attendance = await Attendance.create({
-            ...record,
+            studentId: record.studentId,
+            date: attendanceDate,
+            status: record.status,
             schoolId: req.user.schoolId,
             markedBy: req.user._id,
-            reason: record.reason || 'NONE'
+            reason: record.reason || 'NONE',
+            reasonDetails: record.reasonDetails,
+            notes: record.notes
           });
           createdRecords.push(attendance);
         }
