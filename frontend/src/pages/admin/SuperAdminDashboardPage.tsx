@@ -455,6 +455,76 @@ export function SuperAdminDashboardPage() {
         </CardContent>
       </Card>
 
+      {/* Recent Users Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span className="flex items-center">
+              <UserGroupIcon className="h-5 w-5 mr-2 text-blue-600" />
+              Recent Users ({users.length})
+            </span>
+            <Link to="/users">
+              <Button size="sm">
+                <UsersIcon className="h-4 w-4 mr-2" />
+                View All
+              </Button>
+            </Link>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {users.slice(0, 10).map((user: any) => (
+              <div 
+                key={user._id} 
+                className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                onClick={() => window.location.href = `/users/${user._id}`}
+              >
+                <div className="flex items-center space-x-3">
+                  {user.profilePicture ? (
+                    <img
+                      src={user.profilePicture}
+                      alt={user.name}
+                      className="h-10 w-10 rounded-full object-cover border-2 border-primary-200"
+                    />
+                  ) : (
+                    <div className="h-10 w-10 bg-primary-100 rounded-full flex items-center justify-center border-2 border-primary-200">
+                      <span className="text-sm font-medium text-primary-600">
+                        {user.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                      </span>
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-medium text-gray-900">{user.name}</p>
+                    <p className="text-sm text-gray-500">{user.email}</p>
+                    <p className="text-xs text-gray-400">
+                      {user.role === 'SUPER_ADMIN' ? 'Super Admin' : 
+                       user.role === 'ADMIN' ? 'Admin' : 'Teacher'} • {user.schoolName || 'No School'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Badge className={user.role === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-800' : 
+                                    user.role === 'ADMIN' ? 'bg-red-100 text-red-800' : 
+                                    'bg-blue-100 text-blue-800'}>
+                    {user.role === 'SUPER_ADMIN' ? 'Super Admin' : 
+                     user.role === 'ADMIN' ? 'Admin' : 'Teacher'}
+                  </Badge>
+                  <Badge variant={user.isApproved ? 'success' : 'warning'}>
+                    {user.isApproved ? 'Approved' : 'Pending'}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+            {users.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <UserGroupIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>No users found</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Pending Approvals */}
       {pendingApprovals > 0 && (
         <Card>

@@ -344,11 +344,19 @@ export function TeacherDashboardPage() {
                   onClick={() => window.location.href = `/students/${student._id}?tab=risk`}
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-red-600">
-                        {student.firstName.charAt(0)}{student.lastName.charAt(0)}
-                      </span>
-                    </div>
+                    {student.profilePicture ? (
+                      <img
+                        src={student.profilePicture}
+                        alt={`${student.firstName} ${student.lastName}`}
+                        className="h-10 w-10 rounded-full object-cover border-2 border-red-200"
+                      />
+                    ) : (
+                      <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center border-2 border-red-200">
+                        <span className="text-sm font-medium text-red-600">
+                          {student.firstName.charAt(0)}{student.lastName.charAt(0)}
+                        </span>
+                      </div>
+                    )}
                     <div>
                       <p className="font-medium text-neutral-900">{student.firstName} {student.lastName}</p>
                       <p className="text-sm text-neutral-600">{student.className} • {student.reason}</p>

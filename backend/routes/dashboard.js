@@ -1084,19 +1084,22 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
     // Get school data
     const school = await School.findOne({ _id: schoolId, isActive: true });
 
-    // Get teachers data
+    // Get teachers data with profile pictures
     const teachers = await User.find({ 
       schoolId, 
       role: 'TEACHER', 
       isActive: true 
-    }).sort({ createdAt: -1 });
+    })
+    .select('name email phone role teacherTitle profilePicture isApproved isActive createdAt assignedClasses')
+    .sort({ createdAt: -1 });
 
     const pendingTeachers = await User.find({ 
       schoolId, 
       role: 'TEACHER', 
       isApproved: false,
       isActive: true 
-    });
+    })
+    .select('name email phone role teacherTitle profilePicture isApproved isActive createdAt assignedClasses');
 
     // Get students data
     const totalStudents = await Student.countDocuments({ schoolId, isActive: true });
