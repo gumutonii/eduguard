@@ -91,41 +91,68 @@ router.post('/mark', auth, async (req, res) => {
     const errors = [];
     const absentStudents = []; // Track absent students for async risk detection
 
-    // Save all attendance records first (fast operation)
+    // Prepare all records for bulk operations
+    const recordsToCreate = [];
+    const recordsToUpdate = [];
+    const dateMap = new Map(); // Map to track existing records
+
+    // First, batch fetch all existing attendance records for the date range
+    const dateStrings = [...new Set(records.map(r => r.date))];
+    const dateObjects = dateStrings.map(d => {
+      const date = new Date(d);
+      date.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+      return { start: date, end: endOfDay };
+    });
+
+    // Fetch all existing records in one query
+    const studentIds = [...new Set(records.map(r => r.studentId))];
+    const existingRecords = await Attendance.find({
+      studentId: { $in: studentIds },
+      date: {
+        $gte: new Date(Math.min(...dateObjects.map(d => d.start.getTime()))),
+        $lte: new Date(Math.max(...dateObjects.map(d => d.end.getTime())))
+      }
+    }).lean();
+
+    // Create a map for quick lookup
+    existingRecords.forEach(record => {
+      const key = `${record.studentId}_${record.date.toISOString().split('T')[0]}`;
+      dateMap.set(key, record);
+    });
+
+    // Process all records
     for (const record of records) {
       try {
-        // Check if attendance already exists for this student and date
         const recordDate = new Date(record.date);
         recordDate.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(recordDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        
-        const existingAttendance = await Attendance.findOne({
-          studentId: record.studentId,
-          date: {
-            $gte: recordDate,
-            $lte: endOfDay
-          }
-        });
+        const dateKey = `${record.studentId}_${record.date}`;
+        const existing = dateMap.get(dateKey);
 
-        if (existingAttendance) {
+        if (existing) {
           // Update existing record
-          existingAttendance.status = record.status;
-          existingAttendance.reason = record.reason || 'NONE';
-          existingAttendance.reasonDetails = record.reasonDetails;
-          existingAttendance.notes = record.notes;
-          existingAttendance.modifiedBy = req.user._id;
-          existingAttendance.modifiedAt = new Date();
-          await existingAttendance.save();
-          createdRecords.push(existingAttendance);
+          recordsToUpdate.push({
+            updateOne: {
+              filter: { _id: existing._id },
+              update: {
+                $set: {
+                  status: record.status,
+                  reason: record.reason || 'NONE',
+                  reasonDetails: record.reasonDetails,
+                  notes: record.notes,
+                  modifiedBy: req.user._id,
+                  modifiedAt: new Date()
+                }
+              }
+            }
+          });
+          createdRecords.push({ ...existing, status: record.status });
         } else {
-          // Create new record - ensure date is properly set
-          const attendanceDate = new Date(record.date);
-          attendanceDate.setHours(0, 0, 0, 0);
-          
-          const attendance = await Attendance.create({
+          // Create new record
+          recordsToCreate.push({
             studentId: record.studentId,
-            date: attendanceDate,
+            date: recordDate,
             status: record.status,
             schoolId: req.user.schoolId,
             markedBy: req.user._id,
@@ -133,7 +160,6 @@ router.post('/mark', auth, async (req, res) => {
             reasonDetails: record.reasonDetails,
             notes: record.notes
           });
-          createdRecords.push(attendance);
         }
 
         // Track absent students for async processing
@@ -144,12 +170,26 @@ router.post('/mark', auth, async (req, res) => {
           });
         }
       } catch (error) {
-        logger.error(`Error saving attendance for student ${record.studentId}:`, error);
+        logger.error(`Error preparing attendance for student ${record.studentId}:`, error);
         errors.push({
           studentId: record.studentId,
           error: error.message
         });
       }
+    }
+
+    // Bulk operations for faster saving
+    try {
+      if (recordsToUpdate.length > 0) {
+        await Attendance.bulkWrite(recordsToUpdate);
+      }
+      if (recordsToCreate.length > 0) {
+        const newRecords = await Attendance.insertMany(recordsToCreate);
+        createdRecords.push(...newRecords);
+      }
+    } catch (error) {
+      logger.error('Error in bulk attendance operations:', error);
+      throw error;
     }
 
     // Return success immediately after saving records
@@ -161,12 +201,12 @@ router.post('/mark', auth, async (req, res) => {
     });
 
     // Process risk detection and alerts asynchronously (non-blocking)
+    // Use setTimeout to ensure response is sent first
     if (absentStudents.length > 0) {
-      // Run in background without blocking the response
-      setImmediate(async () => {
+      setTimeout(async () => {
         for (const absent of absentStudents) {
           try {
-            // Run risk detection (non-blocking)
+            // Run risk detection (non-blocking, don't await)
             riskDetectionService.detectRisksForStudent(
               absent.studentId,
               req.user.schoolId,
@@ -175,19 +215,22 @@ router.post('/mark', auth, async (req, res) => {
               logger.error(`Risk detection failed for student ${absent.studentId}:`, err);
             });
 
-            // Send absence alert (non-blocking)
+            // Send absence alert (non-blocking, don't await)
             messageService.sendAbsenceAlert(
               absent.studentId,
               absent.date,
               req.user._id
             ).catch(msgError => {
-              logger.error('Failed to send absence alert:', msgError);
+              // Silently fail - don't log every template error
+              if (!msgError.message?.includes('Template')) {
+                logger.error('Failed to send absence alert:', msgError);
+              }
             });
           } catch (error) {
             logger.error(`Error processing absence for student ${absent.studentId}:`, error);
           }
         }
-      });
+      }, 100); // Small delay to ensure response is sent
     }
   } catch (error) {
     logger.error('Error marking attendance:', error);

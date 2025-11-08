@@ -178,8 +178,17 @@ class MessageService {
    */
   getTemplate(settings, templateType, language, channel) {
     const template = settings.notificationTemplates[templateType];
-    if (!template || !template[language]) {
-      throw new Error(`Template ${templateType} not found for language ${language}`);
+    if (!template) {
+      throw new Error(`Template ${templateType} not found`);
+    }
+
+    // Fallback to EN if language not found
+    if (!template[language]) {
+      if (template['EN']) {
+        language = 'EN';
+      } else {
+        throw new Error(`Template ${templateType} not found for language ${language} and no EN fallback available`);
+      }
     }
 
     if (channel === 'email') {
