@@ -699,22 +699,21 @@ export function StudentDetailPage() {
 
       {/* Tab Content */}
       {renderTabContent()}
-    </div>
 
-    {/* Send Alert Modal */}
-    {showSendAlert && student && (
-      <SendAlertModal
-        studentId={student._id}
-        studentName={`${student.firstName} ${student.lastName}`}
-        guardianName={student.guardianContacts?.[0]?.name}
-        guardianPhone={student.guardianContacts?.[0]?.phone}
-        guardianEmail={student.guardianContacts?.[0]?.email}
-        onClose={() => setShowSendAlert(false)}
-        onSuccess={() => {
-          alert('Alert sent successfully!')
-        }}
-      />
-    )}
-  </div>
+      {/* Send Alert Modal */}
+      {showSendAlert && student && (
+        <SendAlertModal
+          studentId={student._id}
+          studentName={`${student.firstName} ${student.lastName}`}
+          guardianName={student.guardianContacts?.[0]?.name}
+          guardianPhone={student.guardianContacts?.[0]?.phone}
+          guardianEmail={student.guardianContacts?.[0]?.email}
+          onClose={() => setShowSendAlert(false)}
+          onSuccess={() => {
+            alert('Alert sent successfully!')
+          }}
+        />
+      )}
+    </div>
   )
 }
