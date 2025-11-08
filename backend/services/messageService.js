@@ -140,11 +140,6 @@ class MessageService {
         ...variables
       });
 
-      const guardianName = primaryGuardian.name || 
-        (primaryGuardian.firstName && primaryGuardian.lastName 
-          ? `${primaryGuardian.firstName} ${primaryGuardian.lastName}` 
-          : primaryGuardian.firstName || 'Guardian');
-
       const messageData = {
         studentId: student._id,
         schoolId: student.schoolId?._id || student.schoolId,
