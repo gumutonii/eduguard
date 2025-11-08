@@ -43,6 +43,12 @@ class RiskDetectionService {
         }
       }
 
+      // Check distance to school risks
+      const distanceRisk = await this.checkDistanceRisk(student);
+      if (distanceRisk) {
+        risks.push(distanceRisk);
+      }
+
       // Check combined risks
       if (settings.riskRules.combined.enabled && risks.length >= 2) {
         const combinedRisk = await this.checkCombinedRisk(risks, settings.riskRules.combined);
@@ -260,8 +266,9 @@ class RiskDetectionService {
       riskFactors.push('No parents (orphan)');
     }
 
-    if (student.socioEconomic.familyConflict && rules.highRiskFactors.familyConflict) {
-      riskFactors.push('Family conflict reported');
+    // Family stability: false (unstable) = risk, true (stable) = no risk
+    if (!student.socioEconomic.familyStability && rules.highRiskFactors.familyStability) {
+      riskFactors.push('Family stability concerns reported');
     }
 
     if (riskFactors.length >= 2) {
@@ -274,7 +281,7 @@ class RiskDetectionService {
           socioeconomicData: {
             ubudeheLevel: student.socioEconomic.ubudeheLevel,
             hasParents: student.socioEconomic.hasParents,
-            familyConflict: student.socioEconomic.familyConflict,
+            familyStability: student.socioEconomic.familyStability,
             riskFactors
           }
         }
@@ -289,8 +296,65 @@ class RiskDetectionService {
           socioeconomicData: {
             ubudeheLevel: student.socioEconomic.ubudeheLevel,
             hasParents: student.socioEconomic.hasParents,
-            familyConflict: student.socioEconomic.familyConflict,
+            familyStability: student.socioEconomic.familyStability,
             riskFactors
+          }
+        }
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Check distance to school risks
+   */
+  async checkDistanceRisk(student) {
+    if (!student.socioEconomic.distanceToSchoolKm) {
+      return null;
+    }
+
+    const distance = student.socioEconomic.distanceToSchoolKm;
+
+    if (distance >= 7) {
+      return {
+        type: 'DISTANCE',
+        severity: 'CRITICAL',
+        title: `Critical Distance: ${distance} km from school`,
+        description: `Student lives ${distance} kilometers from school, exceeding the critical threshold of 7 km. This distance creates significant barriers to regular attendance.`,
+        data: {
+          distanceData: {
+            distanceKm: distance,
+            threshold: 7,
+            riskLevel: 'CRITICAL'
+          }
+        }
+      };
+    } else if (distance >= 5) {
+      return {
+        type: 'DISTANCE',
+        severity: 'HIGH',
+        title: `High Distance: ${distance} km from school`,
+        description: `Student lives ${distance} kilometers from school, indicating high dropout risk due to distance barriers.`,
+        data: {
+          distanceData: {
+            distanceKm: distance,
+            threshold: 5,
+            riskLevel: 'HIGH'
+          }
+        }
+      };
+    } else if (distance >= 3) {
+      return {
+        type: 'DISTANCE',
+        severity: 'MEDIUM',
+        title: `Moderate Distance: ${distance} km from school`,
+        description: `Student lives ${distance} kilometers from school. Monitor attendance patterns closely.`,
+        data: {
+          distanceData: {
+            distanceKm: distance,
+            threshold: 3,
+            riskLevel: 'MEDIUM'
           }
         }
       };

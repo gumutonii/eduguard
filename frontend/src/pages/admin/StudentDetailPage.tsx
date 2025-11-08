@@ -310,8 +310,10 @@ export function StudentDetailPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm font-medium text-neutral-600">Family Conflict</p>
-                    <p className="text-neutral-900">{student.socioEconomic?.familyConflict ? 'Yes' : 'No'}</p>
+                    <p className="text-sm font-medium text-neutral-600">Family Stability</p>
+                    <p className="text-neutral-900">{student.socioEconomic?.familyStability ? 'Yes (Stable)' : 'No (Less Stable)'}</p>
+                    <p className="text-sm font-medium text-neutral-600 mt-4">Distance to School</p>
+                    <p className="text-neutral-900">{student.socioEconomic?.distanceToSchoolKm ? `${student.socioEconomic.distanceToSchoolKm} km` : 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-neutral-600">Number of Siblings</p>

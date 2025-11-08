@@ -91,10 +91,10 @@ const studentSchema = new mongoose.Schema({
       type: Boolean,
       required: [true, 'Has parents information is required']
     },
-    familyConflict: {
+    familyStability: {
       type: Boolean,
-      required: [true, 'Family conflict information is required'],
-      default: false
+      required: [true, 'Family stability information is required'],
+      default: true
     },
     numberOfSiblings: {
       type: Number,
@@ -102,6 +102,12 @@ const studentSchema = new mongoose.Schema({
       min: [0, 'Number of siblings cannot be negative'],
       max: [20, 'Number of siblings cannot exceed 20'],
       default: 0
+    },
+    distanceToSchoolKm: {
+      type: Number,
+      required: [true, 'Distance to school is required'],
+      min: [0, 'Distance cannot be negative'],
+      max: [50, 'Distance cannot exceed 50 km']
     },
     // Optional fields that can be added later
     parentJob: {

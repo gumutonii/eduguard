@@ -56,7 +56,7 @@ const settingsSchema = new mongoose.Schema({
       highRiskFactors: {
         ubudeheLevel: { type: Number, default: 1 },
         noParents: { type: Boolean, default: true },
-        familyConflict: { type: Boolean, default: true }
+        familyStability: { type: Boolean, default: true }
       }
     },
     combined: {

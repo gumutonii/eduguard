@@ -50,7 +50,7 @@ const riskFlagSchema = new mongoose.Schema({
     socioeconomicData: {
       ubudeheLevel: Number,
       hasParents: Boolean,
-      familyConflict: Boolean
+      familyStability: Boolean
     },
     additionalInfo: mongoose.Schema.Types.Mixed
   },

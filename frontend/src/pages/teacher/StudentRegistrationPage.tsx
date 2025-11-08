@@ -45,14 +45,15 @@ const studentRegistrationSchema = z.object({
       if (typeof val === 'string') return val === 'true';
       return Boolean(val);
     }),
-    familyConflict: z.union([
+    familyStability: z.union([
       z.boolean(),
       z.string()
     ]).transform((val) => {
       if (typeof val === 'string') return val === 'true';
       return Boolean(val);
     }),
-    numberOfSiblings: z.number().min(0).max(20)
+    numberOfSiblings: z.number().min(0).max(20),
+    distanceToSchoolKm: z.number().min(0).max(50, 'Distance cannot exceed 50 km').optional()
   }),
   
   // Guardian contacts - updated with new requirements (max 2)
@@ -152,8 +153,9 @@ export function StudentRegistrationPage() {
       socioEconomic: {
         ubudeheLevel: 4,
         hasParents: true,
-        familyConflict: false,
-        numberOfSiblings: 0
+        familyStability: true,
+        numberOfSiblings: 0,
+        distanceToSchoolKm: undefined
       },
       guardianContacts: [{
         firstName: '',
@@ -212,7 +214,7 @@ export function StudentRegistrationPage() {
       formValues.address?.sector
     )
 
-    // Check socio-economic info (hasParents and familyConflict can be string 'true'/'false' or boolean)
+    // Check socio-economic info (hasParents and familyStability can be string 'true'/'false' or boolean)
     const hasSocioEconomic = (
       formValues.socioEconomic?.ubudeheLevel >= 1 &&
       formValues.socioEconomic?.ubudeheLevel <= 4 &&
@@ -220,10 +222,10 @@ export function StudentRegistrationPage() {
        formValues.socioEconomic?.hasParents === false ||
        formValues.socioEconomic?.hasParents === 'true' ||
        formValues.socioEconomic?.hasParents === 'false') &&
-      (formValues.socioEconomic?.familyConflict === true ||
-       formValues.socioEconomic?.familyConflict === false ||
-       formValues.socioEconomic?.familyConflict === 'true' ||
-       formValues.socioEconomic?.familyConflict === 'false') &&
+      (formValues.socioEconomic?.familyStability === true ||
+       formValues.socioEconomic?.familyStability === false ||
+       formValues.socioEconomic?.familyStability === 'true' ||
+       formValues.socioEconomic?.familyStability === 'false') &&
       typeof formValues.socioEconomic?.numberOfSiblings === 'number' &&
       formValues.socioEconomic?.numberOfSiblings >= 0 &&
       formValues.socioEconomic?.numberOfSiblings <= 20
@@ -291,9 +293,10 @@ export function StudentRegistrationPage() {
           hasParents: typeof data.socioEconomic.hasParents === 'string' 
             ? data.socioEconomic.hasParents === 'true' 
             : Boolean(data.socioEconomic.hasParents),
-          familyConflict: typeof data.socioEconomic.familyConflict === 'string'
-            ? data.socioEconomic.familyConflict === 'true'
-            : Boolean(data.socioEconomic.familyConflict),
+          familyStability: typeof data.socioEconomic.familyStability === 'string'
+            ? data.socioEconomic.familyStability === 'true'
+            : Boolean(data.socioEconomic.familyStability),
+          distanceToSchoolKm: data.socioEconomic.distanceToSchoolKm ? Number(data.socioEconomic.distanceToSchoolKm) : undefined,
           numberOfSiblings: data.socioEconomic.numberOfSiblings
         },
         guardianContacts: data.guardianContacts.map(contact => ({
@@ -723,30 +726,55 @@ export function StudentRegistrationPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Family Conflict *
+                    Family Stability *
                   </label>
+                  <p className="text-xs text-gray-500 mb-2">Is the family/home environment stable?</p>
                   <div className="flex space-x-4">
                     <label className="flex items-center">
                       <input
-                        {...register('socioEconomic.familyConflict')}
-                        type="radio"
-                        value="false"
-                        className="mr-2"
-                      />
-                      No
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        {...register('socioEconomic.familyConflict')}
+                        {...register('socioEconomic.familyStability')}
                         type="radio"
                         value="true"
                         className="mr-2"
                       />
-                      Yes
+                      Yes (Stable)
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        {...register('socioEconomic.familyStability')}
+                        type="radio"
+                        value="false"
+                        className="mr-2"
+                      />
+                      No (Less Stable)
                     </label>
                   </div>
-                  {errors.socioEconomic?.familyConflict && (
-                    <p className="mt-1 text-sm text-red-600">{errors.socioEconomic.familyConflict.message}</p>
+                  {errors.socioEconomic?.familyStability && (
+                    <p className="mt-1 text-sm text-red-600">{errors.socioEconomic.familyStability.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Distance to School (km) *
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">Distance from student's home to school in kilometers</p>
+                  <input
+                    {...register('socioEconomic.distanceToSchoolKm', { 
+                      valueAsNumber: true,
+                      required: 'Distance to school is required',
+                      min: { value: 0, message: 'Distance cannot be negative' },
+                      max: { value: 50, message: 'Distance cannot exceed 50 km' }
+                    })}
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="50"
+                    placeholder="e.g., 3.5"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                  {errors.socioEconomic?.distanceToSchoolKm && (
+                    <p className="mt-1 text-sm text-red-600">{errors.socioEconomic.distanceToSchoolKm.message}</p>
                   )}
                 </div>
               </div>

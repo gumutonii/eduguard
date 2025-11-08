@@ -304,8 +304,8 @@ export function AdminStudentsPage() {
                           <p className="font-medium">{student.socioEconomic.numberOfSiblings || 'N/A'}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Conflict:</span>
-                          <p className="font-medium">{student.socioEconomic.familyConflict ? 'Yes' : 'No'}</p>
+                          <span className="text-gray-500">Stability:</span>
+                          <p className="font-medium">{student.socioEconomic.familyStability ? 'Yes (Stable)' : 'No (Less Stable)'}</p>
                         </div>
                       </div>
                     </div>

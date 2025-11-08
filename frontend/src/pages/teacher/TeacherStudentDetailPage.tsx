@@ -120,7 +120,8 @@ export function TeacherStudentDetailPage() {
       socioEconomic: {
         ubudeheLevel: 1,
         hasParents: true,
-        familyConflict: false,
+        familyStability: true,
+        distanceToSchoolKm: undefined,
         numberOfSiblings: 0
       },
       guardianContacts: [] as any[]
@@ -145,7 +146,8 @@ export function TeacherStudentDetailPage() {
         socioEconomic: {
           ubudeheLevel: student.socioEconomic?.ubudeheLevel || 1,
           hasParents: student.socioEconomic?.hasParents ?? true,
-          familyConflict: student.socioEconomic?.familyConflict || false,
+          familyStability: student.socioEconomic?.familyStability !== undefined ? student.socioEconomic.familyStability : true,
+          distanceToSchoolKm: student.socioEconomic?.distanceToSchoolKm,
           numberOfSiblings: student.socioEconomic?.numberOfSiblings || 0
         },
         guardianContacts: student.guardianContacts?.map((g: any) => ({
@@ -269,9 +271,10 @@ export function TeacherStudentDetailPage() {
           hasParents: typeof data.socioEconomic.hasParents === 'string' 
             ? data.socioEconomic.hasParents === 'true' 
             : Boolean(data.socioEconomic.hasParents),
-          familyConflict: typeof data.socioEconomic.familyConflict === 'string'
-            ? data.socioEconomic.familyConflict === 'true'
-            : Boolean(data.socioEconomic.familyConflict),
+          familyStability: typeof data.socioEconomic.familyStability === 'string'
+            ? data.socioEconomic.familyStability === 'true'
+            : Boolean(data.socioEconomic.familyStability),
+          distanceToSchoolKm: data.socioEconomic.distanceToSchoolKm ? Number(data.socioEconomic.distanceToSchoolKm) : undefined,
           numberOfSiblings: data.socioEconomic.numberOfSiblings
         },
         guardianContacts: data.guardianContacts.map((contact: any) => ({
@@ -716,22 +719,62 @@ export function TeacherStudentDetailPage() {
                       )}
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-neutral-600">Family Conflict *</label>
+                      <label className="text-sm font-medium text-neutral-600">Family Stability *</label>
+                      <p className="text-xs text-neutral-500 mb-1">Is the family/home environment stable?</p>
                       {isEditMode ? (
                         <>
-                          <select
-                            {...register('socioEconomic.familyConflict', { required: 'This field is required' })}
-                            className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          >
-                            <option value="false">No</option>
-                            <option value="true">Yes</option>
-                          </select>
-                          {errors.socioEconomic?.familyConflict && (
-                            <p className="mt-1 text-sm text-red-600">{errors.socioEconomic.familyConflict.message}</p>
+                          <div className="flex space-x-4 mt-2">
+                            <label className="flex items-center">
+                              <input
+                                {...register('socioEconomic.familyStability', { required: 'This field is required' })}
+                                type="radio"
+                                value="true"
+                                className="mr-2"
+                              />
+                              Yes (Stable)
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                {...register('socioEconomic.familyStability', { required: 'This field is required' })}
+                                type="radio"
+                                value="false"
+                                className="mr-2"
+                              />
+                              No (Less Stable)
+                            </label>
+                          </div>
+                          {errors.socioEconomic?.familyStability && (
+                            <p className="mt-1 text-sm text-red-600">{errors.socioEconomic.familyStability.message}</p>
                           )}
                         </>
                       ) : (
-                        <p className="text-neutral-900 mt-1">{student.socioEconomic?.familyConflict ? 'Yes' : 'No'}</p>
+                        <p className="text-neutral-900 mt-1">{student.socioEconomic?.familyStability ? 'Yes (Stable)' : 'No (Less Stable)'}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-neutral-600 mt-4">Distance to School (km) *</label>
+                      {isEditMode ? (
+                        <>
+                          <input
+                            {...register('socioEconomic.distanceToSchoolKm', { 
+                              valueAsNumber: true,
+                              required: 'Distance to school is required',
+                              min: { value: 0, message: 'Distance cannot be negative' },
+                              max: { value: 50, message: 'Distance cannot exceed 50 km' }
+                            })}
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="50"
+                            placeholder="e.g., 3.5"
+                            className="mt-1 block w-full rounded-md border-neutral-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                          />
+                          {errors.socioEconomic?.distanceToSchoolKm && (
+                            <p className="mt-1 text-sm text-red-600">{errors.socioEconomic.distanceToSchoolKm.message}</p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-neutral-900 mt-1">{student.socioEconomic?.distanceToSchoolKm ? `${student.socioEconomic.distanceToSchoolKm} km` : 'N/A'}</p>
                       )}
                     </div>
                   </div>

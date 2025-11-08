@@ -163,7 +163,8 @@ router.post('/', [
   // Socio-economic validation - only essential fields
   body('socioEconomic.ubudeheLevel').isInt({ min: 1, max: 4 }).withMessage('Ubudehe level must be between 1 and 4'),
   body('socioEconomic.hasParents').isBoolean().withMessage('Has parents must be a boolean'),
-  body('socioEconomic.familyConflict').isBoolean().withMessage('Family conflict must be a boolean'),
+  body('socioEconomic.familyStability').isBoolean().withMessage('Family stability must be a boolean'),
+  body('socioEconomic.distanceToSchoolKm').isFloat({ min: 0, max: 50 }).withMessage('Distance to school must be between 0 and 50 km'),
   body('socioEconomic.numberOfSiblings').isInt({ min: 0, max: 20 }).withMessage('Number of siblings must be between 0 and 20'),
   
   // Guardian contacts validation - updated
@@ -243,12 +244,22 @@ router.post('/', [
     let riskScore = 0;
     
     // Ubudehe level scoring (higher level = lower risk)
-    riskScore += (5 - studentData.socioEconomic.ubudeheLevel) * 2;
+    riskScore += (4 - studentData.socioEconomic.ubudeheLevel) * 2;
     
     // Family factors
     if (!studentData.socioEconomic.hasParents) riskScore += 3;
-    if (studentData.socioEconomic.familyConflict) riskScore += 2;
+    // Family stability: false (unstable) = risk, true (stable) = no risk
+    if (!studentData.socioEconomic.familyStability) riskScore += 2;
     if (studentData.socioEconomic.numberOfSiblings > 5) riskScore += 1;
+    
+    // Distance to school risk (7 km = critical threshold)
+    if (studentData.socioEconomic.distanceToSchoolKm >= 7) {
+      // Critical distance risk - will be handled separately in risk detection service
+    } else if (studentData.socioEconomic.distanceToSchoolKm >= 5) {
+      riskScore += 2; // High distance risk
+    } else if (studentData.socioEconomic.distanceToSchoolKm >= 3) {
+      riskScore += 1; // Medium distance risk
+    }
     
     // Optional parent education level (if provided)
     if (studentData.socioEconomic.parentEducationLevel) {
@@ -727,7 +738,8 @@ router.get('/export', authenticateToken, authorize('ADMIN'), async (req, res) =>
       Village: s.address.village || 'Not specified',
       'Ubudehe Level': s.socioEconomic.ubudeheLevel,
       'Has Parents': s.socioEconomic.hasParents ? 'Yes' : 'No',
-      'Family Conflict': s.socioEconomic.familyConflict ? 'Yes' : 'No',
+      'Family Stability': s.socioEconomic.familyStability ? 'Yes (Stable)' : 'No (Less Stable)',
+      'Distance to School (km)': s.socioEconomic.distanceToSchoolKm || 'N/A',
       'Number of Siblings': s.socioEconomic.numberOfSiblings,
       'Parent Education Level': s.socioEconomic.parentEducationLevel,
       'Risk Level': s.riskLevel,
@@ -802,7 +814,8 @@ router.post('/import', authenticateToken, authorize('ADMIN'), upload.single('fil
               socioEconomic: {
                 ubudeheLevel: parseInt(record['Ubudehe Level'] || record['socioEconomic.ubudeheLevel'] || '4'),
                 hasParents: (record['Has Parents'] || record['socioEconomic.hasParents'] || 'Yes').toLowerCase() === 'yes',
-                familyConflict: (record['Family Conflict'] || record['socioEconomic.familyConflict'] || 'No').toLowerCase() === 'yes',
+                familyStability: (record['Family Stability'] || record['socioEconomic.familyStability'] || 'Yes').toLowerCase() === 'yes',
+                distanceToSchoolKm: parseFloat(record['Distance to School (km)'] || record['socioEconomic.distanceToSchoolKm'] || '0'),
                 numberOfSiblings: parseInt(record['Number of Siblings'] || record['socioEconomic.numberOfSiblings'] || '0'),
                 parentEducationLevel: record['Parent Education Level'] || record['socioEconomic.parentEducationLevel'] || 'Primary'
               },
