@@ -137,12 +137,7 @@ export function ClassAttendancePerformancePage() {
           })
         })
       })
-      const response = await apiClient.markAttendance(records)
-      // Wait a bit for database to be ready, then refetch
-      setTimeout(() => {
-        refetchAttendance()
-      }, 500)
-      return response
+      return apiClient.markAttendance(records)
     },
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['class-attendance'] })
