@@ -192,15 +192,27 @@ export function RiskFlagsPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
+                          onClick={async () => {
                             const student = flag.studentId
                             if (student) {
+                              // If student is just an ID, fetch full student data
+                              let studentData = student
+                              if (typeof student === 'string' || !student.firstName) {
+                                try {
+                                  const response = await apiClient.getStudent(student._id || student)
+                                  studentData = response.data
+                                } catch (error) {
+                                  console.error('Failed to fetch student:', error)
+                                  return
+                                }
+                              }
+                              
                               setSelectedStudent({
-                                id: student._id || student,
-                                name: `${student.firstName || ''} ${student.lastName || ''}`,
-                                guardianName: student.guardianContacts?.[0]?.name,
-                                guardianPhone: student.guardianContacts?.[0]?.phone,
-                                guardianEmail: student.guardianContacts?.[0]?.email
+                                id: studentData._id || student._id || student,
+                                name: `${studentData.firstName || ''} ${studentData.lastName || ''}`,
+                                guardianName: studentData.guardianContacts?.[0]?.name,
+                                guardianPhone: studentData.guardianContacts?.[0]?.phone,
+                                guardianEmail: studentData.guardianContacts?.[0]?.email
                               })
                             }
                           }}

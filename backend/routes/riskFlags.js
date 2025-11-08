@@ -28,7 +28,14 @@ router.get('/', auth, async (req, res) => {
     }
 
     const flags = await RiskFlag.find(query)
-      .populate('studentId', 'firstName lastName fullName classroomId riskLevel')
+      .populate({
+        path: 'studentId',
+        select: 'firstName lastName fullName classroomId riskLevel guardianContacts',
+        populate: {
+          path: 'guardianContacts',
+          select: 'name phone email relation'
+        }
+      })
       .populate('createdBy', 'name email')
       .populate('resolvedBy', 'name email')
       .sort({ createdAt: -1 });
