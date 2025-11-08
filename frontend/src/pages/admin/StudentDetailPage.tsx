@@ -17,11 +17,13 @@ import {
   HomeIcon,
   AcademicCapIcon,
   CalendarIcon,
-  ClockIcon
+  ClockIcon,
+  BellIcon
 } from '@heroicons/react/24/outline'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
 import { apiClient } from '@/lib/api'
 import type { Student, Attendance, Performance, RiskFlag, Intervention } from '@/types'
+import { SendAlertModal } from '@/components/SendAlertModal'
 
 const tabs = [
   { id: 'overview', name: 'Overview', icon: UserIcon },
@@ -37,6 +39,7 @@ export function StudentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [activeTab, setActiveTab] = useState('overview')
   const [uploadingPicture, setUploadingPicture] = useState(false)
+  const [showSendAlert, setShowSendAlert] = useState(false)
   const queryClient = useQueryClient()
 
   const { data: studentData, isLoading: studentLoading } = useQuery({
@@ -656,7 +659,17 @@ export function StudentDetailPage() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
-          <Badge variant="low">Low Risk</Badge>
+          <Badge variant={student.riskLevel === 'HIGH' || student.riskLevel === 'CRITICAL' ? 'error' : student.riskLevel === 'MEDIUM' ? 'warning' : 'low'}>
+            {student.riskLevel || 'LOW'} Risk
+          </Badge>
+          <Button
+            variant="primary"
+            onClick={() => setShowSendAlert(true)}
+            className="flex items-center gap-2"
+          >
+            <BellIcon className="h-4 w-4" />
+            Send Alert
+          </Button>
         </div>
       </div>
 

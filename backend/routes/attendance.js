@@ -130,10 +130,50 @@ router.post('/mark', auth, async (req, res) => {
       dateMap.set(key, record);
     });
 
-    // Process all records
+    // Validate and process all records
     for (const record of records) {
       try {
+        // Validate required fields
+        if (!record.studentId || !record.date || !record.status) {
+          errors.push({
+            studentId: record.studentId || 'unknown',
+            error: 'Missing required fields: studentId, date, or status'
+          });
+          continue;
+        }
+
+        // Validate student exists and belongs to school
+        const student = await Student.findOne({
+          _id: record.studentId,
+          schoolId: req.user.schoolId,
+          isActive: true
+        });
+        if (!student) {
+          errors.push({
+            studentId: record.studentId,
+            error: 'Student not found or not active'
+          });
+          continue;
+        }
+
+        // Validate status
+        if (!['PRESENT', 'ABSENT', 'LATE', 'EXCUSED'].includes(record.status)) {
+          errors.push({
+            studentId: record.studentId,
+            error: `Invalid status: ${record.status}`
+          });
+          continue;
+        }
+
+        // Parse and normalize date
         const recordDate = new Date(record.date);
+        if (isNaN(recordDate.getTime())) {
+          errors.push({
+            studentId: record.studentId,
+            error: 'Invalid date format'
+          });
+          continue;
+        }
         recordDate.setHours(0, 0, 0, 0);
         const dateKey = `${record.studentId}_${recordDate.toISOString().split('T')[0]}`;
         const existing = dateMap.get(dateKey);
@@ -174,7 +214,7 @@ router.post('/mark', auth, async (req, res) => {
         if (record.status === 'ABSENT') {
           absentStudents.push({
             studentId: record.studentId,
-            date: record.date
+            date: recordDate.toISOString().split('T')[0]
           });
         }
       } catch (error) {

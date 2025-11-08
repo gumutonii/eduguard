@@ -63,11 +63,50 @@ router.post('/', auth, async (req, res) => {
   try {
     const { studentId, classId, academicYear, term, subject, score, maxScore, assessmentType } = req.body;
 
+    // Validate required fields
+    if (!studentId || score === undefined || score === null) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student ID and score are required'
+      });
+    }
+
+    // Validate score range
+    const scoreNum = Number(score);
+    const maxScoreNum = Number(maxScore || 100);
+    if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > maxScoreNum) {
+      return res.status(400).json({
+        success: false,
+        message: `Score must be between 0 and ${maxScoreNum}`
+      });
+    }
+
+    // Validate student exists and belongs to school
+    const student = await Student.findOne({
+      _id: studentId,
+      schoolId: req.user.schoolId,
+      isActive: true
+    });
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found or not active'
+      });
+    }
+
+    // Validate term
+    if (term && !['TERM_1', 'TERM_2', 'TERM_3'].includes(term)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid term. Must be TERM_1, TERM_2, or TERM_3'
+      });
+    }
+
     // Check if performance record already exists for this student, term, and subject
     const existingPerformance = await Performance.findOne({
       studentId,
-      academicYear,
-      term,
+      academicYear: academicYear || new Date().getFullYear().toString(),
+      term: term || 'TERM_1',
       subject: subject || 'Overall',
       schoolId: req.user.schoolId
     });
@@ -75,8 +114,8 @@ router.post('/', auth, async (req, res) => {
     let performance;
     if (existingPerformance) {
       // Update existing record
-      existingPerformance.score = score;
-      existingPerformance.maxScore = maxScore || 100;
+      existingPerformance.score = scoreNum;
+      existingPerformance.maxScore = maxScoreNum;
       existingPerformance.assessmentType = assessmentType || 'FINAL';
       existingPerformance.modifiedBy = req.user._id;
       existingPerformance.modifiedAt = new Date();
@@ -86,13 +125,13 @@ router.post('/', auth, async (req, res) => {
       // Create new record
       const performanceData = {
         studentId,
-        classId,
+        classId: classId || student.classId,
         schoolId: req.user.schoolId,
-        academicYear,
-        term,
+        academicYear: academicYear || new Date().getFullYear().toString(),
+        term: term || 'TERM_1',
         subject: subject || 'Overall',
-        score,
-        maxScore: maxScore || 100,
+        score: scoreNum,
+        maxScore: maxScoreNum,
         assessmentType: assessmentType || 'FINAL',
         enteredBy: req.user._id
       };

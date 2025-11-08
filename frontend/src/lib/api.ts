@@ -1275,15 +1275,44 @@ class ApiClient {
     }>(`/messages?${searchParams.toString()}`)
   }
 
-  async sendMessage(data: any) {
+  async sendMessage(data: {
+    studentId: string
+    recipientType?: string
+    recipientName?: string
+    recipientPhone?: string
+    recipientEmail?: string
+    channel?: 'SMS' | 'EMAIL' | 'BOTH'
+    type?: string
+    content: string
+    subject?: string
+    language?: 'EN' | 'RW'
+  }) {
     return this.request<{ success: boolean; data: any }>('/messages/send', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async sendBulkMessages(data: any) {
-    return this.request<{ success: boolean; data: any }>('/messages/send-bulk', {
+  async sendTemplateMessage(data: {
+    studentId: string
+    templateType: string
+    variables?: Record<string, any>
+    channel?: 'SMS' | 'EMAIL' | 'BOTH'
+  }) {
+    return this.request<{ success: boolean; data: any }>('/messages/send-template', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async sendBulkMessages(data: {
+    studentIds: string[]
+    content: string
+    subject?: string
+    channel?: 'SMS' | 'EMAIL' | 'BOTH'
+    type?: string
+  }) {
+    return this.request<{ success: boolean; sent: number; failed: number; results: any[]; errors?: any[] }>('/messages/send-bulk', {
       method: 'POST',
       body: JSON.stringify(data),
     })
