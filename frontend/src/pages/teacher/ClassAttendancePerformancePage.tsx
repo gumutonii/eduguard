@@ -137,13 +137,19 @@ export function ClassAttendancePerformancePage() {
           })
         })
       })
-      return apiClient.markAttendance(records)
+      const response = await apiClient.markAttendance(records)
+      // Wait a bit for database to be ready, then refetch
+      setTimeout(() => {
+        refetchAttendance()
+      }, 500)
+      return response
     },
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['class-attendance'] })
       queryClient.invalidateQueries({ queryKey: ['teacher-stats'] })
       // Refetch attendance data to show updated records
       await refetchAttendance()
+      // Show success message
       alert('Attendance saved successfully!')
     },
     onError: (error: any) => {

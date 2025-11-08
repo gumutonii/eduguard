@@ -89,7 +89,9 @@ router.post('/mark', auth, async (req, res) => {
 
     const createdRecords = [];
     const errors = [];
+    const absentStudents = []; // Track absent students for async risk detection
 
+    // Save all attendance records first (fast operation)
     for (const record of records) {
       try {
         // Check if attendance already exists for this student and date
@@ -127,27 +129,15 @@ router.post('/mark', auth, async (req, res) => {
           createdRecords.push(attendance);
         }
 
-        // If student is absent, trigger risk detection and send alert
+        // Track absent students for async processing
         if (record.status === 'ABSENT') {
-          // Run risk detection
-          await riskDetectionService.detectRisksForStudent(
-            record.studentId,
-            req.user.schoolId,
-            req.user._id
-          );
-
-          // Send absence alert to guardian
-          try {
-            await messageService.sendAbsenceAlert(
-              record.studentId,
-              record.date,
-              req.user._id
-            );
-          } catch (msgError) {
-            logger.error('Failed to send absence alert:', msgError);
-          }
+          absentStudents.push({
+            studentId: record.studentId,
+            date: record.date
+          });
         }
       } catch (error) {
+        logger.error(`Error saving attendance for student ${record.studentId}:`, error);
         errors.push({
           studentId: record.studentId,
           error: error.message
@@ -155,12 +145,43 @@ router.post('/mark', auth, async (req, res) => {
       }
     }
 
+    // Return success immediately after saving records
     res.status(errors.length > 0 ? 207 : 201).json({
       success: true,
       message: `Marked attendance for ${createdRecords.length} students`,
       data: createdRecords,
       errors: errors.length > 0 ? errors : undefined
     });
+
+    // Process risk detection and alerts asynchronously (non-blocking)
+    if (absentStudents.length > 0) {
+      // Run in background without blocking the response
+      setImmediate(async () => {
+        for (const absent of absentStudents) {
+          try {
+            // Run risk detection (non-blocking)
+            riskDetectionService.detectRisksForStudent(
+              absent.studentId,
+              req.user.schoolId,
+              req.user._id
+            ).catch(err => {
+              logger.error(`Risk detection failed for student ${absent.studentId}:`, err);
+            });
+
+            // Send absence alert (non-blocking)
+            messageService.sendAbsenceAlert(
+              absent.studentId,
+              absent.date,
+              req.user._id
+            ).catch(msgError => {
+              logger.error('Failed to send absence alert:', msgError);
+            });
+          } catch (error) {
+            logger.error(`Error processing absence for student ${absent.studentId}:`, error);
+          }
+        }
+      });
+    }
   } catch (error) {
     logger.error('Error marking attendance:', error);
     res.status(500).json({

@@ -100,33 +100,40 @@ router.post('/', auth, async (req, res) => {
       performance = await Performance.create(performanceData);
     }
 
-    // Check if performance is failing and trigger alerts
-    if (performance.grade === 'F' || performance.grade === 'E') {
-      // Run risk detection
-      await riskDetectionService.detectRisksForStudent(
-        performance.studentId,
-        req.user.schoolId,
-        req.user._id
-      );
-
-      // Send performance alert
-      try {
-        await messageService.sendPerformanceAlert(
-          performance.studentId,
-          performance.subject,
-          performance.score,
-          req.user._id
-        );
-      } catch (msgError) {
-        logger.error('Failed to send performance alert:', msgError);
-      }
-    }
-
+    // Return success immediately
     res.status(201).json({
       success: true,
       message: 'Performance record created successfully',
       data: performance
     });
+
+    // Process risk detection and alerts asynchronously (non-blocking)
+    if (performance.grade === 'F' || performance.grade === 'E') {
+      setImmediate(async () => {
+        try {
+          // Run risk detection (non-blocking)
+          riskDetectionService.detectRisksForStudent(
+            performance.studentId,
+            req.user.schoolId,
+            req.user._id
+          ).catch(err => {
+            logger.error(`Risk detection failed for student ${performance.studentId}:`, err);
+          });
+
+          // Send performance alert (non-blocking)
+          messageService.sendPerformanceAlert(
+            performance.studentId,
+            performance.subject,
+            performance.score,
+            req.user._id
+          ).catch(msgError => {
+            logger.error('Failed to send performance alert:', msgError);
+          });
+        } catch (error) {
+          logger.error(`Error processing performance alert for student ${performance.studentId}:`, error);
+        }
+      });
+    }
   } catch (error) {
     logger.error('Error creating performance record:', error);
     res.status(500).json({
