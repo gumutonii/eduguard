@@ -135,7 +135,7 @@ router.post('/mark', auth, async (req, res) => {
       try {
         const recordDate = new Date(record.date);
         recordDate.setHours(0, 0, 0, 0);
-        const dateKey = `${record.studentId}_${record.date}`;
+        const dateKey = `${record.studentId}_${recordDate.toISOString().split('T')[0]}`;
         const existing = dateMap.get(dateKey);
 
         if (existing) {
