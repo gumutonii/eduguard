@@ -105,9 +105,10 @@ const studentSchema = new mongoose.Schema({
     },
     distanceToSchoolKm: {
       type: Number,
-      required: [true, 'Distance to school is required'],
+      required: false, // Made optional for existing students
       min: [0, 'Distance cannot be negative'],
-      max: [50, 'Distance cannot exceed 50 km']
+      max: [50, 'Distance cannot exceed 50 km'],
+      default: 0
     },
     // Optional fields that can be added later
     parentJob: {
@@ -339,6 +340,33 @@ studentSchema.methods.resolveRiskFlag = function(flagId, resolvedBy) {
     flag.resolvedBy = resolvedBy;
   }
   return this.save();
+};
+
+// Method to get primary guardian
+studentSchema.methods.getPrimaryGuardian = function() {
+  if (!this.guardianContacts || this.guardianContacts.length === 0) {
+    return null;
+  }
+  
+  // Priority: Father > Mother > First guardian with phone > First guardian
+  const father = this.guardianContacts.find(g => 
+    g.relation === 'Father' && (g.phone || g.email)
+  );
+  if (father) return father;
+  
+  const mother = this.guardianContacts.find(g => 
+    g.relation === 'Mother' && (g.phone || g.email)
+  );
+  if (mother) return mother;
+  
+  // Find first guardian with contact info
+  const guardianWithContact = this.guardianContacts.find(g => 
+    g.phone || g.email
+  );
+  if (guardianWithContact) return guardianWithContact;
+  
+  // Return first guardian if no contact info available
+  return this.guardianContacts[0] || null;
 };
 
 // Method to update risk level based on flags

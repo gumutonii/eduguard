@@ -107,9 +107,17 @@ class MessageService {
       }
 
       const settings = await Settings.getOrCreateForSchool(student.schoolId._id);
-      const primaryGuardian = student.getPrimaryGuardian();
+      
+      // Get primary guardian - handle both method and direct access
+      let primaryGuardian;
+      if (typeof student.getPrimaryGuardian === 'function') {
+        primaryGuardian = student.getPrimaryGuardian();
+      } else if (student.guardianContacts && student.guardianContacts.length > 0) {
+        // Fallback: get first guardian with contact info
+        primaryGuardian = student.guardianContacts.find(g => g.phone || g.email) || student.guardianContacts[0];
+      }
 
-      if (!primaryGuardian) {
+      if (!primaryGuardian || (!primaryGuardian.phone && !primaryGuardian.email)) {
         throw new Error('No guardian contact found for student');
       }
 
@@ -117,20 +125,31 @@ class MessageService {
       const language = settings.systemConfig.defaultLanguage;
       const template = this.getTemplate(settings, templateType, language, channel === 'EMAIL' ? 'email' : 'sms');
 
+      // Get guardian name (support both new structure and legacy)
+      const guardianName = primaryGuardian.name || 
+        (primaryGuardian.firstName && primaryGuardian.lastName 
+          ? `${primaryGuardian.firstName} ${primaryGuardian.lastName}` 
+          : primaryGuardian.firstName || 'Guardian');
+
       // Replace variables in template
       const content = this.replaceVariables(template, {
-        guardianName: primaryGuardian.name,
-        studentName: student.fullName,
-        schoolName: student.schoolId.name,
-        contactInfo: student.schoolId.contact?.phone || '',
+        guardianName: guardianName,
+        studentName: student.fullName || `${student.firstName} ${student.lastName}`,
+        schoolName: student.schoolId?.name || student.schoolId?.name || 'School',
+        contactInfo: student.schoolId?.contact?.phone || student.schoolId?.phone || '',
         ...variables
       });
 
+      const guardianName = primaryGuardian.name || 
+        (primaryGuardian.firstName && primaryGuardian.lastName 
+          ? `${primaryGuardian.firstName} ${primaryGuardian.lastName}` 
+          : primaryGuardian.firstName || 'Guardian');
+
       const messageData = {
         studentId: student._id,
-        schoolId: student.schoolId._id,
+        schoolId: student.schoolId?._id || student.schoolId,
         recipientType: 'GUARDIAN',
-        recipientName: primaryGuardian.name,
+        recipientName: guardianName,
         recipientPhone: primaryGuardian.phone,
         recipientEmail: primaryGuardian.email,
         channel,
@@ -145,9 +164,9 @@ class MessageService {
       if (channel === 'EMAIL' || channel === 'BOTH') {
         const subjectTemplate = settings.notificationTemplates[templateType][language].email.subject;
         messageData.subject = this.replaceVariables(subjectTemplate, {
-          guardianName: primaryGuardian.name,
-          studentName: student.fullName,
-          schoolName: student.schoolId.name,
+          guardianName: guardianName,
+          studentName: student.fullName || `${student.firstName} ${student.lastName}`,
+          schoolName: student.schoolId?.name || 'School',
           ...variables
         });
       }
