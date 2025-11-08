@@ -52,9 +52,10 @@ const attendanceSchema = new mongoose.Schema({
 
 // Compound index for efficient queries
 attendanceSchema.index({ studentId: 1, date: -1 });
-attendanceSchema.index({ schoolName: 1, schoolDistrict: 1, date: -1 });
+attendanceSchema.index({ schoolId: 1, date: -1 });
 attendanceSchema.index({ date: -1, status: 1 });
 attendanceSchema.index({ markedBy: 1, date: -1 });
+attendanceSchema.index({ studentId: 1, schoolId: 1, date: -1 });
 
 // Static method to get attendance summary for a student
 attendanceSchema.statics.getStudentSummary = async function(studentId, startDate, endDate) {
