@@ -12,7 +12,7 @@ import {
   UserGroupIcon
 } from '@heroicons/react/24/outline'
 import { apiClient } from '@/lib/api'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export function ClassAttendancePerformancePage() {
   const { id } = useParams<{ id: string }>()
@@ -70,15 +70,18 @@ export function ClassAttendancePerformancePage() {
       })
       return response.data || []
     },
-    enabled: !!id && activeTab === 'attendance' && students.length > 0,
-    onSuccess: (data) => {
-      // Initialize attendance data from existing records
+    enabled: !!id && activeTab === 'attendance' && students.length > 0
+  })
+
+  // Initialize attendance data from existing records
+  useEffect(() => {
+    if (attendanceRecords && students.length > 0) {
       const initialData: Record<string, Record<string, boolean>> = {}
       students.forEach((student: any) => {
         initialData[student._id] = {}
         selectedWeek.forEach((date) => {
           const dateStr = date.toISOString().split('T')[0]
-          const record = data.find((r: any) => {
+          const record = attendanceRecords.find((r: any) => {
             const recordStudentId = r.studentId?._id || r.studentId
             const recordDate = new Date(r.date).toISOString().split('T')[0]
             return recordStudentId === student._id && recordDate === dateStr
@@ -88,7 +91,7 @@ export function ClassAttendancePerformancePage() {
       })
       setAttendanceData(initialData)
     }
-  })
+  }, [attendanceRecords, students, selectedWeek])
 
   // Get existing performance records
   const { data: performanceRecords, refetch: refetchPerformance } = useQuery({
@@ -103,12 +106,15 @@ export function ClassAttendancePerformancePage() {
       })
       return response.data || []
     },
-    enabled: !!id && activeTab === 'performance' && students.length > 0,
-    onSuccess: (data) => {
-      // Initialize performance data from existing records
+    enabled: !!id && activeTab === 'performance' && students.length > 0
+  })
+
+  // Initialize performance data from existing records
+  useEffect(() => {
+    if (performanceRecords && students.length > 0) {
       const initialData: Record<string, { term: string; score: number }> = {}
       students.forEach((student: any) => {
-        const record = data.find((r: any) => 
+        const record = performanceRecords.find((r: any) => 
           (r.studentId?._id || r.studentId) === student._id
         )
         if (record) {
@@ -120,7 +126,7 @@ export function ClassAttendancePerformancePage() {
       })
       setPerformanceData(initialData)
     }
-  })
+  }, [performanceRecords, students, selectedTerm])
 
   // Save attendance mutation
   const saveAttendanceMutation = useMutation({
