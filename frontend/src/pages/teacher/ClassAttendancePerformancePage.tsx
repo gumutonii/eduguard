@@ -126,12 +126,12 @@ export function ClassAttendancePerformancePage() {
   const saveAttendanceMutation = useMutation({
     mutationFn: async () => {
       const records: any[] = []
-      Object.keys(attendanceData).forEach(studentId => {
-        selectedWeek.forEach((date, index) => {
+      students.forEach((student: any) => {
+        selectedWeek.forEach((date) => {
           const dateStr = date.toISOString().split('T')[0]
-          const isPresent = attendanceData[studentId][dateStr] || false
+          const isPresent = attendanceData[student._id]?.[dateStr] || false
           records.push({
-            studentId,
+            studentId: student._id,
             date: dateStr,
             status: isPresent ? 'PRESENT' : 'ABSENT'
           })
@@ -139,10 +139,16 @@ export function ClassAttendancePerformancePage() {
       })
       return apiClient.markAttendance(records)
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['class-attendance'] })
       queryClient.invalidateQueries({ queryKey: ['teacher-stats'] })
+      // Refetch attendance data to show updated records
+      await refetchAttendance()
       alert('Attendance saved successfully!')
+    },
+    onError: (error: any) => {
+      console.error('Error saving attendance:', error)
+      alert(`Failed to save attendance: ${error.message || 'Unknown error'}`)
     }
   })
 
@@ -153,11 +159,11 @@ export function ClassAttendancePerformancePage() {
       const currentYear = new Date().getFullYear()
       const academicYear = `${currentYear}-${currentYear + 1}`
       
-      Object.keys(performanceData).forEach(studentId => {
-        const perf = performanceData[studentId]
+      students.forEach((student: any) => {
+        const perf = performanceData[student._id]
         if (perf && perf.score > 0) {
           records.push({
-            studentId,
+            studentId: student._id,
             classId: id,
             academicYear,
             term: selectedTerm,
@@ -173,10 +179,16 @@ export function ClassAttendancePerformancePage() {
       const promises = records.map(record => apiClient.addPerformance(record))
       return Promise.all(promises)
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['class-performance'] })
       queryClient.invalidateQueries({ queryKey: ['teacher-stats'] })
+      // Refetch performance data to show updated records
+      await refetchPerformance()
       alert('Performance saved successfully!')
+    },
+    onError: (error: any) => {
+      console.error('Error saving performance:', error)
+      alert(`Failed to save performance: ${error.message || 'Unknown error'}`)
     }
   })
 

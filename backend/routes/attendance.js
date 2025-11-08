@@ -93,9 +93,17 @@ router.post('/mark', auth, async (req, res) => {
     for (const record of records) {
       try {
         // Check if attendance already exists for this student and date
+        const recordDate = new Date(record.date);
+        recordDate.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(recordDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        
         const existingAttendance = await Attendance.findOne({
           studentId: record.studentId,
-          date: new Date(record.date).setHours(0, 0, 0, 0)
+          date: {
+            $gte: recordDate,
+            $lte: endOfDay
+          }
         });
 
         if (existingAttendance) {

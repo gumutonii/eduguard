@@ -61,13 +61,44 @@ router.get('/', auth, async (req, res) => {
 // Add performance record
 router.post('/', auth, async (req, res) => {
   try {
-    const performanceData = {
-      ...req.body,
-      schoolId: req.user.schoolId,
-      enteredBy: req.user._id
-    };
+    const { studentId, classId, academicYear, term, subject, score, maxScore, assessmentType } = req.body;
 
-    const performance = await Performance.create(performanceData);
+    // Check if performance record already exists for this student, term, and subject
+    const existingPerformance = await Performance.findOne({
+      studentId,
+      academicYear,
+      term,
+      subject: subject || 'Overall',
+      schoolId: req.user.schoolId
+    });
+
+    let performance;
+    if (existingPerformance) {
+      // Update existing record
+      existingPerformance.score = score;
+      existingPerformance.maxScore = maxScore || 100;
+      existingPerformance.assessmentType = assessmentType || 'FINAL';
+      existingPerformance.modifiedBy = req.user._id;
+      existingPerformance.modifiedAt = new Date();
+      await existingPerformance.save();
+      performance = existingPerformance;
+    } else {
+      // Create new record
+      const performanceData = {
+        studentId,
+        classId,
+        schoolId: req.user.schoolId,
+        academicYear,
+        term,
+        subject: subject || 'Overall',
+        score,
+        maxScore: maxScore || 100,
+        assessmentType: assessmentType || 'FINAL',
+        enteredBy: req.user._id
+      };
+
+      performance = await Performance.create(performanceData);
+    }
 
     // Check if performance is failing and trigger alerts
     if (performance.grade === 'F' || performance.grade === 'E') {
