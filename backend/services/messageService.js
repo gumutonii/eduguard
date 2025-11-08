@@ -157,13 +157,18 @@ class MessageService {
 
       // Add subject for email
       if (channel === 'EMAIL' || channel === 'BOTH') {
-        const subjectTemplate = settings.notificationTemplates[templateType][language].email.subject;
-        messageData.subject = this.replaceVariables(subjectTemplate, {
-          guardianName: guardianName,
-          studentName: student.fullName || `${student.firstName} ${student.lastName}`,
-          schoolName: student.schoolId?.name || 'School',
-          ...variables
-        });
+        // Normalize language to lowercase (schema uses lowercase keys)
+        const langKey = language ? language.toLowerCase() : 'en';
+        const subjectTemplate = settings.notificationTemplates[templateType][langKey]?.email?.subject || 
+                                settings.notificationTemplates[templateType]['en']?.email?.subject;
+        if (subjectTemplate) {
+          messageData.subject = this.replaceVariables(subjectTemplate, {
+            guardianName: guardianName,
+            studentName: student.fullName || `${student.firstName} ${student.lastName}`,
+            schoolName: student.schoolId?.name || 'School',
+            ...variables
+          });
+        }
       }
 
       return await this.sendMessage(messageData);
@@ -182,19 +187,28 @@ class MessageService {
       throw new Error(`Template ${templateType} not found`);
     }
 
-    // Fallback to EN if language not found
-    if (!template[language]) {
-      if (template['EN']) {
-        language = 'EN';
+    // Normalize language to lowercase (schema uses lowercase keys: 'en', 'rw')
+    const langKey = language ? language.toLowerCase() : 'en';
+
+    // Check if template exists for this language
+    if (!template[langKey]) {
+      // Fallback to 'en' if language not found
+      if (template['en']) {
+        const fallbackLang = 'en';
+        if (channel === 'email') {
+          return template[fallbackLang].email.body;
+        } else {
+          return template[fallbackLang].sms;
+        }
       } else {
         throw new Error(`Template ${templateType} not found for language ${language} and no EN fallback available`);
       }
     }
 
     if (channel === 'email') {
-      return template[language].email.body;
+      return template[langKey].email.body;
     } else {
-      return template[language].sms;
+      return template[langKey].sms;
     }
   }
 
