@@ -30,6 +30,7 @@ const getNavigation = (role: string) => {
         { name: 'System Overview', href: '/dashboard', icon: HomeIcon },
         { name: 'Schools', href: '/schools', icon: ChartBarIcon },
         { name: 'Users', href: '/users', icon: UserGroupIcon },
+        { name: 'Students', href: '/students', icon: AcademicCapIcon },
         { name: 'Approvals', href: '/approvals', icon: UserPlusIcon },
         { name: 'Profile', href: '/profile', icon: Cog6ToothIcon },
       ]
@@ -38,6 +39,7 @@ const getNavigation = (role: string) => {
         { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
         { name: 'Teachers', href: '/teachers', icon: UserGroupIcon },
         { name: 'Classes', href: '/classes', icon: AcademicCapIcon },
+        { name: 'Students', href: '/students', icon: AcademicCapIcon },
         { name: 'Approvals', href: '/approvals', icon: UserPlusIcon },
         { name: 'Notifications', href: '/notifications', icon: BellIcon },
         { name: 'Profile', href: '/profile', icon: Cog6ToothIcon },

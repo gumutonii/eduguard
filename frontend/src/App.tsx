@@ -70,6 +70,8 @@ function App() {
           <Route path="/users" element={<AllUsersPage />} />
           <Route path="/users/:userId" element={<UserDetailPage />} />
           <Route path="/users/:userId/edit" element={<UserEditPage />} />
+          <Route path="/students" element={<AdminStudentsPage />} />
+          <Route path="/students/:id" element={<AdminStudentDetailPage />} />
           <Route path="/approvals" element={<UserApprovalPage />} />
           <Route path="/profile" element={<AdminSettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
