@@ -28,6 +28,8 @@ import { AdminClassesPage } from '@/pages/admin/AdminClassesPage'
 import { AdminStudentsPage } from '@/pages/admin/AdminStudentsPage'
 import { ClassStudentsPage } from '@/pages/admin/ClassStudentsPage'
 import { AssignTeacherPage } from '@/pages/admin/AssignTeacherPage'
+import { MessagesPage } from '@/pages/admin/MessagesPage'
+import { RiskFlagsPage } from '@/pages/admin/RiskFlagsPage'
 
 // Teacher pages
 import { TeacherDashboardPage } from '@/pages/teacher/TeacherDashboardPage'
@@ -94,6 +96,8 @@ function App() {
           <Route path="/classes/:id/assign-teacher" element={<AssignTeacherPage />} />
           <Route path="/students" element={<AdminStudentsPage />} />
           <Route path="/students/:id" element={<AdminStudentDetailPage />} />
+          <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/risk-flags" element={<RiskFlagsPage />} />
           <Route path="/approvals" element={<UserApprovalPage />} />
           <Route path="/notifications" element={<AdminNotificationsPage />} />
           <Route path="/profile" element={<AdminSettingsPage />} />

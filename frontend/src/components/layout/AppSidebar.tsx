@@ -39,6 +39,8 @@ const getNavigation = (role: string) => {
         { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
         { name: 'Teachers', href: '/teachers', icon: UserGroupIcon },
         { name: 'Classes', href: '/classes', icon: AcademicCapIcon },
+        { name: 'Risk Flags', href: '/risk-flags', icon: ExclamationTriangleIcon },
+        { name: 'Messages', href: '/messages', icon: BellIcon },
         { name: 'Approvals', href: '/approvals', icon: UserPlusIcon },
         { name: 'Notifications', href: '/notifications', icon: BellIcon },
         { name: 'Profile', href: '/profile', icon: Cog6ToothIcon },

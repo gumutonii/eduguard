@@ -1052,9 +1052,14 @@ class ApiClient {
   }
 
   // Risk Flags API
-  async getRiskFlags(params: any = {}) {
-    const searchParams = new URLSearchParams(params)
-    return this.request<{ success: boolean; data: any[] }>(`/risk-flags?${searchParams}`)
+  async getRiskFlags(params: { studentId?: string; type?: string; severity?: string; isActive?: boolean; isResolved?: boolean } = {}) {
+    const searchParams = new URLSearchParams()
+    if (params.studentId) searchParams.append('studentId', params.studentId)
+    if (params.type) searchParams.append('type', params.type)
+    if (params.severity) searchParams.append('severity', params.severity)
+    if (params.isActive !== undefined) searchParams.append('isActive', params.isActive.toString())
+    if (params.isResolved !== undefined) searchParams.append('isResolved', params.isResolved.toString())
+    return this.request<{ success: boolean; data: any[] }>(`/risk-flags?${searchParams.toString()}`)
   }
 
   async createRiskFlag(data: any) {
