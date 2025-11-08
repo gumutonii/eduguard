@@ -128,7 +128,7 @@ router.get('/:id/students', authenticateToken, async (req, res) => {
       isActive: true 
     })
     .populate('classId', 'className name grade section')
-    .select('firstName lastName studentId gender age dateOfBirth riskLevel guardianContacts address socioEconomic createdAt')
+    .select('firstName lastName studentId gender age dateOfBirth riskLevel guardianContacts address socioEconomic createdAt profilePicture')
     .sort({ firstName: 1, lastName: 1 });
 
     res.json({
