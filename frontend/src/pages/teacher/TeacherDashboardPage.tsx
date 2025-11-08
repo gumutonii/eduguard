@@ -238,22 +238,22 @@ export function TeacherDashboardPage() {
           <CardContent>
             <div className="h-64">
               {classes.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={classes.slice(0, 5).map((c: any) => ({
-                    name: c.name,
+                  name: c.name,
                     totalStudents: c.studentCount || 0,
-                    atRiskStudents: c.atRiskCount || 0,
+                  atRiskStudents: c.atRiskCount || 0,
                     averageScore: c.averageScore || 0
                   }))}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} fontSize={12} />
-                    <YAxis fontSize={12} />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="totalStudents" fill="#3B82F6" name="Total Students" />
-                    <Bar dataKey="atRiskStudents" fill="#EF4444" name="At Risk" />
-                  </BarChart>
-                </ResponsiveContainer>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} fontSize={12} />
+                  <YAxis fontSize={12} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="totalStudents" fill="#3B82F6" name="Total Students" />
+                  <Bar dataKey="atRiskStudents" fill="#EF4444" name="At Risk" />
+                </BarChart>
+              </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-500">
                   <p>No class performance data available yet</p>
@@ -274,17 +274,17 @@ export function TeacherDashboardPage() {
           <CardContent>
             <div className="h-64">
               {stats.attendanceTrend && stats.attendanceTrend.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={stats.attendanceTrend}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="week" fontSize={12} />
-                    <YAxis domain={[80, 100]} fontSize={12} />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="attendance" stroke="#10B981" strokeWidth={2} name="Actual" />
-                    <Line type="monotone" dataKey="target" stroke="#6B7280" strokeDasharray="5 5" name="Target" />
-                  </LineChart>
-                </ResponsiveContainer>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="week" fontSize={12} />
+                  <YAxis domain={[80, 100]} fontSize={12} />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="attendance" stroke="#10B981" strokeWidth={2} name="Actual" />
+                  <Line type="monotone" dataKey="target" stroke="#6B7280" strokeDasharray="5 5" name="Target" />
+                </LineChart>
+              </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-500">
                   <p>No attendance data available yet</p>
@@ -313,10 +313,10 @@ export function TeacherDashboardPage() {
                     <Badge variant="info">{classItem.studentCount} students</Badge>
                   </div>
                   <p className="text-sm text-neutral-600 mb-3">Class {classItem.name}</p>
-                  <Link to={`/students?tab=attendance&class=${classItem._id}`}>
+                  <Link to={`/classes/${classItem._id}/attendance-performance`}>
                     <Button variant="outline" size="sm" className="w-full">
                       <ClipboardDocumentCheckIcon className="h-4 w-4 mr-2" />
-                      Take Attendance
+                      Attendance & Performance
                     </Button>
                   </Link>
                 </div>
@@ -357,10 +357,10 @@ export function TeacherDashboardPage() {
                       />
                     ) : (
                       <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center border-2 border-red-200">
-                        <span className="text-sm font-medium text-red-600">
-                          {student.firstName.charAt(0)}{student.lastName.charAt(0)}
-                        </span>
-                      </div>
+                      <span className="text-sm font-medium text-red-600">
+                        {student.firstName.charAt(0)}{student.lastName.charAt(0)}
+                      </span>
+                    </div>
                     )}
                     <div>
                       <p className="font-medium text-neutral-900">{student.firstName} {student.lastName}</p>

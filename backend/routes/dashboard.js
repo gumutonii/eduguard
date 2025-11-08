@@ -1747,7 +1747,7 @@ router.get('/teacher-stats', authenticateToken, async (req, res) => {
             : 0;
           
           return {
-            _id: cls._id,
+          _id: cls._id,
             name: cls.className || cls.name,
             studentCount: studentCount,
             atRiskCount: atRiskCount,

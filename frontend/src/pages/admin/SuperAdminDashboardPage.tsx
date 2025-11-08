@@ -275,17 +275,17 @@ export function SuperAdminDashboardPage() {
           <CardContent>
             <div className="h-64">
               {(stats.schoolPerformance && stats.schoolPerformance.length > 0) || schoolPerformance.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={(stats.schoolPerformance?.slice(0, 5) || schoolPerformance.slice(0, 5))}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} fontSize={12} />
-                    <YAxis fontSize={12} />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="students" fill="#3B82F6" name="Total Students" />
-                    <Bar dataKey="atRisk" fill="#EF4444" name="At Risk" />
-                  </BarChart>
-                </ResponsiveContainer>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} fontSize={12} />
+                  <YAxis fontSize={12} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="students" fill="#3B82F6" name="Total Students" />
+                  <Bar dataKey="atRisk" fill="#EF4444" name="At Risk" />
+                </BarChart>
+              </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-500">
                   <p>No school performance data available yet</p>
@@ -306,17 +306,17 @@ export function SuperAdminDashboardPage() {
           <CardContent>
             <div className="h-64">
               {stats.attendanceTrend && stats.attendanceTrend.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={stats.attendanceTrend}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="week" fontSize={12} />
-                    <YAxis domain={[80, 100]} fontSize={12} />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="attendance" stroke="#10B981" strokeWidth={2} name="Actual" />
-                    <Line type="monotone" dataKey="target" stroke="#6B7280" strokeDasharray="5 5" name="Target" />
-                  </LineChart>
-                </ResponsiveContainer>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="week" fontSize={12} />
+                  <YAxis domain={[80, 100]} fontSize={12} />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="attendance" stroke="#10B981" strokeWidth={2} name="Actual" />
+                  <Line type="monotone" dataKey="target" stroke="#6B7280" strokeDasharray="5 5" name="Target" />
+                </LineChart>
+              </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-500">
                   <p>No attendance data available yet</p>

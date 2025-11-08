@@ -36,6 +36,7 @@ import { TeacherStudentDetailPage } from '@/pages/teacher/TeacherStudentDetailPa
 import { TeacherNotificationsPage } from '@/pages/teacher/TeacherNotificationsPage'
 import { TeacherSettingsPage } from '@/pages/teacher/TeacherSettingsPage'
 import { StudentRegistrationPage } from '@/pages/teacher/StudentRegistrationPage'
+import { ClassAttendancePerformancePage } from '@/pages/teacher/ClassAttendancePerformancePage'
 
 
 
@@ -109,6 +110,7 @@ function App() {
           <Route path="/students" element={<TeacherStudentsPage />} />
           <Route path="/students/:id" element={<TeacherStudentDetailPage />} />
           <Route path="/students/register" element={<StudentRegistrationPage />} />
+          <Route path="/classes/:id/attendance-performance" element={<ClassAttendancePerformancePage />} />
           <Route path="/notifications" element={<TeacherNotificationsPage />} />
           <Route path="/profile" element={<TeacherSettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

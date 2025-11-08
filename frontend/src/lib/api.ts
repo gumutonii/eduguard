@@ -343,10 +343,19 @@ class ApiClient {
     })
   }
 
-  async getAttendance(params: { date?: string } = {}) {
+  async getAttendance(params: { date?: string; startDate?: string; endDate?: string; classId?: string } = {}) {
     const searchParams = new URLSearchParams()
     if (params.date) {
       searchParams.append('date', params.date)
+    }
+    if (params.startDate) {
+      searchParams.append('startDate', params.startDate)
+    }
+    if (params.endDate) {
+      searchParams.append('endDate', params.endDate)
+    }
+    if (params.classId) {
+      searchParams.append('classId', params.classId)
     }
     return this.request<{
       success: boolean
@@ -1025,6 +1034,15 @@ class ApiClient {
       headers: { Authorization: `Bearer ${this.token}` },
       body: formData,
     }).then(res => res.json())
+  }
+
+  async getPerformance(params: { studentId?: string; classId?: string; term?: string; academicYear?: string } = {}) {
+    const searchParams = new URLSearchParams()
+    if (params.studentId) searchParams.append('studentId', params.studentId)
+    if (params.classId) searchParams.append('classId', params.classId)
+    if (params.term) searchParams.append('term', params.term)
+    if (params.academicYear) searchParams.append('academicYear', params.academicYear)
+    return this.request<{ success: boolean; data: any[] }>(`/performance?${searchParams.toString()}`)
   }
 
   async getPerformanceSummary(studentId: string, academicYear: string, term: string) {

@@ -29,8 +29,19 @@ router.get('/', auth, async (req, res) => {
       };
     }
 
-    // For teachers, filter by their assigned students
-    if (req.user.role === 'TEACHER') {
+    // Filter by classId if provided
+    if (classId) {
+      const classStudents = await Student.find({
+        classId: classId,
+        isActive: true
+      }).select('_id');
+      if (classStudents.length > 0) {
+        query.studentId = { $in: classStudents.map(s => s._id) };
+      } else {
+        query.studentId = { $in: [] };
+      }
+    } else if (req.user.role === 'TEACHER') {
+      // For teachers, filter by their assigned students
       const students = await Student.find({
         assignedTeacher: req.user._id,
         schoolId: req.user.schoolId,
