@@ -1724,11 +1724,35 @@ router.get('/teacher-stats', authenticateToken, async (req, res) => {
         // Attendance Trend
         attendanceTrend: attendanceTrend,
         
-        // Classes
-        classes: classes.map(cls => ({
-          _id: cls._id,
-          name: cls.className,
-          studentCount: cls.studentCount || 0
+        // Classes with real-time student counts and at-risk counts
+        classes: await Promise.all(classes.map(async (cls) => {
+          const studentCount = await Student.countDocuments({ 
+            classId: cls._id, 
+            isActive: true 
+          });
+          const atRiskCount = await Student.countDocuments({ 
+            classId: cls._id, 
+            isActive: true,
+            riskLevel: { $in: ['MEDIUM', 'HIGH', 'CRITICAL'] }
+          });
+          
+          // Calculate average score for this class
+          const classStudents = await Student.find({ 
+            classId: cls._id, 
+            isActive: true 
+          }).select('averageScore').lean();
+          
+          const averageScore = classStudents.length > 0 && classStudents.some(s => s.averageScore) 
+            ? Math.round(classStudents.reduce((sum, s) => sum + (s.averageScore || 0), 0) / classStudents.filter(s => s.averageScore).length)
+            : 0;
+          
+          return {
+            _id: cls._id,
+            name: cls.className || cls.name,
+            studentCount: studentCount,
+            atRiskCount: atRiskCount,
+            averageScore: averageScore
+          };
         })),
         
         // At-risk students
