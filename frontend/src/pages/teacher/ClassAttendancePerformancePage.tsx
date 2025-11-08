@@ -228,6 +228,8 @@ export function ClassAttendancePerformancePage() {
       return newDate
     })
     setSelectedWeek(newWeek)
+    // Reset attendance data when navigating weeks to trigger refetch
+    setAttendanceData({})
   }
 
   if (classLoading || studentsLoading) {
