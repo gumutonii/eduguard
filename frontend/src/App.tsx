@@ -37,6 +37,7 @@ import { TeacherNotificationsPage } from '@/pages/teacher/TeacherNotificationsPa
 import { TeacherSettingsPage } from '@/pages/teacher/TeacherSettingsPage'
 import { StudentRegistrationPage } from '@/pages/teacher/StudentRegistrationPage'
 import { ClassAttendancePerformancePage } from '@/pages/teacher/ClassAttendancePerformancePage'
+import { SelectClassPage } from '@/pages/teacher/SelectClassPage'
 
 
 
@@ -110,6 +111,7 @@ function App() {
           <Route path="/students" element={<TeacherStudentsPage />} />
           <Route path="/students/:id" element={<TeacherStudentDetailPage />} />
           <Route path="/students/register" element={<StudentRegistrationPage />} />
+          <Route path="/attendance-performance" element={<SelectClassPage />} />
           <Route path="/classes/:id/attendance-performance" element={<ClassAttendancePerformancePage />} />
           <Route path="/notifications" element={<TeacherNotificationsPage />} />
           <Route path="/profile" element={<TeacherSettingsPage />} />

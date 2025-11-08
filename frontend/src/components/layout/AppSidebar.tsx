@@ -47,6 +47,7 @@ const getNavigation = (role: string) => {
       return [
         { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
         { name: 'Students', href: '/students', icon: UserGroupIcon },
+        { name: 'Attendance & Performance', href: '/attendance-performance', icon: ClipboardDocumentCheckIcon },
         { name: 'Notifications', href: '/notifications', icon: BellIcon },
         { name: 'Profile', href: '/profile', icon: Cog6ToothIcon },
       ]
