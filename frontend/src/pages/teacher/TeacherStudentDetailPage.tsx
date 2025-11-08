@@ -14,7 +14,6 @@ import {
   PhoneIcon,
   EnvelopeIcon,
   DocumentTextIcon,
-  ArrowLeftIcon,
   MapPinIcon,
   HomeIcon,
   AcademicCapIcon,

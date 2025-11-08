@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { 
-  ArrowLeftIcon,
   AcademicCapIcon,
   UserIcon,
   UserGroupIcon,
@@ -77,12 +76,6 @@ export function AssignTeacherPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center space-x-4">
-          <Link to="/classes">
-            <Button variant="outline" size="sm">
-              <ArrowLeftIcon className="h-4 w-4 mr-2" />
-              Back to Classes
-            </Button>
-          </Link>
           <h1 className="text-2xl font-bold text-neutral-900">Loading...</h1>
         </div>
         <div className="flex items-center justify-center py-12">
@@ -96,12 +89,6 @@ export function AssignTeacherPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center space-x-4">
-          <Link to="/classes">
-            <Button variant="outline" size="sm">
-              <ArrowLeftIcon className="h-4 w-4 mr-2" />
-              Back to Classes
-            </Button>
-          </Link>
           <h1 className="text-2xl font-bold text-neutral-900">Class not found</h1>
         </div>
         <Card>
@@ -118,12 +105,6 @@ export function AssignTeacherPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Link to="/classes">
-            <Button variant="outline" size="sm">
-              <ArrowLeftIcon className="h-4 w-4 mr-2" />
-              Back to Classes
-            </Button>
-          </Link>
           <div>
             <h1 className="text-2xl font-bold text-neutral-900">Assign Teacher to Class</h1>
             <p className="text-neutral-600">Select a teacher to assign to this class</p>

@@ -11,7 +11,6 @@ import {
   MapPinIcon,
   PhoneIcon,
   EnvelopeIcon,
-  ArrowLeftIcon,
   ChartBarIcon,
   ExclamationTriangleIcon,
   EyeIcon,
@@ -35,12 +34,6 @@ export function SchoolDetailPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Link to="/schools">
-            <Button variant="outline" size="sm">
-              <ArrowLeftIcon className="h-4 w-4 mr-2" />
-              Back to Schools
-            </Button>
-          </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Loading School Details...</h1>
             <p className="text-gray-600">Please wait while we fetch the school information</p>
@@ -62,12 +55,6 @@ export function SchoolDetailPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Link to="/schools">
-            <Button variant="outline" size="sm">
-              <ArrowLeftIcon className="h-4 w-4 mr-2" />
-              Back to Schools
-            </Button>
-          </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">School Not Found</h1>
             <p className="text-gray-600">The requested school could not be found</p>
@@ -85,12 +72,6 @@ export function SchoolDetailPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link to="/schools">
-          <Button variant="outline" size="sm">
-            <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Back to Schools
-          </Button>
-        </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{school.name || school.schoolName || 'School'}</h1>
           <p className="text-gray-600">School Details & Management</p>

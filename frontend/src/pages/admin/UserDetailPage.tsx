@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { 
-  ArrowLeftIcon,
   UserIcon,
   EnvelopeIcon,
   PhoneIcon,
@@ -97,10 +96,6 @@ export function UserDetailPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center space-x-4">
-          <Button variant="outline" onClick={() => navigate('/users')}>
-            <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Back to Users
-          </Button>
         </div>
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -113,10 +108,6 @@ export function UserDetailPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center space-x-4">
-          <Button variant="outline" onClick={() => navigate('/users')}>
-            <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Back to Users
-          </Button>
         </div>
         <Card>
           <CardContent className="text-center py-12">
@@ -132,10 +123,6 @@ export function UserDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Button variant="outline" onClick={() => navigate('/users')}>
-            <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Back to Users
-          </Button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{user.name}</h1>
             <p className="text-gray-600">{getUserTitle(user)}</p>

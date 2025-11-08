@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { 
   UserGroupIcon, 
-  ArrowLeftIcon,
   AcademicCapIcon,
   EyeIcon,
   TrashIcon
@@ -43,21 +42,12 @@ export function ClassStudentsPage() {
     }
   })
 
-  // Determine back link based on schoolId parameter
-  const backLink = schoolId ? `/schools/${schoolId}` : '/classes'
-  const backText = schoolId ? 'Back to School' : 'Back to Classes'
 
   if (classLoading || studentsLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Link to={backLink}>
-              <Button variant="outline" size="sm">
-                <ArrowLeftIcon className="h-4 w-4 mr-2" />
-                {backText}
-              </Button>
-            </Link>
             <h1 className="text-2xl font-bold text-gray-900">Loading...</h1>
           </div>
         </div>
@@ -75,12 +65,6 @@ export function ClassStudentsPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center space-x-4">
-          <Link to={backLink}>
-            <Button variant="outline" size="sm">
-              <ArrowLeftIcon className="h-4 w-4 mr-2" />
-              {backText}
-            </Button>
-          </Link>
           <h1 className="text-2xl font-bold text-gray-900">Class not found</h1>
         </div>
         <Card>
@@ -120,13 +104,6 @@ export function ClassStudentsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
         <div className="flex items-center space-x-2 sm:space-x-4">
-          <Link to={backLink}>
-            <Button variant="outline" size="sm" className="text-xs sm:text-sm">
-              <ArrowLeftIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">{backText}</span>
-              <span className="sm:hidden">Back</span>
-            </Button>
-          </Link>
           <div>
             <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 truncate">{classInfo?.className || classInfo?.fullName}</h1>
             <p className="text-xs sm:text-sm text-gray-600">Students in this class</p>
