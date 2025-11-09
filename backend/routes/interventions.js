@@ -9,7 +9,13 @@ const logger = require('../utils/logger');
 router.get('/', auth, async (req, res) => {
   try {
     const { studentId, status, assignedTo, priority, type } = req.query;
-    const query = { schoolId: req.user.schoolId };
+    // SUPER_ADMIN can see all data, others are filtered by school
+    const query = {};
+    
+    // Filter by school for non-SUPER_ADMIN users
+    if (req.user.role !== 'SUPER_ADMIN' && req.user.schoolId) {
+      query.schoolId = req.user.schoolId;
+    }
 
     if (studentId) query.studentId = studentId;
     if (status) query.status = status;

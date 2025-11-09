@@ -327,21 +327,46 @@ router.put('/students/:id', authenticateToken, async (req, res) => {
 });
 
 // @route   DELETE /api/test/clear-data
-// @desc    Clear test data
+// @desc    Clear test data (WARNING: This deletes ALL data including real attendance records)
 // @access  Private (Admin only)
+// @note    This endpoint should be used with extreme caution in production.
+//          It will delete ALL attendance, performance, and student records.
+//          Consider using the cleanSampleAttendance script instead for selective cleanup.
 router.delete('/clear-data', authenticateToken, authorize('ADMIN'), async (req, res) => {
   try {
+    // WARNING: This deletes ALL data - use with caution!
+    // In production, consider restricting this endpoint or adding additional safeguards
+    const Attendance = require('../models/Attendance');
+    const Performance = require('../models/Performance');
+    const RiskFlag = require('../models/RiskFlag');
+    const Message = require('../models/Message');
+    const NotificationHistory = require('../models/NotificationHistory');
+
+    // Get counts before deletion for logging
+    const counts = {
+      students: await Student.countDocuments(),
+      attendance: await Attendance.countDocuments(),
+      performance: await Performance.countDocuments(),
+      riskFlags: await RiskFlag.countDocuments(),
+      messages: await Message.countDocuments(),
+      notifications: await NotificationHistory.countDocuments()
+    };
+
     // Clear test data
     await Student.deleteMany({});
-    await require('../models/Attendance').deleteMany({});
-    await require('../models/Performance').deleteMany({});
-    await require('../models/RiskFlag').deleteMany({});
-    await require('../models/Message').deleteMany({});
-    await require('../models/NotificationHistory').deleteMany({});
+    await Attendance.deleteMany({});
+    await Performance.deleteMany({});
+    await RiskFlag.deleteMany({});
+    await Message.deleteMany({});
+    await NotificationHistory.deleteMany({});
+
+    console.log('⚠️  WARNING: All data cleared by admin user:', req.user.email);
+    console.log('   Deleted counts:', counts);
 
     res.json({
       success: true,
-      message: 'Test data cleared successfully'
+      message: 'All data cleared successfully',
+      deleted: counts
     });
   } catch (error) {
     console.error('Clear data error:', error);

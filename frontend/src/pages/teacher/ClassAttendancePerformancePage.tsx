@@ -58,38 +58,62 @@ export function ClassAttendancePerformancePage() {
   const students = studentsData?.data || []
 
   // Get existing attendance for the selected week
-  const { data: attendanceRecords, refetch: refetchAttendance } = useQuery({
+  const { data: attendanceRecords, refetch: refetchAttendance, isLoading: attendanceLoading } = useQuery({
     queryKey: ['class-attendance', id, selectedWeek[0].toISOString().split('T')[0]],
     queryFn: async () => {
-      const startDate = selectedWeek[0].toISOString().split('T')[0]
-      const endDate = selectedWeek[4].toISOString().split('T')[0]
-      const response = await apiClient.getAttendance({ 
-        startDate, 
-        endDate,
-        classId: id 
-      })
-      return response.data || []
+      try {
+        const startDate = selectedWeek[0].toISOString().split('T')[0]
+        const endDate = selectedWeek[4].toISOString().split('T')[0]
+        const response = await apiClient.getAttendance({ 
+          startDate, 
+          endDate,
+          classId: id 
+        })
+        // Ensure we always return an array
+        if (response && response.success && Array.isArray(response.data)) {
+          return response.data
+        }
+        return []
+      } catch (error) {
+        console.error('Error fetching attendance:', error)
+        return []
+      }
     },
-    enabled: !!id && activeTab === 'attendance' && students.length > 0
+    enabled: !!id && activeTab === 'attendance' && students.length > 0,
+    staleTime: 30000, // Consider data fresh for 30 seconds
+    cacheTime: 300000, // Keep in cache for 5 minutes
+    refetchOnWindowFocus: true, // Refetch when window regains focus
+    refetchOnMount: true // Always refetch on mount
   })
 
   // Initialize attendance data from existing records
   useEffect(() => {
-    if (attendanceRecords && students.length > 0) {
+    if (students.length > 0) {
       const initialData: Record<string, Record<string, boolean>> = {}
       students.forEach((student: any) => {
         initialData[student._id] = {}
         selectedWeek.forEach((date) => {
           const dateStr = date.toISOString().split('T')[0]
-          const record = attendanceRecords.find((r: any) => {
-            const recordStudentId = r.studentId?._id || r.studentId
-            const recordDate = new Date(r.date).toISOString().split('T')[0]
-            return recordStudentId === student._id && recordDate === dateStr
+          
+          // Find matching record - handle different data structures
+          const record = attendanceRecords?.find((r: any) => {
+            // Handle both populated and non-populated studentId
+            const recordStudentId = r.studentId?._id || r.student?._id || r.studentId
+            // Normalize date comparison
+            const recordDate = r.date ? new Date(r.date).toISOString().split('T')[0] : null
+            return recordStudentId && recordDate && 
+                   recordStudentId.toString() === student._id.toString() && 
+                   recordDate === dateStr
           })
+          
+          // Mark as present if status is PRESENT or LATE
           initialData[student._id][dateStr] = record?.status === 'PRESENT' || record?.status === 'LATE'
         })
       })
       setAttendanceData(initialData)
+    } else if (students.length === 0) {
+      // Reset if no students
+      setAttendanceData({})
     }
   }, [attendanceRecords, students, selectedWeek])
 
@@ -128,7 +152,7 @@ export function ClassAttendancePerformancePage() {
     }
   }, [performanceRecords, students, selectedTerm])
 
-  // Save attendance mutation
+  // Save attendance mutation with optimistic updates
   const saveAttendanceMutation = useMutation({
     mutationFn: async () => {
       const records: any[] = []
@@ -145,21 +169,77 @@ export function ClassAttendancePerformancePage() {
       })
       return apiClient.markAttendance(records)
     },
-    onSuccess: async () => {
+    onMutate: async () => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['class-attendance', id] })
+      
+      // Snapshot the previous value
+      const previousAttendance = queryClient.getQueryData(['class-attendance', id, selectedWeek[0].toISOString().split('T')[0]])
+      
+      // Optimistically update the UI - data is already in state, just mark as saved
+      return { previousAttendance }
+    },
+    onSuccess: async (response) => {
+      // Update query cache with saved data for immediate UI update
+      if (response.success && response.data && Array.isArray(response.data)) {
+        const startDate = selectedWeek[0].toISOString().split('T')[0]
+        
+        // Update cache with saved records
+        queryClient.setQueryData(['class-attendance', id, startDate], (old: any) => {
+          const oldRecords = Array.isArray(old) ? old : []
+          
+          // Merge new records with existing ones
+          const existingMap = new Map(oldRecords.map((r: any) => {
+            const studentId = r.studentId?._id || r.student?.id || r.studentId
+            const recordDate = r.date ? new Date(r.date).toISOString().split('T')[0] : null
+            const key = `${studentId}_${recordDate}`
+            return [key, r]
+          }))
+          
+          // Add/update with new records from response
+          response.data.forEach((record: any) => {
+            const studentId = record.studentId?._id || record.studentId
+            const recordDate = record.date ? new Date(record.date).toISOString().split('T')[0] : null
+            if (studentId && recordDate) {
+              const key = `${studentId}_${recordDate}`
+              existingMap.set(key, record)
+            }
+          })
+          
+          return Array.from(existingMap.values())
+        })
+      }
+      
+      // Invalidate related queries to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['class-attendance'] })
       queryClient.invalidateQueries({ queryKey: ['teacher-stats'] })
-      // Refetch attendance data to show updated records
-      await refetchAttendance()
+      queryClient.invalidateQueries({ queryKey: ['student-attendance'] })
+      
+      // Refetch attendance data to ensure UI is up-to-date
+      try {
+        await refetchAttendance()
+      } catch (error) {
+        console.error('Error refetching attendance:', error)
+      }
+      
       // Show success message
-      alert('Attendance saved successfully!')
+      if (response.success) {
+        const savedCount = response.data?.length || 0
+        const updatedCount = response.updated || 0
+        console.log(`Attendance saved successfully: ${savedCount} created, ${updatedCount} updated`)
+      }
     },
-    onError: (error: any) => {
+    onError: (error: any, variables, context) => {
+      // Rollback on error
+      if (context?.previousAttendance) {
+        queryClient.setQueryData(['class-attendance', id, selectedWeek[0].toISOString().split('T')[0]], context.previousAttendance)
+      }
       console.error('Error saving attendance:', error)
       alert(`Failed to save attendance: ${error.message || 'Unknown error'}`)
     }
   })
 
-  // Save performance mutation
+  // Save performance mutation with optimistic updates and bulk endpoint
   const savePerformanceMutation = useMutation({
     mutationFn: async () => {
       const records: any[] = []
@@ -182,18 +262,79 @@ export function ClassAttendancePerformancePage() {
         }
       })
       
-      // Create performance records one by one (or implement bulk endpoint)
-      const promises = records.map(record => apiClient.addPerformance(record))
-      return Promise.all(promises)
+      if (records.length === 0) {
+        throw new Error('No performance records to save')
+      }
+      
+      // Use bulk endpoint for faster saving
+      return apiClient.bulkCreatePerformance(records)
     },
-    onSuccess: async () => {
+    onMutate: async () => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['class-performance', id, selectedTerm] })
+      
+      // Snapshot the previous value
+      const previousPerformance = queryClient.getQueryData(['class-performance', id, selectedTerm])
+      
+      // Optimistically update the UI - data is already in state, just mark as saved
+      return { previousPerformance }
+    },
+    onSuccess: async (response) => {
+      // Update query cache with saved data for immediate UI update
+      if (response.data && (response.data.created || response.data.updated)) {
+        const allRecords = [...(response.data.created || []), ...(response.data.updated || [])]
+        
+        // Update cache with saved records
+        queryClient.setQueryData(['class-performance', id, selectedTerm], (old: any) => {
+          if (!old) return allRecords
+          
+          // Merge new records with existing ones
+          const existingMap = new Map((old || []).map((r: any) => {
+            const key = `${r.studentId?._id || r.studentId}_${r.term}_${r.subject}`
+            return [key, r]
+          }))
+          
+          // Add/update with new records
+          allRecords.forEach((record: any) => {
+            const key = `${record.studentId?._id || record.studentId}_${record.term}_${record.subject}`
+            existingMap.set(key, record)
+          })
+          
+          return Array.from(existingMap.values())
+        })
+        
+        // Also update performanceData state to reflect saved values
+        const updatedPerformanceData = { ...performanceData }
+        allRecords.forEach((record: any) => {
+          const studentId = record.studentId?._id || record.studentId
+          if (studentId && record.score !== undefined) {
+            updatedPerformanceData[studentId] = {
+              term: record.term,
+              score: record.score
+            }
+          }
+        })
+        setPerformanceData(updatedPerformanceData)
+      }
+      
+      // Invalidate and refetch to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['class-performance'] })
       queryClient.invalidateQueries({ queryKey: ['teacher-stats'] })
-      // Refetch performance data to show updated records
-      await refetchPerformance()
-      alert('Performance saved successfully!')
+      
+      // Silently refetch in background
+      refetchPerformance().catch(() => {})
+      
+      // Show success message
+      if (response.success) {
+        const totalSaved = (response.data?.created?.length || 0) + (response.data?.updated?.length || 0)
+        console.log(`Performance saved successfully: ${totalSaved} records`)
+      }
     },
-    onError: (error: any) => {
+    onError: (error: any, variables, context) => {
+      // Rollback on error
+      if (context?.previousPerformance) {
+        queryClient.setQueryData(['class-performance', id, selectedTerm], context.previousPerformance)
+      }
       console.error('Error saving performance:', error)
       alert(`Failed to save performance: ${error.message || 'Unknown error'}`)
     }

@@ -1026,6 +1026,13 @@ class ApiClient {
     return this.createPerformance(data)
   }
 
+  async bulkCreatePerformance(records: any[]) {
+    return this.request<{ success: boolean; data: { created: any[]; updated: any[] }; errors?: any[] }>('/performance/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ records })
+    })
+  }
+
   async importPerformance(file: File) {
     const formData = new FormData()
     formData.append('file', file)

@@ -333,19 +333,29 @@ router.get('/dashboard', auth, async (req, res) => {
       date: { $gte: thirtyDaysAgo }
     });
 
+    const present = recentAttendance.filter(a => a.status === 'PRESENT').length;
+    const late = recentAttendance.filter(a => a.status === 'LATE').length;
     const attendanceStats = {
       total: recentAttendance.length,
-      present: recentAttendance.filter(a => a.status === 'PRESENT').length,
+      present: present,
+      late: late,
       absent: recentAttendance.filter(a => a.status === 'ABSENT').length,
+      excused: recentAttendance.filter(a => a.status === 'EXCUSED').length,
       rate: 0
     };
 
+    // Attendance rate = (PRESENT + LATE) / total * 100 (LATE counts as present)
     if (attendanceStats.total > 0) {
-      attendanceStats.rate = ((attendanceStats.present / attendanceStats.total) * 100).toFixed(2);
+      const presentAndLate = present + late;
+      attendanceStats.rate = ((presentAndLate / attendanceStats.total) * 100).toFixed(2);
     }
 
-    // Get message statistics
-    const messageStats = await Message.getDeliveryStats(schoolId, thirtyDaysAgo, new Date());
+    // Get message statistics - fetch school info first
+    const School = require('../models/School');
+    const school = await School.findById(schoolId);
+    const messageStats = school 
+      ? await Message.getDeliveryStats(school.name, school.district, thirtyDaysAgo, new Date())
+      : { total: 0, sent: 0, delivered: 0, failed: 0, pending: 0, byType: {}, byChannel: {} };
 
     // Get student counts
     const totalStudents = await Student.countDocuments({ schoolId, isActive: true });

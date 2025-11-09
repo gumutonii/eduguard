@@ -11,6 +11,11 @@ const attendanceSchema = new mongoose.Schema({
     ref: 'School',
     required: [true, 'School ID is required']
   },
+  classId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Class',
+    required: [true, 'Class ID is required']
+  },
   date: {
     type: Date,
     required: [true, 'Date is required']
@@ -50,12 +55,15 @@ const attendanceSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Compound index for efficient queries
-attendanceSchema.index({ studentId: 1, date: -1 });
+// Compound indexes for efficient queries
+// Unique index to prevent duplicate attendance records for same student on same date
+attendanceSchema.index({ studentId: 1, date: 1 }, { unique: true });
 attendanceSchema.index({ schoolId: 1, date: -1 });
+attendanceSchema.index({ classId: 1, date: -1 });
 attendanceSchema.index({ date: -1, status: 1 });
 attendanceSchema.index({ markedBy: 1, date: -1 });
 attendanceSchema.index({ studentId: 1, schoolId: 1, date: -1 });
+attendanceSchema.index({ schoolId: 1, classId: 1, date: -1 });
 
 // Static method to get attendance summary for a student
 attendanceSchema.statics.getStudentSummary = async function(studentId, startDate, endDate) {

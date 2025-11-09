@@ -11,7 +11,13 @@ const logger = require('../utils/logger');
 router.get('/', auth, async (req, res) => {
   try {
     const { studentId, classId, date, startDate, endDate, status } = req.query;
-    const query = { schoolId: req.user.schoolId };
+    // SUPER_ADMIN can see all data, others are filtered by school
+    const query = {};
+    
+    // Filter by school for non-SUPER_ADMIN users
+    if (req.user.role !== 'SUPER_ADMIN' && req.user.schoolId) {
+      query.schoolId = req.user.schoolId;
+    }
 
     if (studentId) query.studentId = studentId;
     if (status) query.status = status;
@@ -19,35 +25,27 @@ router.get('/', auth, async (req, res) => {
     if (date) {
       const searchDate = new Date(date);
       const startOfDay = new Date(searchDate);
-      startOfDay.setHours(0, 0, 0, 0);
+      startOfDay.setUTCHours(0, 0, 0, 0);
       const endOfDay = new Date(searchDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      endOfDay.setUTCHours(23, 59, 59, 999);
       query.date = {
         $gte: startOfDay,
         $lte: endOfDay
       };
     } else if (startDate && endDate) {
       const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
+      start.setUTCHours(0, 0, 0, 0);
       const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
+      end.setUTCHours(23, 59, 59, 999);
       query.date = {
         $gte: start,
         $lte: end
       };
     }
 
-    // Filter by classId if provided
+    // Filter by classId if provided (use direct classId field for better performance)
     if (classId) {
-      const classStudents = await Student.find({
-        classId: classId,
-        isActive: true
-      }).select('_id');
-      if (classStudents.length > 0) {
-        query.studentId = { $in: classStudents.map(s => s._id) };
-      } else {
-        query.studentId = { $in: [] };
-      }
+      query.classId = classId;
     } else if (req.user.role === 'TEACHER') {
       // For teachers, filter by their assigned students
       const students = await Student.find({
@@ -64,14 +62,41 @@ router.get('/', auth, async (req, res) => {
     }
 
     const attendance = await Attendance.find(query)
-      .populate('studentId', 'firstName lastName fullName classroomId studentId profilePicture')
+      .populate('studentId', 'firstName lastName fullName classId studentId profilePicture')
+      .populate('classId', 'name className grade section')
       .populate('markedBy', 'name email')
-      .sort({ date: -1, createdAt: -1 });
+      .populate('modifiedBy', 'name email')
+      .sort({ date: -1, createdAt: -1 })
+      .lean(); // Use lean() for better performance
+
+    // Ensure consistent data structure
+    const formattedAttendance = attendance.map(record => ({
+      _id: record._id,
+      studentId: record.studentId?._id || record.studentId,
+      student: record.studentId ? {
+        _id: record.studentId._id || record.studentId,
+        firstName: record.studentId.firstName,
+        lastName: record.studentId.lastName,
+        fullName: record.studentId.fullName || `${record.studentId.firstName} ${record.studentId.lastName}`,
+        studentId: record.studentId.studentId,
+        profilePicture: record.studentId.profilePicture
+      } : null,
+      date: record.date,
+      status: record.status,
+      reason: record.reason || 'NONE',
+      reasonDetails: record.reasonDetails,
+      notes: record.notes,
+      markedBy: record.markedBy,
+      modifiedBy: record.modifiedBy,
+      modifiedAt: record.modifiedAt,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt
+    }));
 
     res.json({
       success: true,
-      count: attendance.length,
-      data: attendance
+      count: formattedAttendance.length,
+      data: formattedAttendance
     });
   } catch (error) {
     logger.error('Error fetching attendance:', error);
@@ -84,6 +109,10 @@ router.get('/', auth, async (req, res) => {
 });
 
 // Mark attendance (single or bulk)
+// IMPORTANT: This is the ONLY legitimate route for creating attendance records.
+// All attendance must be created through authenticated teachers/admins marking
+// attendance from real student attendance lists. No sample/test data should be
+// created through this or any other route.
 router.post('/mark', auth, async (req, res) => {
   try {
     const { records } = req.body;
@@ -108,9 +137,9 @@ router.post('/mark', auth, async (req, res) => {
     const dateStrings = [...new Set(records.map(r => r.date))];
     const dateObjects = dateStrings.map(d => {
       const date = new Date(d);
-      date.setHours(0, 0, 0, 0);
+      date.setUTCHours(0, 0, 0, 0);
       const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
+      endOfDay.setUTCHours(23, 59, 59, 999);
       return { start: date, end: endOfDay };
     });
 
@@ -124,9 +153,11 @@ router.post('/mark', auth, async (req, res) => {
       }
     }).lean();
 
-    // Create a map for quick lookup
+    // Create a map for quick lookup (normalize dates for consistent comparison)
     existingRecords.forEach(record => {
-      const key = `${record.studentId}_${record.date.toISOString().split('T')[0]}`;
+      const recordDate = new Date(record.date);
+      recordDate.setUTCHours(0, 0, 0, 0);
+      const key = `${record.studentId}_${recordDate.toISOString().split('T')[0]}`;
       dateMap.set(key, record);
     });
 
@@ -165,7 +196,7 @@ router.post('/mark', auth, async (req, res) => {
           continue;
         }
 
-        // Parse and normalize date
+        // Parse and normalize date (ensure consistent time normalization)
         const recordDate = new Date(record.date);
         if (isNaN(recordDate.getTime())) {
           errors.push({
@@ -174,10 +205,12 @@ router.post('/mark', auth, async (req, res) => {
           });
           continue;
         }
-        recordDate.setHours(0, 0, 0, 0);
+        // Normalize date to start of day in UTC to ensure consistency
+        recordDate.setUTCHours(0, 0, 0, 0);
         const dateKey = `${record.studentId}_${recordDate.toISOString().split('T')[0]}`;
         const existing = dateMap.get(dateKey);
 
+        // Use upsert pattern with unique index to prevent duplicates
         if (existing) {
           // Update existing record
           recordsToUpdate.push({
@@ -189,17 +222,19 @@ router.post('/mark', auth, async (req, res) => {
                   reason: record.reason || 'NONE',
                   reasonDetails: record.reasonDetails,
                   notes: record.notes,
+                  classId: student.classId, // Ensure classId is always up-to-date
                   modifiedBy: req.user._id,
                   modifiedAt: new Date()
                 }
               }
             }
           });
-          createdRecords.push({ ...existing, status: record.status });
+          createdRecords.push({ ...existing, status: record.status, classId: student.classId });
         } else {
-          // Create new record
+          // Create new record with classId from student
           recordsToCreate.push({
             studentId: record.studentId,
+            classId: student.classId,
             date: recordDate,
             status: record.status,
             schoolId: req.user.schoolId,
@@ -226,25 +261,95 @@ router.post('/mark', auth, async (req, res) => {
       }
     }
 
-    // Bulk operations for faster saving
+    // Bulk operations for faster saving with duplicate handling
     try {
       if (recordsToUpdate.length > 0) {
-        await Attendance.bulkWrite(recordsToUpdate);
+        const updateResult = await Attendance.bulkWrite(recordsToUpdate, { ordered: false });
+        logger.info(`Updated ${updateResult.modifiedCount} attendance records`);
       }
       if (recordsToCreate.length > 0) {
-        const newRecords = await Attendance.insertMany(recordsToCreate);
-        createdRecords.push(...newRecords);
+        try {
+          const newRecords = await Attendance.insertMany(recordsToCreate, { ordered: false });
+          createdRecords.push(...newRecords);
+          logger.info(`Created ${newRecords.length} new attendance records`);
+        } catch (insertError) {
+          // Handle duplicate key errors from unique index
+          if (insertError.code === 11000 || insertError.name === 'MongoServerError') {
+            logger.warn('Duplicate key error detected, attempting to update existing records instead');
+            // For records that failed due to duplicates, try to update them
+            const duplicateErrors = insertError.writeErrors || [];
+            const successfulInserts = insertError.insertedIds || {};
+            
+            // Get IDs of successfully inserted records
+            const insertedIds = Object.values(successfulInserts);
+            const failedRecords = recordsToCreate.filter((r, idx) => {
+              const recordId = insertedIds[idx];
+              return !recordId && duplicateErrors.some(e => e.index === idx);
+            });
+
+            // Try to update the failed records (they might have been created between our check and insert)
+            for (const failedRecord of failedRecords) {
+              try {
+                const existing = await Attendance.findOne({
+                  studentId: failedRecord.studentId,
+                  date: failedRecord.date
+                });
+                if (existing) {
+                  existing.status = failedRecord.status;
+                  existing.reason = failedRecord.reason || 'NONE';
+                  existing.reasonDetails = failedRecord.reasonDetails;
+                  existing.notes = failedRecord.notes;
+                  existing.classId = failedRecord.classId;
+                  existing.modifiedBy = req.user._id;
+                  existing.modifiedAt = new Date();
+                  await existing.save();
+                  createdRecords.push(existing);
+                }
+              } catch (updateErr) {
+                errors.push({
+                  studentId: failedRecord.studentId,
+                  error: 'Failed to save attendance record'
+                });
+              }
+            }
+          } else {
+            throw insertError;
+          }
+        }
       }
     } catch (error) {
       logger.error('Error in bulk attendance operations:', error);
-      throw error;
+      // If it's a bulk write error, extract individual errors
+      if (error.writeErrors && error.writeErrors.length > 0) {
+        error.writeErrors.forEach(writeError => {
+          // Skip duplicate key errors as we handle them above
+          if (writeError.code !== 11000) {
+            errors.push({
+              studentId: 'unknown',
+              error: writeError.errmsg || writeError.err.message
+            });
+          }
+        });
+      }
+      // Don't throw - return partial success if some records were saved
+      if (createdRecords.length === 0 && recordsToUpdate.length === 0) {
+        throw error;
+      }
     }
 
     // Return success immediately after saving records
-    res.status(errors.length > 0 ? 207 : 201).json({
-      success: true,
-      message: `Marked attendance for ${createdRecords.length} students`,
-      data: createdRecords,
+    const totalSaved = createdRecords.length;
+    const statusCode = errors.length > 0 ? 207 : (totalSaved > 0 ? 201 : 200);
+    
+    res.status(statusCode).json({
+      success: totalSaved > 0 || recordsToUpdate.length > 0,
+      message: totalSaved > 0 
+        ? `Marked attendance for ${totalSaved} students${errors.length > 0 ? ` (${errors.length} errors)` : ''}`
+        : errors.length > 0 
+          ? `Failed to save attendance: ${errors.length} errors`
+          : 'No attendance records to save',
+      data: createdRecords.length > 0 ? createdRecords : undefined,
+      updated: recordsToUpdate.length,
       errors: errors.length > 0 ? errors : undefined
     });
 
@@ -327,8 +432,8 @@ router.get('/calendar', auth, async (req, res) => {
       });
     }
 
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+    const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+    const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
     const attendance = await Attendance.find({
       studentId,
@@ -363,21 +468,19 @@ router.get('/statistics', auth, async (req, res) => {
   try {
     const { classId, startDate, endDate } = req.query;
     
-    const start = startDate ? new Date(startDate) : new Date(new Date().setDate(new Date().getDate() - 30));
+    const start = startDate ? new Date(startDate) : new Date(new Date().setUTCDate(new Date().getUTCDate() - 30));
     const end = endDate ? new Date(endDate) : new Date();
+    if (start) start.setUTCHours(0, 0, 0, 0);
+    if (end) end.setUTCHours(23, 59, 59, 999);
 
     const query = {
       schoolId: req.user.schoolId,
       date: { $gte: start, $lte: end }
     };
 
-    // Filter by class if specified
+    // Filter by class if specified (use direct classId field for better performance)
     if (classId) {
-      const students = await Student.find({
-        classroomId: classId,
-        schoolId: req.user.schoolId
-      }).select('_id');
-      query.studentId = { $in: students.map(s => s._id) };
+      query.classId = classId;
     }
 
     const attendance = await Attendance.find(query);

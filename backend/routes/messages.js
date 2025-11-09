@@ -127,7 +127,18 @@ router.get('/statistics', auth, async (req, res) => {
     const start = startDate ? new Date(startDate) : new Date(new Date().setDate(new Date().getDate() - 30));
     const end = endDate ? new Date(endDate) : new Date();
 
-    const stats = await Message.getDeliveryStats(req.user.schoolId, start, end);
+    // Fetch school info to get name and district
+    const School = require('../models/School');
+    const school = await School.findById(req.user.schoolId);
+    
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        message: 'School not found'
+      });
+    }
+
+    const stats = await Message.getDeliveryStats(school.name, school.district, start, end);
 
     res.json({
       success: true,
@@ -146,9 +157,22 @@ router.get('/statistics', auth, async (req, res) => {
 // Send custom message
 router.post('/send', auth, async (req, res) => {
   try {
+    // Fetch school info to populate schoolName and schoolDistrict
+    const School = require('../models/School');
+    const school = await School.findById(req.user.schoolId);
+    
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        message: 'School not found'
+      });
+    }
+
     const messageData = {
       ...req.body,
       schoolId: req.user.schoolId,
+      schoolName: school.name,
+      schoolDistrict: school.district,
       sentBy: req.user._id
     };
 
@@ -226,6 +250,17 @@ router.post('/send-bulk', auth, async (req, res) => {
     const results = [];
     const errors = [];
 
+    // Fetch school info once for all messages
+    const School = require('../models/School');
+    const school = await School.findById(req.user.schoolId);
+    
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        message: 'School not found'
+      });
+    }
+
     for (const studentId of studentIds) {
       try {
         const student = await Student.findById(studentId).populate('schoolId');
@@ -240,11 +275,19 @@ router.post('/send-bulk', auth, async (req, res) => {
           continue;
         }
 
+        // Get guardian name (support both new structure and legacy)
+        const guardianName = primaryGuardian.name || 
+          (primaryGuardian.firstName && primaryGuardian.lastName 
+            ? `${primaryGuardian.firstName} ${primaryGuardian.lastName}` 
+            : primaryGuardian.firstName || 'Guardian');
+
         const messageData = {
           studentId: student._id,
           schoolId: req.user.schoolId,
+          schoolName: school.name,
+          schoolDistrict: school.district,
           recipientType: 'GUARDIAN',
-          recipientName: primaryGuardian.name,
+          recipientName: guardianName,
           recipientPhone: primaryGuardian.phone,
           recipientEmail: primaryGuardian.email,
           channel: channel || 'SMS',

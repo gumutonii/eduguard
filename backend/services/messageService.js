@@ -11,6 +11,32 @@ class MessageService {
    */
   async sendMessage(messageData) {
     try {
+      // Ensure schoolName and schoolDistrict are populated
+      if (!messageData.schoolName || !messageData.schoolDistrict) {
+        // If studentId is provided, fetch student and school info
+        if (messageData.studentId) {
+          const student = await Student.findById(messageData.studentId).populate('schoolId');
+          if (student && student.schoolId) {
+            messageData.schoolName = student.schoolId.name || messageData.schoolName;
+            messageData.schoolDistrict = student.schoolId.district || messageData.schoolDistrict;
+          }
+        }
+        // If schoolId is provided, fetch school info
+        else if (messageData.schoolId) {
+          const School = require('../models/School');
+          const school = await School.findById(messageData.schoolId);
+          if (school) {
+            messageData.schoolName = school.name || messageData.schoolName;
+            messageData.schoolDistrict = school.district || messageData.schoolDistrict;
+          }
+        }
+      }
+
+      // Validate required fields
+      if (!messageData.schoolName || !messageData.schoolDistrict) {
+        throw new Error('School name and district are required. Unable to determine from student or school.');
+      }
+
       // Create message record
       const message = await Message.create(messageData);
 
@@ -140,9 +166,17 @@ class MessageService {
         ...variables
       });
 
+      // Ensure school is populated
+      const school = student.schoolId;
+      if (!school || !school.name || !school.district) {
+        throw new Error('Student school information is incomplete. School name and district are required.');
+      }
+
       const messageData = {
         studentId: student._id,
-        schoolId: student.schoolId?._id || student.schoolId,
+        schoolId: school._id || school,
+        schoolName: school.name,
+        schoolDistrict: school.district,
         recipientType: 'GUARDIAN',
         recipientName: guardianName,
         recipientPhone: primaryGuardian.phone,

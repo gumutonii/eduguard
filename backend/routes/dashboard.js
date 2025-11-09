@@ -13,10 +13,17 @@ router.get('/stats', authenticateToken, async (req, res) => {
     const user = req.user;
     const Class = require('../models/Class');
     
-    let studentQuery = { schoolId: user.schoolId, isActive: true };
-    let classQuery = { schoolId: user.schoolId, isActive: true };
+    // SUPER_ADMIN can see all data, others are filtered by school
+    let studentQuery = { isActive: true };
+    let classQuery = { isActive: true };
+    
+    // Filter by school for non-SUPER_ADMIN users
+    if (user.role !== 'SUPER_ADMIN' && user.schoolId) {
+      studentQuery.schoolId = user.schoolId;
+      classQuery.schoolId = user.schoolId;
+    }
 
-    // Role-based filtering
+    // Role-based filtering for teachers
     if (user.role === 'TEACHER') {
       studentQuery.assignedTeacher = user._id;
       classQuery.assignedTeacher = user._id;
@@ -32,14 +39,15 @@ router.get('/stats', authenticateToken, async (req, res) => {
     // Get classes count
     const totalClasses = await Class.countDocuments(classQuery);
     
-    // Get teachers count (for admin only)
+    // Get teachers count (for admin and super admin only)
     let totalTeachers = 0;
     if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
-      totalTeachers = await User.countDocuments({ 
-        schoolId: user.schoolId, 
-        role: 'TEACHER', 
-        isActive: true 
-      });
+      const teacherQuery = { role: 'TEACHER', isActive: true };
+      // Filter by school for ADMIN, SUPER_ADMIN sees all
+      if (user.role === 'ADMIN' && user.schoolId) {
+        teacherQuery.schoolId = user.schoolId;
+      }
+      totalTeachers = await User.countDocuments(teacherQuery);
     }
 
     // Get recent risk flags
@@ -84,9 +92,15 @@ router.get('/stats', authenticateToken, async (req, res) => {
 router.get('/at-risk-overview', authenticateToken, async (req, res) => {
   try {
     const user = req.user;
-    let query = { schoolId: user.schoolId, isActive: true };
+    // SUPER_ADMIN can see all data, others are filtered by school
+    let query = { isActive: true };
+    
+    // Filter by school for non-SUPER_ADMIN users
+    if (user.role !== 'SUPER_ADMIN' && user.schoolId) {
+      query.schoolId = user.schoolId;
+    }
 
-    // Role-based filtering
+    // Role-based filtering for teachers
     if (user.role === 'TEACHER') {
       query.assignedTeacherId = user._id;
     }
@@ -175,6 +189,7 @@ router.get('/attendance-trend', authenticateToken, async (req, res) => {
       weeklyData.set(weekKey, {
         week: weekKey,
         present: 0,
+        late: 0,
         absent: 0,
         excused: 0,
         total: 0,
@@ -195,6 +210,8 @@ router.get('/attendance-trend', authenticateToken, async (req, res) => {
           weekData.total++;
           if (record.status === 'PRESENT') {
             weekData.present++;
+          } else if (record.status === 'LATE') {
+            weekData.late++;
           } else if (record.status === 'ABSENT') {
             weekData.absent++;
           } else if (record.status === 'EXCUSED') {
@@ -204,10 +221,11 @@ router.get('/attendance-trend', authenticateToken, async (req, res) => {
       }
     });
     
-    // Calculate attendance rates
+    // Calculate attendance rates (LATE counts as present)
     const trendData = Array.from(weeklyData.values()).map(week => {
+      const presentAndLate = (week.present || 0) + (week.late || 0);
       const attendanceRate = week.total > 0 
-        ? Math.round(((week.present + week.excused) / week.total) * 100 * 10) / 10
+        ? Math.round((presentAndLate / week.total) * 100 * 10) / 10
         : 0;
       
       return {
@@ -540,6 +558,7 @@ router.get('/system-stats', authenticateToken, async (req, res) => {
     // Get attendance data (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setUTCHours(0, 0, 0, 0);
     
     const attendanceStats = await Attendance.aggregate([
       { $match: { date: { $gte: thirtyDaysAgo } } },
@@ -548,15 +567,18 @@ router.get('/system-stats', authenticateToken, async (req, res) => {
           _id: null,
           totalRecords: { $sum: 1 },
           present: { $sum: { $cond: [{ $eq: ['$status', 'PRESENT'] }, 1, 0] } },
+          late: { $sum: { $cond: [{ $eq: ['$status', 'LATE'] }, 1, 0] } },
           absent: { $sum: { $cond: [{ $eq: ['$status', 'ABSENT'] }, 1, 0] } },
           excused: { $sum: { $cond: [{ $eq: ['$status', 'EXCUSED'] }, 1, 0] } }
         }
       }
     ]);
 
-    const attendance = attendanceStats[0] || { totalRecords: 0, present: 0, absent: 0, excused: 0 };
+    const attendance = attendanceStats[0] || { totalRecords: 0, present: 0, late: 0, absent: 0, excused: 0 };
+    // Attendance rate = (PRESENT + LATE) / total * 100 (LATE counts as present)
+    const presentAndLate = (attendance.present || 0) + (attendance.late || 0);
     const attendanceRate = attendance.totalRecords > 0 ? 
-      Math.round((attendance.present / attendance.totalRecords) * 100) : 0;
+      Math.round((presentAndLate / attendance.totalRecords) * 100) : 0;
 
     // Get performance data
     const performanceStats = await Performance.aggregate([
@@ -643,6 +665,7 @@ router.get('/system-stats', authenticateToken, async (req, res) => {
       weeklyData.set(weekKey, {
         week: weekKey,
         present: 0,
+        late: 0,
         absent: 0,
         excused: 0,
         total: 0,
@@ -662,6 +685,8 @@ router.get('/system-stats', authenticateToken, async (req, res) => {
           weekData.total++;
           if (record.status === 'PRESENT') {
             weekData.present++;
+          } else if (record.status === 'LATE') {
+            weekData.late++;
           } else if (record.status === 'ABSENT') {
             weekData.absent++;
           } else if (record.status === 'EXCUSED') {
@@ -671,9 +696,11 @@ router.get('/system-stats', authenticateToken, async (req, res) => {
       }
     });
     
+    // Calculate attendance rates (LATE counts as present)
     const attendanceTrend = Array.from(weeklyData.values()).map(week => {
+      const presentAndLate = (week.present || 0) + (week.late || 0);
       const attendanceRate = week.total > 0 
-        ? Math.round(((week.present + week.excused) / week.total) * 100 * 10) / 10
+        ? Math.round((presentAndLate / week.total) * 100 * 10) / 10
         : 0;
       
       return {
@@ -1117,9 +1144,10 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
       assignedTeacher: { $ne: null } 
     });
 
-    // Get attendance data (last 30 days)
+    // Get attendance data (last 30 days) - normalized to UTC
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setUTCHours(0, 0, 0, 0);
     
     const attendanceStats = await Attendance.aggregate([
       { $match: { schoolId, date: { $gte: thirtyDaysAgo } } },
@@ -1128,15 +1156,18 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
           _id: null,
           totalRecords: { $sum: 1 },
           present: { $sum: { $cond: [{ $eq: ['$status', 'PRESENT'] }, 1, 0] } },
+          late: { $sum: { $cond: [{ $eq: ['$status', 'LATE'] }, 1, 0] } },
           absent: { $sum: { $cond: [{ $eq: ['$status', 'ABSENT'] }, 1, 0] } },
           excused: { $sum: { $cond: [{ $eq: ['$status', 'EXCUSED'] }, 1, 0] } }
         }
       }
     ]);
 
-    const attendance = attendanceStats[0] || { totalRecords: 0, present: 0, absent: 0, excused: 0 };
+    const attendance = attendanceStats[0] || { totalRecords: 0, present: 0, late: 0, absent: 0, excused: 0 };
+    // Attendance rate = (PRESENT + LATE) / total * 100 (LATE counts as present)
+    const presentAndLate = (attendance.present || 0) + (attendance.late || 0);
     const attendanceRate = attendance.totalRecords > 0 ? 
-      Math.round((attendance.present / attendance.totalRecords) * 100) : 0;
+      Math.round((presentAndLate / attendance.totalRecords) * 100) : 0;
 
     // Get performance data
     const performanceStats = await Performance.aggregate([
@@ -1225,6 +1256,7 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
       weeklyData.set(weekKey, {
         week: weekKey,
         present: 0,
+        late: 0,
         absent: 0,
         excused: 0,
         total: 0,
@@ -1244,6 +1276,8 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
           weekData.total++;
           if (record.status === 'PRESENT') {
             weekData.present++;
+          } else if (record.status === 'LATE') {
+            weekData.late++;
           } else if (record.status === 'ABSENT') {
             weekData.absent++;
           } else if (record.status === 'EXCUSED') {
@@ -1253,9 +1287,11 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
       }
     });
     
+    // Calculate attendance rates (LATE counts as present)
     const attendanceTrend = Array.from(weeklyData.values()).map(week => {
+      const presentAndLate = (week.present || 0) + (week.late || 0);
       const attendanceRate = week.total > 0 
-        ? Math.round(((week.present + week.excused) / week.total) * 100 * 10) / 10
+        ? Math.round((presentAndLate / week.total) * 100 * 10) / 10
         : 0;
       
       return {
@@ -1447,30 +1483,45 @@ router.get('/teacher-stats', authenticateToken, async (req, res) => {
       riskLevel: { $in: ['MEDIUM', 'HIGH', 'CRITICAL'] } 
     });
 
-    // Get attendance data (last 30 days)
+    // Get attendance data (last 30 days) - filter by teacher's students
+    const teacherStudents = await Student.find({ 
+      assignedTeacher: teacherId, 
+      isActive: true 
+    }).select('_id');
+    const teacherStudentIds = teacherStudents.map(s => s._id);
+    
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setUTCHours(0, 0, 0, 0);
     
     const attendanceStats = await Attendance.aggregate([
-      { $match: { assignedTeacher: teacherId, date: { $gte: thirtyDaysAgo } } },
+      { 
+        $match: { 
+          studentId: { $in: teacherStudentIds },
+          date: { $gte: thirtyDaysAgo } 
+        } 
+      },
       {
         $group: {
           _id: null,
           totalRecords: { $sum: 1 },
           present: { $sum: { $cond: [{ $eq: ['$status', 'PRESENT'] }, 1, 0] } },
+          late: { $sum: { $cond: [{ $eq: ['$status', 'LATE'] }, 1, 0] } },
           absent: { $sum: { $cond: [{ $eq: ['$status', 'ABSENT'] }, 1, 0] } },
           excused: { $sum: { $cond: [{ $eq: ['$status', 'EXCUSED'] }, 1, 0] } }
         }
       }
     ]);
 
-    const attendance = attendanceStats[0] || { totalRecords: 0, present: 0, absent: 0, excused: 0 };
+    const attendance = attendanceStats[0] || { totalRecords: 0, present: 0, late: 0, absent: 0, excused: 0 };
+    // Attendance rate = (PRESENT + LATE) / total * 100 (LATE counts as present)
+    const presentAndLate = (attendance.present || 0) + (attendance.late || 0);
     const attendanceRate = attendance.totalRecords > 0 ? 
-      Math.round((attendance.present / attendance.totalRecords) * 100) : 0;
+      Math.round((presentAndLate / attendance.totalRecords) * 100) : 0;
 
-    // Get performance data
+    // Get performance data - filter by teacher's students
     const performanceStats = await Performance.aggregate([
-      { $match: { assignedTeacher: teacherId } },
+      { $match: { studentId: { $in: teacherStudentIds } } },
       {
         $group: {
           _id: null,
@@ -1486,12 +1537,17 @@ router.get('/teacher-stats', authenticateToken, async (req, res) => {
     const performance = performanceStats[0] || { totalRecords: 0, averageScore: 0, passingRate: 0 };
 
     // Get risk flags for teacher's students
+    const teacherStudentIdsForRisk = await Student.find({ 
+      assignedTeacher: teacherId,
+      isActive: true 
+    }).distinct('_id');
+    
     const riskStats = await RiskFlag.aggregate([
       { 
         $match: { 
           schoolId, 
           isActive: true,
-          studentId: { $in: await Student.find({ assignedTeacher: teacherId }).distinct('_id') }
+          studentId: { $in: teacherStudentIdsForRisk }
         } 
       },
       {
@@ -1573,6 +1629,7 @@ router.get('/teacher-stats', authenticateToken, async (req, res) => {
       weeklyData.set(weekKey, {
         week: weekKey,
         present: 0,
+        late: 0,
         absent: 0,
         excused: 0,
         total: 0,
@@ -1592,6 +1649,8 @@ router.get('/teacher-stats', authenticateToken, async (req, res) => {
           weekData.total++;
           if (record.status === 'PRESENT') {
             weekData.present++;
+          } else if (record.status === 'LATE') {
+            weekData.late++;
           } else if (record.status === 'ABSENT') {
             weekData.absent++;
           } else if (record.status === 'EXCUSED') {
@@ -1601,9 +1660,11 @@ router.get('/teacher-stats', authenticateToken, async (req, res) => {
       }
     });
     
+    // Calculate attendance rates (LATE counts as present)
     const attendanceTrend = Array.from(weeklyData.values()).map(week => {
+      const presentAndLate = (week.present || 0) + (week.late || 0);
       const attendanceRate = week.total > 0 
-        ? Math.round(((week.present + week.excused) / week.total) * 100 * 10) / 10
+        ? Math.round((presentAndLate / week.total) * 100 * 10) / 10
         : 0;
       
       return {

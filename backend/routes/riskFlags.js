@@ -10,7 +10,13 @@ const logger = require('../utils/logger');
 router.get('/', auth, async (req, res) => {
   try {
     const { studentId, type, severity, isActive, isResolved } = req.query;
-    const query = { schoolId: req.user.schoolId };
+    // SUPER_ADMIN can see all data, others are filtered by school
+    const query = {};
+    
+    // Filter by school for non-SUPER_ADMIN users
+    if (req.user.role !== 'SUPER_ADMIN' && req.user.schoolId) {
+      query.schoolId = req.user.schoolId;
+    }
 
     if (studentId) query.studentId = studentId;
     if (type) query.type = type;
@@ -21,10 +27,16 @@ router.get('/', auth, async (req, res) => {
     // For teachers, filter by their assigned students
     if (req.user.role === 'TEACHER') {
       const students = await Student.find({
-        assignedTeacherId: req.user._id,
-        schoolId: req.user.schoolId
+        assignedTeacher: req.user._id,
+        schoolId: req.user.schoolId,
+        isActive: true
       }).select('_id');
-      query.studentId = { $in: students.map(s => s._id) };
+      if (students.length > 0) {
+        query.studentId = { $in: students.map(s => s._id) };
+      } else {
+        // No students assigned, return empty result
+        query.studentId = { $in: [] };
+      }
     }
 
     const flags = await RiskFlag.find(query)

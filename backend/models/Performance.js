@@ -73,11 +73,12 @@ const performanceSchema = new mongoose.Schema({
 });
 
 // Indexes for efficient queries
-performanceSchema.index({ studentId: 1, academicYear: 1, term: 1 });
+// Unique index to prevent duplicate performance records for same student, term, subject, and academic year
+performanceSchema.index({ studentId: 1, academicYear: 1, term: 1, subject: 1 }, { unique: true });
 performanceSchema.index({ schoolId: 1, academicYear: 1, term: 1 });
 performanceSchema.index({ classId: 1, subject: 1, term: 1 });
 performanceSchema.index({ studentId: 1, subject: 1 });
-performanceSchema.index({ studentId: 1, term: 1, subject: 1, academicYear: 1 });
+performanceSchema.index({ schoolId: 1, classId: 1, academicYear: 1, term: 1 });
 
 // Auto-calculate grade before saving
 performanceSchema.pre('save', function(next) {

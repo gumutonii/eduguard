@@ -315,28 +315,29 @@ export function TeacherStudentDetailPage() {
     }
   }, [selectedDistrict, setValue, watch])
 
+  // Fetch data for all tabs - enable queries for overview and active tab
   const { data: attendanceData, isLoading: attendanceLoading } = useQuery({
     queryKey: ['student-attendance', id],
     queryFn: () => apiClient.getStudentAttendance(id!),
-    enabled: !!id && activeTab === 'attendance',
+    enabled: !!id && (activeTab === 'attendance' || activeTab === 'overview'),
   })
 
   const { data: performanceData, isLoading: performanceLoading } = useQuery({
     queryKey: ['student-performance', id],
     queryFn: () => apiClient.getStudentPerformance(id!),
-    enabled: !!id && activeTab === 'performance',
+    enabled: !!id && (activeTab === 'performance' || activeTab === 'overview'),
   })
 
   const { data: riskFlagsData, isLoading: riskFlagsLoading } = useQuery({
     queryKey: ['student-risk-flags', id],
     queryFn: () => apiClient.getStudentRiskFlags(id!),
-    enabled: !!id && activeTab === 'risk',
+    enabled: !!id && (activeTab === 'risk' || activeTab === 'overview'),
   })
 
   const { data: interventionsData, isLoading: interventionsLoading } = useQuery({
     queryKey: ['student-interventions', id],
     queryFn: () => apiClient.getStudentInterventions(id!),
-    enabled: !!id && activeTab === 'interventions',
+    enabled: !!id && (activeTab === 'interventions' || activeTab === 'overview'),
   })
 
   if (studentLoading) {
@@ -409,18 +410,28 @@ export function TeacherStudentDetailPage() {
                 <CardTitle>Recent Attendance</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {attendanceData?.data?.slice(0, 5).map((attendance: Attendance) => (
-                    <div key={attendance._id} className="flex items-center justify-between">
-                      <span className="text-sm text-neutral-600">
-                        {new Date(attendance.date).toLocaleDateString()}
-                      </span>
-                      <Badge variant={attendance.status === 'PRESENT' ? 'success' : attendance.status === 'ABSENT' ? 'error' : 'warning'}>
-                        {attendance.status}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
+                {attendanceLoading ? (
+                  <div className="animate-pulse space-y-2">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="h-8 bg-neutral-200 rounded"></div>
+                    ))}
+                  </div>
+                ) : attendanceData?.data && attendanceData.data.length > 0 ? (
+                  <div className="space-y-3">
+                    {attendanceData.data.slice(0, 5).map((attendance: Attendance) => (
+                      <div key={attendance._id} className="flex items-center justify-between">
+                        <span className="text-sm text-neutral-600">
+                          {new Date(attendance.date).toLocaleDateString()}
+                        </span>
+                        <Badge variant={attendance.status === 'PRESENT' ? 'success' : attendance.status === 'ABSENT' ? 'error' : 'warning'}>
+                          {attendance.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-neutral-500 text-center py-4">No attendance records yet</p>
+                )}
               </CardContent>
             </Card>
 
@@ -430,14 +441,29 @@ export function TeacherStudentDetailPage() {
                 <CardTitle>Latest Performance</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {performanceData?.data?.slice(0, 5).map((performance: Performance) => (
-                    <div key={performance._id} className="flex items-center justify-between">
-                      <span className="text-sm text-neutral-600">{performance.subject}</span>
-                      <span className="text-sm font-medium text-neutral-900">{performance.score}%</span>
-                    </div>
-                  ))}
-                </div>
+                {performanceLoading ? (
+                  <div className="animate-pulse space-y-2">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="h-8 bg-neutral-200 rounded"></div>
+                    ))}
+                  </div>
+                ) : performanceData?.data && performanceData.data.length > 0 ? (
+                  <div className="space-y-3">
+                    {performanceData.data.slice(0, 5).map((performance: Performance) => (
+                      <div key={performance._id} className="flex items-center justify-between">
+                        <span className="text-sm text-neutral-600">{performance.subject}</span>
+                        <div className="text-right">
+                          <span className="text-sm font-medium text-neutral-900">{performance.score}%</span>
+                          <Badge variant={performance.score >= 80 ? 'success' : performance.score >= 60 ? 'warning' : 'error'} className="ml-2">
+                            {(performance as any).grade || 'N/A'}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-neutral-500 text-center py-4">No performance records yet</p>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -1010,10 +1036,9 @@ export function TeacherStudentDetailPage() {
                         <div key={i} className="h-16 bg-neutral-200 rounded-xl"></div>
                       ))}
                     </div>
-                  ) : (
+                  ) : attendanceData?.data && attendanceData.data.length > 0 ? (
                     <div className="space-y-3">
-                      {attendanceData?.data && attendanceData.data.length > 0 ? (
-                        attendanceData.data.map((attendance: Attendance) => (
+                      {attendanceData.data.map((attendance: Attendance) => (
                           <div key={attendance._id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-xl hover:bg-gray-50">
                             <div className="flex-1">
                               <p className="font-medium text-neutral-900">
@@ -1091,12 +1116,13 @@ export function TeacherStudentDetailPage() {
                               )}
                             </div>
                           </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-8 text-neutral-500">
-                          No attendance records found. Click "Mark Attendance" to add records.
-                        </div>
-                      )}
+                        ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <ClipboardDocumentCheckIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
+                      <p className="text-neutral-600 font-medium">No attendance records found</p>
+                      <p className="text-sm text-neutral-500 mt-2">Click "Mark Attendance" above to add attendance records.</p>
                     </div>
                   )}
                 </div>
@@ -1266,110 +1292,112 @@ export function TeacherStudentDetailPage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {performanceData?.data && performanceData.data.length > 0 ? (
-                        performanceData.data.map((performance: Performance) => (
-                          <div key={performance._id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-xl hover:bg-gray-50">
-                            <div className="flex-1">
-                              <p className="font-medium text-neutral-900">{performance.subject}</p>
-                              <p className="text-sm text-neutral-600">
-                                {performance.term} • {(performance as any).assessmentType || 'EXAM'} • {(performance as any).academicYear || 'N/A'}
-                              </p>
-                              {(performance as any).remarks && (
-                                <p className="text-sm text-neutral-500 mt-1">{(performance as any).remarks}</p>
-                              )}
+                    performanceData?.data && performanceData.data.length > 0 ? (
+                      <div className="space-y-3">
+                        {performanceData.data.map((performance: Performance) => (
+                        <div key={performance._id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-xl hover:bg-gray-50">
+                          <div className="flex-1">
+                            <p className="font-medium text-neutral-900">{performance.subject}</p>
+                            <p className="text-sm text-neutral-600">
+                              {performance.term} • {(performance as any).assessmentType || 'EXAM'} • {(performance as any).academicYear || 'N/A'}
+                            </p>
+                            {(performance as any).remarks && (
+                              <p className="text-sm text-neutral-500 mt-1">{(performance as any).remarks}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <div className="text-right">
+                              <p className="text-2xl font-bold text-neutral-900">{performance.score}%</p>
+                              <Badge variant={performance.score >= 80 ? 'success' : performance.score >= 60 ? 'warning' : 'error'}>
+                                Grade: {(performance as any).grade || 'N/A'}
+                              </Badge>
                             </div>
-                            <div className="flex items-center space-x-3">
-                              <div className="text-right">
-                                <p className="text-2xl font-bold text-neutral-900">{performance.score}%</p>
-                                <Badge variant={performance.score >= 80 ? 'success' : performance.score >= 60 ? 'warning' : 'error'}>
-                                  Grade: {(performance as any).grade || 'N/A'}
-                                </Badge>
-                              </div>
-                              {editingPerformanceId === performance._id ? (
-                                <div className="flex items-center space-x-2">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    value={editPerformanceScore}
-                                    onChange={(e) => {
-                                      const score = Number(e.target.value)
-                                      let grade = 'F'
-                                      if (score >= 90) grade = 'A'
-                                      else if (score >= 80) grade = 'B'
-                                      else if (score >= 70) grade = 'C'
-                                      else if (score >= 60) grade = 'D'
-                                      else if (score >= 50) grade = 'E'
-                                      setEditPerformanceScore(score)
-                                      setEditPerformanceGrade(grade)
-                                    }}
-                                    className="px-2 py-1 text-sm border border-gray-300 rounded-md w-20"
-                                  />
-                                  <select
-                                    value={editPerformanceGrade}
-                                    onChange={(e) => setEditPerformanceGrade(e.target.value)}
-                                    className="px-2 py-1 text-sm border border-gray-300 rounded-md"
-                                  >
-                                    <option value="A">A</option>
-                                    <option value="B">B</option>
-                                    <option value="C">C</option>
-                                    <option value="D">D</option>
-                                    <option value="E">E</option>
-                                    <option value="F">F</option>
-                                  </select>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => {
-                                      updatePerformanceMutation.mutate({
-                                        performanceId: performance._id,
-                                        data: {
-                                          score: editPerformanceScore,
-                                          grade: editPerformanceGrade,
-                                          remarks: editPerformanceRemarks
-                                        }
-                                      })
-                                    }}
-                                    disabled={updatePerformanceMutation.isPending}
-                                  >
-                                    <CheckIcon className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      setEditingPerformanceId(null)
-                                      setEditPerformanceScore(0)
-                                      setEditPerformanceGrade('C')
-                                      setEditPerformanceRemarks('')
-                                    }}
-                                  >
-                                    <XMarkIcon className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              ) : (
+                            {editingPerformanceId === performance._id ? (
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={editPerformanceScore}
+                                  onChange={(e) => {
+                                    const score = Number(e.target.value)
+                                    let grade = 'F'
+                                    if (score >= 90) grade = 'A'
+                                    else if (score >= 80) grade = 'B'
+                                    else if (score >= 70) grade = 'C'
+                                    else if (score >= 60) grade = 'D'
+                                    else if (score >= 50) grade = 'E'
+                                    setEditPerformanceScore(score)
+                                    setEditPerformanceGrade(grade)
+                                  }}
+                                  className="px-2 py-1 text-sm border border-gray-300 rounded-md w-20"
+                                />
+                                <select
+                                  value={editPerformanceGrade}
+                                  onChange={(e) => setEditPerformanceGrade(e.target.value)}
+                                  className="px-2 py-1 text-sm border border-gray-300 rounded-md"
+                                >
+                                  <option value="A">A</option>
+                                  <option value="B">B</option>
+                                  <option value="C">C</option>
+                                  <option value="D">D</option>
+                                  <option value="E">E</option>
+                                  <option value="F">F</option>
+                                </select>
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    updatePerformanceMutation.mutate({
+                                      performanceId: performance._id,
+                                      data: {
+                                        score: editPerformanceScore,
+                                        grade: editPerformanceGrade,
+                                        remarks: editPerformanceRemarks
+                                      }
+                                    })
+                                  }}
+                                  disabled={updatePerformanceMutation.isPending}
+                                >
+                                  <CheckIcon className="h-4 w-4" />
+                                </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() => {
-                                    setEditingPerformanceId(performance._id)
-                                    setEditPerformanceScore(performance.score)
-                                    setEditPerformanceGrade((performance as any).grade || 'C')
-                                    setEditPerformanceRemarks((performance as any).remarks || '')
+                                    setEditingPerformanceId(null)
+                                    setEditPerformanceScore(0)
+                                    setEditPerformanceGrade('C')
+                                    setEditPerformanceRemarks('')
                                   }}
                                 >
-                                  <PencilIcon className="h-4 w-4" />
+                                  <XMarkIcon className="h-4 w-4" />
                                 </Button>
-                              )}
-                            </div>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingPerformanceId(performance._id)
+                                  setEditPerformanceScore(performance.score)
+                                  setEditPerformanceGrade((performance as any).grade || 'C')
+                                  setEditPerformanceRemarks((performance as any).remarks || '')
+                                }}
+                              >
+                                <PencilIcon className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-8 text-neutral-500">
-                          No performance records found. Click "Add Performance" to add records.
                         </div>
-                      )}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12">
+                        <ChartBarIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
+                        <p className="text-neutral-600 font-medium">No performance records found</p>
+                        <p className="text-sm text-neutral-500 mt-2">Click "Add Performance" above to add performance records.</p>
+                      </div>
+                    )
                   )}
                 </div>
               </CardContent>
@@ -1391,40 +1419,58 @@ export function TeacherStudentDetailPage() {
                       <div key={i} className="h-20 bg-neutral-200 rounded-xl"></div>
                     ))}
                   </div>
-                ) : (
+                ) : riskFlagsData?.data && riskFlagsData.data.length > 0 ? (
                   <div className="space-y-3">
-                    {riskFlagsData?.data?.map((riskFlag: RiskFlag) => (
+                    {riskFlagsData.data.map((riskFlag: RiskFlag) => (
                       <div key={riskFlag._id} className={`p-4 border rounded-xl ${
-                        riskFlag.level === 'HIGH' ? 'bg-red-50 border-red-200' :
-                        riskFlag.level === 'MEDIUM' ? 'bg-yellow-50 border-yellow-200' :
+                        riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' || riskFlag.level === 'HIGH' ? 'bg-red-50 border-red-200' :
+                        riskFlag.severity === 'MEDIUM' || riskFlag.level === 'MEDIUM' ? 'bg-yellow-50 border-yellow-200' :
                         'bg-green-50 border-green-200'
                       }`}>
                         <div className="flex items-center justify-between">
                           <div>
                             <p className={`font-medium ${
-                              riskFlag.level === 'HIGH' ? 'text-red-800' :
-                              riskFlag.level === 'MEDIUM' ? 'text-yellow-800' :
+                              riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' || riskFlag.level === 'HIGH' ? 'text-red-800' :
+                              riskFlag.severity === 'MEDIUM' || riskFlag.level === 'MEDIUM' ? 'text-yellow-800' :
                               'text-green-800'
                             }`}>
-                              Risk Level: {riskFlag.level}
+                              Risk Level: {riskFlag.severity || riskFlag.level || 'UNKNOWN'}
                             </p>
                             <p className={`text-sm ${
-                              riskFlag.level === 'HIGH' ? 'text-red-600' :
-                              riskFlag.level === 'MEDIUM' ? 'text-yellow-600' :
+                              riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' || riskFlag.level === 'HIGH' ? 'text-red-600' :
+                              riskFlag.severity === 'MEDIUM' || riskFlag.level === 'MEDIUM' ? 'text-yellow-600' :
                               'text-green-600'
                             }`}>
-                              Reasons: {riskFlag.reasons.join(', ')}
+                              {riskFlag.category || riskFlag.type || 'Risk Flag'}
                             </p>
+                            {riskFlag.description && (
+                              <p className="text-sm text-neutral-600 mt-1">{riskFlag.description}</p>
+                            )}
+                            {(riskFlag.reasons && riskFlag.reasons.length > 0) && (
+                              <p className={`text-sm ${
+                                riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' || riskFlag.level === 'HIGH' ? 'text-red-600' :
+                                riskFlag.severity === 'MEDIUM' || riskFlag.level === 'MEDIUM' ? 'text-yellow-600' :
+                                'text-green-600'
+                              }`}>
+                                Reasons: {Array.isArray(riskFlag.reasons) ? riskFlag.reasons.join(', ') : riskFlag.reasons}
+                              </p>
+                            )}
                             <p className="text-xs text-neutral-500 mt-1">
-                              Status: {riskFlag.status} • Created: {new Date(riskFlag.createdAt).toLocaleDateString()}
+                              Status: {riskFlag.status || 'ACTIVE'} • Created: {new Date(riskFlag.createdAt).toLocaleDateString()}
                             </p>
                           </div>
-                          <Badge variant={riskFlag.level.toLowerCase() as 'low' | 'medium' | 'high'}>
-                            {riskFlag.level}
+                          <Badge variant={(riskFlag.severity || riskFlag.level || 'low').toLowerCase() as 'low' | 'medium' | 'high'}>
+                            {riskFlag.severity || riskFlag.level || 'UNKNOWN'}
                           </Badge>
                         </div>
                       </div>
                     ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <ExclamationTriangleIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
+                    <p className="text-neutral-600 font-medium">No risk flags found</p>
+                    <p className="text-sm text-neutral-500 mt-2">Risk flags will appear here when detected by the system.</p>
                   </div>
                 )}
               </div>
@@ -1446,26 +1492,39 @@ export function TeacherStudentDetailPage() {
                       <div key={i} className="h-20 bg-neutral-200 rounded-xl"></div>
                     ))}
                   </div>
-                ) : (
+                ) : interventionsData?.data && interventionsData.data.length > 0 ? (
                   <div className="space-y-3">
-                    {interventionsData?.data?.map((intervention: Intervention) => (
+                    {interventionsData.data.map((intervention: Intervention) => (
                       <div key={intervention._id} className="p-4 border border-neutral-200 rounded-xl">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="font-medium text-neutral-900">{intervention.title}</p>
+                            <p className="font-medium text-neutral-900">{intervention.title || intervention.name || 'Intervention'}</p>
                             {intervention.description && (
                               <p className="text-sm text-neutral-600 mt-1">{intervention.description}</p>
                             )}
                             <p className="text-xs text-neutral-500 mt-1">
-                              Due: {intervention.dueDate ? new Date(intervention.dueDate).toLocaleDateString() : 'No due date'}
+                              Status: {intervention.status || 'UNKNOWN'} • 
+                              {intervention.dueDate ? ` Due: ${new Date(intervention.dueDate).toLocaleDateString()}` : ' No due date'} • 
+                              Created: {new Date(intervention.createdAt).toLocaleDateString()}
                             </p>
                           </div>
-                          <Badge variant={intervention.status === 'DONE' ? 'success' : intervention.status === 'PLANNED' ? 'info' : 'error'}>
-                            {intervention.status}
+                          <Badge variant={
+                            intervention.status === 'COMPLETED' ? 'success' : 
+                            intervention.status === 'IN_PROGRESS' ? 'info' : 
+                            intervention.status === 'PLANNED' ? 'warning' : 
+                            'error'
+                          }>
+                            {intervention.status || 'UNKNOWN'}
                           </Badge>
                         </div>
                       </div>
                     ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <ClipboardDocumentListIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
+                    <p className="text-neutral-600 font-medium">No interventions found</p>
+                    <p className="text-sm text-neutral-500 mt-2">Interventions will appear here once they are created for this student.</p>
                   </div>
                 )}
               </div>
@@ -1628,3 +1687,4 @@ export function TeacherStudentDetailPage() {
     </div>
   )
 }
+

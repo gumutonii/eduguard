@@ -85,28 +85,29 @@ export function StudentDetailPage() {
     })
   }
 
+  // Fetch data for all tabs - enable queries for overview and active tab
   const { data: attendanceData, isLoading: attendanceLoading } = useQuery({
     queryKey: ['student-attendance', id],
     queryFn: () => apiClient.getStudentAttendance(id!),
-    enabled: !!id && activeTab === 'attendance',
+    enabled: !!id && (activeTab === 'attendance' || activeTab === 'overview'),
   })
 
   const { data: performanceData, isLoading: performanceLoading } = useQuery({
     queryKey: ['student-performance', id],
     queryFn: () => apiClient.getStudentPerformance(id!),
-    enabled: !!id && activeTab === 'performance',
+    enabled: !!id && (activeTab === 'performance' || activeTab === 'overview'),
   })
 
   const { data: riskFlagsData, isLoading: riskFlagsLoading } = useQuery({
     queryKey: ['student-risk-flags', id],
     queryFn: () => apiClient.getStudentRiskFlags(id!),
-    enabled: !!id && activeTab === 'risk',
+    enabled: !!id && (activeTab === 'risk' || activeTab === 'overview'),
   })
 
   const { data: interventionsData, isLoading: interventionsLoading } = useQuery({
     queryKey: ['student-interventions', id],
     queryFn: () => apiClient.getStudentInterventions(id!),
-    enabled: !!id && activeTab === 'interventions',
+    enabled: !!id && (activeTab === 'interventions' || activeTab === 'overview'),
   })
 
   if (studentLoading) {
@@ -176,18 +177,28 @@ export function StudentDetailPage() {
                 <CardTitle>Recent Attendance</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {attendanceData?.data?.slice(0, 5).map((attendance: Attendance) => (
-                    <div key={attendance._id} className="flex items-center justify-between">
-                      <span className="text-sm text-neutral-600">
-                        {new Date(attendance.date).toLocaleDateString()}
-                      </span>
-                      <Badge variant={attendance.status === 'PRESENT' ? 'success' : attendance.status === 'ABSENT' ? 'error' : 'warning'}>
-                        {attendance.status}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
+                {attendanceLoading ? (
+                  <div className="animate-pulse space-y-2">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="h-8 bg-neutral-200 rounded"></div>
+                    ))}
+                  </div>
+                ) : attendanceData?.data && attendanceData.data.length > 0 ? (
+                  <div className="space-y-3">
+                    {attendanceData.data.slice(0, 5).map((attendance: Attendance) => (
+                      <div key={attendance._id} className="flex items-center justify-between">
+                        <span className="text-sm text-neutral-600">
+                          {new Date(attendance.date).toLocaleDateString()}
+                        </span>
+                        <Badge variant={attendance.status === 'PRESENT' ? 'success' : attendance.status === 'ABSENT' ? 'error' : 'warning'}>
+                          {attendance.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-neutral-500 text-center py-4">No attendance records yet</p>
+                )}
               </CardContent>
             </Card>
 
@@ -197,14 +208,29 @@ export function StudentDetailPage() {
                 <CardTitle>Latest Performance</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {performanceData?.data?.slice(0, 5).map((performance: Performance) => (
-                    <div key={performance._id} className="flex items-center justify-between">
-                      <span className="text-sm text-neutral-600">{performance.subject}</span>
-                      <span className="text-sm font-medium text-neutral-900">{performance.score}%</span>
-                    </div>
-                  ))}
-                </div>
+                {performanceLoading ? (
+                  <div className="animate-pulse space-y-2">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="h-8 bg-neutral-200 rounded"></div>
+                    ))}
+                  </div>
+                ) : performanceData?.data && performanceData.data.length > 0 ? (
+                  <div className="space-y-3">
+                    {performanceData.data.slice(0, 5).map((performance: Performance) => (
+                      <div key={performance._id} className="flex items-center justify-between">
+                        <span className="text-sm text-neutral-600">{performance.subject}</span>
+                        <div className="text-right">
+                          <span className="text-sm font-medium text-neutral-900">{performance.score}%</span>
+                          <Badge variant={performance.score >= 80 ? 'success' : performance.score >= 60 ? 'warning' : 'error'} className="ml-2">
+                            {(performance as any).grade || 'N/A'}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-neutral-500 text-center py-4">No performance records yet</p>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -401,9 +427,9 @@ export function StudentDetailPage() {
                       <div key={i} className="h-16 bg-neutral-200 rounded-xl"></div>
                     ))}
                   </div>
-                ) : (
+                ) : attendanceData?.data && attendanceData.data.length > 0 ? (
                   <div className="space-y-3">
-                    {attendanceData?.data?.map((attendance: Attendance) => (
+                    {attendanceData.data.map((attendance: Attendance) => (
                       <div key={attendance._id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-xl">
                         <div>
                           <p className="font-medium text-neutral-900">
@@ -418,6 +444,12 @@ export function StudentDetailPage() {
                         </Badge>
                       </div>
                     ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <ClipboardDocumentCheckIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
+                    <p className="text-neutral-600 font-medium">No attendance records found</p>
+                    <p className="text-sm text-neutral-500 mt-2">Attendance data will appear here once records are added.</p>
                   </div>
                 )}
               </div>
@@ -439,27 +471,33 @@ export function StudentDetailPage() {
                       <div key={i} className="h-16 bg-neutral-200 rounded-xl"></div>
                     ))}
                   </div>
-                ) : (
+                ) : performanceData?.data && performanceData.data.length > 0 ? (
                   <div className="space-y-3">
-                    {performanceData?.data?.map((performance: Performance) => (
+                    {performanceData.data.map((performance: Performance) => (
                       <div key={performance._id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-xl">
                         <div>
                           <p className="font-medium text-neutral-900">{performance.subject}</p>
                           <p className="text-sm text-neutral-600">
-                            {performance.term} • {new Date(performance.date).toLocaleDateString()}
+                            {performance.term} • {performance.academicYear || new Date().getFullYear()}
                           </p>
-                          {performance.notes && (
-                            <p className="text-sm text-neutral-500 mt-1">{performance.notes}</p>
+                          {performance.remarks && (
+                            <p className="text-sm text-neutral-500 mt-1">{performance.remarks}</p>
                           )}
                         </div>
                         <div className="text-right">
                           <p className="text-2xl font-bold text-neutral-900">{performance.score}%</p>
                           <Badge variant={performance.score >= 80 ? 'success' : performance.score >= 60 ? 'warning' : 'error'}>
-                            {performance.score >= 80 ? 'Excellent' : performance.score >= 60 ? 'Good' : 'Needs Improvement'}
+                            Grade {performance.grade || 'N/A'}
                           </Badge>
                         </div>
                       </div>
                     ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <ChartBarIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
+                    <p className="text-neutral-600 font-medium">No performance records found</p>
+                    <p className="text-sm text-neutral-500 mt-2">Performance data will appear here once records are added.</p>
                   </div>
                 )}
               </div>
@@ -481,40 +519,49 @@ export function StudentDetailPage() {
                       <div key={i} className="h-20 bg-neutral-200 rounded-xl"></div>
                     ))}
                   </div>
-                ) : (
+                ) : riskFlagsData?.data && riskFlagsData.data.length > 0 ? (
                   <div className="space-y-3">
-                    {riskFlagsData?.data?.map((riskFlag: RiskFlag) => (
+                    {riskFlagsData.data.map((riskFlag: RiskFlag) => (
                       <div key={riskFlag._id} className={`p-4 border rounded-xl ${
-                        riskFlag.level === 'HIGH' ? 'bg-red-50 border-red-200' :
-                        riskFlag.level === 'MEDIUM' ? 'bg-yellow-50 border-yellow-200' :
+                        riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' ? 'bg-red-50 border-red-200' :
+                        riskFlag.severity === 'MEDIUM' ? 'bg-yellow-50 border-yellow-200' :
                         'bg-green-50 border-green-200'
                       }`}>
                         <div className="flex items-center justify-between">
                           <div>
                             <p className={`font-medium ${
-                              riskFlag.level === 'HIGH' ? 'text-red-800' :
-                              riskFlag.level === 'MEDIUM' ? 'text-yellow-800' :
+                              riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' ? 'text-red-800' :
+                              riskFlag.severity === 'MEDIUM' ? 'text-yellow-800' :
                               'text-green-800'
                             }`}>
-                              Risk Level: {riskFlag.level}
+                              Risk Level: {riskFlag.severity || riskFlag.level || 'UNKNOWN'}
                             </p>
                             <p className={`text-sm ${
-                              riskFlag.level === 'HIGH' ? 'text-red-600' :
-                              riskFlag.level === 'MEDIUM' ? 'text-yellow-600' :
+                              riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' ? 'text-red-600' :
+                              riskFlag.severity === 'MEDIUM' ? 'text-yellow-600' :
                               'text-green-600'
                             }`}>
-                              Reasons: {riskFlag.reasons.join(', ')}
+                              {riskFlag.category || riskFlag.type || 'Risk Flag'}
                             </p>
+                            {riskFlag.description && (
+                              <p className="text-sm text-neutral-600 mt-1">{riskFlag.description}</p>
+                            )}
                             <p className="text-xs text-neutral-500 mt-1">
-                              Status: {riskFlag.status} • Created: {new Date(riskFlag.createdAt).toLocaleDateString()}
+                              Status: {riskFlag.status || 'ACTIVE'} • Created: {new Date(riskFlag.createdAt).toLocaleDateString()}
                             </p>
                           </div>
-                          <Badge variant={riskFlag.level.toLowerCase() as 'low' | 'medium' | 'high'}>
-                            {riskFlag.level}
+                          <Badge variant={(riskFlag.severity || riskFlag.level || 'low').toLowerCase() as 'low' | 'medium' | 'high'}>
+                            {riskFlag.severity || riskFlag.level || 'UNKNOWN'}
                           </Badge>
                         </div>
                       </div>
                     ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <ExclamationTriangleIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
+                    <p className="text-neutral-600 font-medium">No risk flags found</p>
+                    <p className="text-sm text-neutral-500 mt-2">Risk flags will appear here when detected by the system.</p>
                   </div>
                 )}
               </div>
@@ -536,26 +583,39 @@ export function StudentDetailPage() {
                       <div key={i} className="h-20 bg-neutral-200 rounded-xl"></div>
                     ))}
                   </div>
-                ) : (
+                ) : interventionsData?.data && interventionsData.data.length > 0 ? (
                   <div className="space-y-3">
-                    {interventionsData?.data?.map((intervention: Intervention) => (
+                    {interventionsData.data.map((intervention: Intervention) => (
                       <div key={intervention._id} className="p-4 border border-neutral-200 rounded-xl">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="font-medium text-neutral-900">{intervention.title}</p>
+                            <p className="font-medium text-neutral-900">{intervention.title || intervention.name || 'Intervention'}</p>
                             {intervention.description && (
                               <p className="text-sm text-neutral-600 mt-1">{intervention.description}</p>
                             )}
                             <p className="text-xs text-neutral-500 mt-1">
-                              Due: {intervention.dueDate ? new Date(intervention.dueDate).toLocaleDateString() : 'No due date'}
+                              Status: {intervention.status || 'UNKNOWN'} • 
+                              {intervention.dueDate ? ` Due: ${new Date(intervention.dueDate).toLocaleDateString()}` : ' No due date'} • 
+                              Created: {new Date(intervention.createdAt).toLocaleDateString()}
                             </p>
                           </div>
-                          <Badge variant={intervention.status === 'DONE' ? 'success' : intervention.status === 'PLANNED' ? 'info' : 'error'}>
-                            {intervention.status}
+                          <Badge variant={
+                            intervention.status === 'COMPLETED' ? 'success' : 
+                            intervention.status === 'IN_PROGRESS' ? 'info' : 
+                            intervention.status === 'PLANNED' ? 'warning' : 
+                            'error'
+                          }>
+                            {intervention.status || 'UNKNOWN'}
                           </Badge>
                         </div>
                       </div>
                     ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <ClipboardDocumentListIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
+                    <p className="text-neutral-600 font-medium">No interventions found</p>
+                    <p className="text-sm text-neutral-500 mt-2">Interventions will appear here once they are created for this student.</p>
                   </div>
                 )}
               </div>
