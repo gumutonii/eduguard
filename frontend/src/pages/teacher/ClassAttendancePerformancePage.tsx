@@ -58,7 +58,7 @@ export function ClassAttendancePerformancePage() {
   const students = studentsData?.data || []
 
   // Get existing attendance for the selected week
-  const { data: attendanceRecords, refetch: refetchAttendance, isLoading: attendanceLoading } = useQuery({
+  const { data: attendanceRecords, refetch: refetchAttendance, isLoading: attendanceLoading } = useQuery<any[]>({
     queryKey: ['class-attendance', id, selectedWeek[0].toISOString().split('T')[0]],
     queryFn: async () => {
       try {
@@ -225,8 +225,7 @@ export function ClassAttendancePerformancePage() {
       // Show success message
       if (response.success) {
         const savedCount = response.data?.length || 0
-        const updatedCount = response.updated || 0
-        console.log(`Attendance saved successfully: ${savedCount} created, ${updatedCount} updated`)
+        console.log(`Attendance saved successfully: ${savedCount} records`)
       }
     },
     onError: (error: any, variables, context) => {

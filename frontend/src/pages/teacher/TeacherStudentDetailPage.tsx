@@ -1423,44 +1423,35 @@ export function TeacherStudentDetailPage() {
                   <div className="space-y-3">
                     {riskFlagsData.data.map((riskFlag: RiskFlag) => (
                       <div key={riskFlag._id} className={`p-4 border rounded-xl ${
-                        riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' || riskFlag.level === 'HIGH' ? 'bg-red-50 border-red-200' :
-                        riskFlag.severity === 'MEDIUM' || riskFlag.level === 'MEDIUM' ? 'bg-yellow-50 border-yellow-200' :
+                        riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' ? 'bg-red-50 border-red-200' :
+                        riskFlag.severity === 'MEDIUM' ? 'bg-yellow-50 border-yellow-200' :
                         'bg-green-50 border-green-200'
                       }`}>
                         <div className="flex items-center justify-between">
                           <div>
                             <p className={`font-medium ${
-                              riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' || riskFlag.level === 'HIGH' ? 'text-red-800' :
-                              riskFlag.severity === 'MEDIUM' || riskFlag.level === 'MEDIUM' ? 'text-yellow-800' :
+                              riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' ? 'text-red-800' :
+                              riskFlag.severity === 'MEDIUM' ? 'text-yellow-800' :
                               'text-green-800'
                             }`}>
-                              Risk Level: {riskFlag.severity || riskFlag.level || 'UNKNOWN'}
+                              {riskFlag.title || 'Risk Flag'}
                             </p>
                             <p className={`text-sm ${
-                              riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' || riskFlag.level === 'HIGH' ? 'text-red-600' :
-                              riskFlag.severity === 'MEDIUM' || riskFlag.level === 'MEDIUM' ? 'text-yellow-600' :
+                              riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' ? 'text-red-600' :
+                              riskFlag.severity === 'MEDIUM' ? 'text-yellow-600' :
                               'text-green-600'
                             }`}>
-                              {riskFlag.category || riskFlag.type || 'Risk Flag'}
+                              Type: {riskFlag.type || 'UNKNOWN'} • Severity: {riskFlag.severity || 'UNKNOWN'}
                             </p>
                             {riskFlag.description && (
                               <p className="text-sm text-neutral-600 mt-1">{riskFlag.description}</p>
                             )}
-                            {(riskFlag.reasons && riskFlag.reasons.length > 0) && (
-                              <p className={`text-sm ${
-                                riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' || riskFlag.level === 'HIGH' ? 'text-red-600' :
-                                riskFlag.severity === 'MEDIUM' || riskFlag.level === 'MEDIUM' ? 'text-yellow-600' :
-                                'text-green-600'
-                              }`}>
-                                Reasons: {Array.isArray(riskFlag.reasons) ? riskFlag.reasons.join(', ') : riskFlag.reasons}
-                              </p>
-                            )}
                             <p className="text-xs text-neutral-500 mt-1">
-                              Status: {riskFlag.status || 'ACTIVE'} • Created: {new Date(riskFlag.createdAt).toLocaleDateString()}
+                              Status: {riskFlag.isResolved ? 'RESOLVED' : riskFlag.isActive ? 'ACTIVE' : 'INACTIVE'} • Created: {new Date(riskFlag.createdAt).toLocaleDateString()}
                             </p>
                           </div>
-                          <Badge variant={(riskFlag.severity || riskFlag.level || 'low').toLowerCase() as 'low' | 'medium' | 'high'}>
-                            {riskFlag.severity || riskFlag.level || 'UNKNOWN'}
+                          <Badge variant={(riskFlag.severity || 'low').toLowerCase() as 'low' | 'medium' | 'high'}>
+                            {riskFlag.severity || 'UNKNOWN'}
                           </Badge>
                         </div>
                       </div>
@@ -1498,7 +1489,7 @@ export function TeacherStudentDetailPage() {
                       <div key={intervention._id} className="p-4 border border-neutral-200 rounded-xl">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="font-medium text-neutral-900">{intervention.title || intervention.name || 'Intervention'}</p>
+                            <p className="font-medium text-neutral-900">{intervention.title || 'Intervention'}</p>
                             {intervention.description && (
                               <p className="text-sm text-neutral-600 mt-1">{intervention.description}</p>
                             )}
@@ -1511,7 +1502,8 @@ export function TeacherStudentDetailPage() {
                           <Badge variant={
                             intervention.status === 'COMPLETED' ? 'success' : 
                             intervention.status === 'IN_PROGRESS' ? 'info' : 
-                            intervention.status === 'PLANNED' ? 'warning' : 
+                            intervention.status === 'PLANNED' ? 'warning' :
+                            intervention.status === 'ON_HOLD' ? 'warning' :
                             'error'
                           }>
                             {intervention.status || 'UNKNOWN'}
