@@ -81,14 +81,14 @@ export function ClassAttendancePerformancePage() {
     },
     enabled: !!id && activeTab === 'attendance' && students.length > 0,
     staleTime: 30000, // Consider data fresh for 30 seconds
-    cacheTime: 300000, // Keep in cache for 5 minutes
+    gcTime: 300000, // Keep in cache for 5 minutes (formerly cacheTime)
     refetchOnWindowFocus: true, // Refetch when window regains focus
     refetchOnMount: true // Always refetch on mount
   })
 
   // Initialize attendance data from existing records
   useEffect(() => {
-    if (students.length > 0) {
+    if (students.length > 0 && attendanceRecords) {
       const initialData: Record<string, Record<string, boolean>> = {}
       students.forEach((student: any) => {
         initialData[student._id] = {}
@@ -96,7 +96,7 @@ export function ClassAttendancePerformancePage() {
           const dateStr = date.toISOString().split('T')[0]
           
           // Find matching record - handle different data structures
-          const record = attendanceRecords?.find((r: any) => {
+          const record = attendanceRecords.find((r: any) => {
             // Handle both populated and non-populated studentId
             const recordStudentId = r.studentId?._id || r.student?._id || r.studentId
             // Normalize date comparison

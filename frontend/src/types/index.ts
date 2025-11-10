@@ -69,11 +69,21 @@ export interface Attendance {
 export interface Performance {
   _id: string;
   studentId: string;
+  schoolId?: string;
+  classId?: string;
   subject: string;
   term: string;
+  academicYear: string;
   score: number;
-  date: string;
+  maxScore?: number;
+  assessmentType?: 'EXAM' | 'TEST' | 'QUIZ' | 'ASSIGNMENT' | 'PROJECT' | 'FINAL';
+  grade: string;
+  remarks?: string;
   notes?: string;
+  enteredBy?: string;
+  modifiedBy?: string;
+  modifiedAt?: string;
+  date?: string;
   createdAt: string;
   updatedAt: string;
 }
