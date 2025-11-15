@@ -150,7 +150,8 @@ router.get('/students', authenticateToken, async (req, res) => {
     const students = await Student.find({ isActive: true })
       .populate('schoolId', 'name')
       .populate('assignedTeacherId', 'name')
-      .sort({ createdAt: -1 });
+      .collation({ locale: 'en', strength: 2 }) // Case-insensitive sorting
+      .sort({ lastName: 1, firstName: 1 });
 
     res.json({
       success: true,

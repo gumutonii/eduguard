@@ -9,14 +9,19 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
-  BellIcon
+  BellIcon,
+  PaperAirplaneIcon
 } from '@heroicons/react/24/outline'
 import { apiClient } from '@/lib/api'
+import { SendMessageToParentModal } from '@/components/SendMessageToParentModal'
+import { useAuthStore } from '@/stores/auth'
 
 export function MessagesPage() {
+  const { user } = useAuthStore()
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [typeFilter, setTypeFilter] = useState<string>('')
+  const [showSendModal, setShowSendModal] = useState(false)
 
   const { data: messagesData, isLoading } = useQuery({
     queryKey: ['messages', page, statusFilter, typeFilter],
@@ -67,15 +72,26 @@ export function MessagesPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Messages</h1>
-          <p className="text-neutral-600">View and manage all sent messages to parents</p>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-neutral-900">Messages</h1>
+          <p className="text-sm sm:text-base text-neutral-600">View and manage all sent messages to parents</p>
         </div>
+        {user?.role === 'ADMIN' && (
+          <Button
+            variant="primary"
+            onClick={() => setShowSendModal(true)}
+            className="min-h-[44px]"
+          >
+            <PaperAirplaneIcon className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Send Message to Parents</span>
+            <span className="sm:hidden">Send Message</span>
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">
                 Status
@@ -86,7 +102,7 @@ export function MessagesPage() {
                   setStatusFilter(e.target.value)
                   setPage(1)
                 }}
-                className="px-3 py-2 border border-neutral-300 rounded-md"
+                className="px-3 py-2 border border-neutral-300 rounded-md min-h-[44px] text-sm sm:text-base w-full sm:w-auto"
               >
                 <option value="">All Status</option>
                 <option value="SENT">Sent</option>
@@ -105,7 +121,7 @@ export function MessagesPage() {
                   setTypeFilter(e.target.value)
                   setPage(1)
                 }}
-                className="px-3 py-2 border border-neutral-300 rounded-md"
+                className="px-3 py-2 border border-neutral-300 rounded-md min-h-[44px] text-sm sm:text-base w-full sm:w-auto"
               >
                 <option value="">All Types</option>
                 <option value="ABSENCE_ALERT">Absence Alert</option>
@@ -142,8 +158,8 @@ export function MessagesPage() {
                   key={message._id}
                   className="p-4 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-colors"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-0">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
                         {getChannelIcon(message.channel)}
                         <h3 className="font-medium text-neutral-900">
@@ -187,8 +203,8 @@ export function MessagesPage() {
 
           {/* Pagination */}
           {pagination && pagination.pages > 1 && (
-            <div className="flex items-center justify-between mt-6">
-              <p className="text-sm text-neutral-600">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0 mt-6">
+              <p className="text-xs sm:text-sm text-neutral-600 text-center sm:text-left">
                 Page {pagination.page} of {pagination.pages} ({pagination.total} total)
               </p>
               <div className="flex gap-2">
@@ -196,6 +212,7 @@ export function MessagesPage() {
                   variant="outline"
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
+                  className="min-h-[44px]"
                 >
                   Previous
                 </Button>
@@ -203,6 +220,7 @@ export function MessagesPage() {
                   variant="outline"
                   onClick={() => setPage(p => Math.min(pagination.pages, p + 1))}
                   disabled={page === pagination.pages}
+                  className="min-h-[44px]"
                 >
                   Next
                 </Button>
@@ -211,6 +229,16 @@ export function MessagesPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Send Message Modal */}
+      {showSendModal && (
+        <SendMessageToParentModal
+          onClose={() => setShowSendModal(false)}
+          onSuccess={() => {
+            setShowSendModal(false)
+          }}
+        />
+      )}
     </div>
   )
 }

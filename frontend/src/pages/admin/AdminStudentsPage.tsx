@@ -97,13 +97,13 @@ export function AdminStudentsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Students</h1>
-          <p className="text-gray-600">Manage all students in your school</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Students</h1>
+          <p className="text-sm sm:text-base text-gray-600">Manage all students in your school</p>
         </div>
-        <div className="text-sm text-gray-500">
+        <div className="text-xs sm:text-sm text-gray-500">
           {students.length} total students
         </div>
       </div>
@@ -154,25 +154,25 @@ export function AdminStudentsPage() {
       {/* Search and Filter */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="flex-1">
               <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search students by name..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="input pl-10"
+                  className="input pl-10 sm:pl-10 min-h-[44px] text-sm sm:text-base"
                 />
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <FunnelIcon className="h-4 w-4 text-gray-400" />
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <FunnelIcon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
               <select
                 value={filterRisk}
                 onChange={(e) => setFilterRisk(e.target.value)}
-                className="input"
+                className="input min-h-[44px] text-sm sm:text-base flex-1 sm:flex-none sm:w-auto w-full"
               >
                 <option value="all">All Risk Levels</option>
                 <option value="CRITICAL">Critical</option>
@@ -237,11 +237,11 @@ export function AdminStudentsPage() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <Link to={`/students/${student._id}`}>
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" className="min-w-[44px] min-h-[44px]">
                         <EyeIcon className="h-4 w-4" />
                       </Button>
                     </Link>
-                    <Button size="sm" variant="outline">
+                    <Button size="sm" variant="outline" className="min-w-[44px] min-h-[44px]">
                       <PencilIcon className="h-4 w-4" />
                     </Button>
                     <Button 
@@ -253,7 +253,7 @@ export function AdminStudentsPage() {
                         }
                       }}
                       disabled={deleteStudentMutation.isPending}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 min-w-[44px] min-h-[44px]"
                     >
                       <TrashIcon className="h-4 w-4" />
                     </Button>
@@ -312,11 +312,11 @@ export function AdminStudentsPage() {
                   )}
 
                   <div className="border-t pt-4">
-                    <div className="flex justify-between">
-                      <Link to={`/students/${student._id}`}>
-                        <Button size="sm">View Details</Button>
+                    <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-0">
+                      <Link to={`/students/${student._id}`} className="w-full sm:w-auto">
+                        <Button size="sm" className="w-full sm:w-auto min-h-[44px]">View Details</Button>
                       </Link>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-xs sm:text-sm text-gray-500 text-center sm:text-right">
                         Last updated: {new Date(student.updatedAt).toLocaleDateString()}
                       </div>
                     </div>

@@ -117,6 +117,7 @@ interventionSchema.index({ schoolName: 1, schoolDistrict: 1, status: 1, dueDate:
 interventionSchema.index({ assignedTo: 1, status: 1 });
 interventionSchema.index({ dueDate: 1, status: 1 });
 interventionSchema.index({ createdBy: 1, createdAt: -1 });
+interventionSchema.index({ schoolId: 1, isActive: 1, status: 1 }); // For dashboard queries
 
 // Virtual for isOverdue
 interventionSchema.virtual('isOverdue').get(function() {

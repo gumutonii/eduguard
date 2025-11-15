@@ -119,49 +119,73 @@ class RiskDetectionService {
 
   /**
    * Check attendance-based risks
+   * Refined: Only flag as CRITICAL/HIGH if absent 10+ days out of 20 school days (2 weeks out of 4 weeks)
+   * This is 50% absence rate over a month (assuming 5 days per week)
    */
   async checkAttendanceRisk(studentId, rules) {
-    const patterns = await Attendance.checkAbsenteeismPattern(studentId, rules.highThreshold.withinDays);
+    // Calculate monthly attendance: 4 weeks * 5 days = 20 school days
+    // Check last 28-30 days to capture a full month of school days
+    const daysToCheck = 30; // Check last 30 calendar days
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - daysToCheck);
+    startDate.setHours(0, 0, 0, 0);
+    
+    const endDate = new Date();
+    endDate.setHours(23, 59, 59, 999);
 
-    if (patterns.absences >= rules.criticalThreshold.absences) {
+    // Get all attendance records in the period
+    const allAttendance = await Attendance.find({
+      studentId,
+      date: { $gte: startDate, $lte: endDate }
+    }).sort({ date: -1 });
+
+    // Filter to only count school days (exclude weekends if needed, but for now count all records)
+    // Count only ABSENT status (not EXCUSED, as EXCUSED might be legitimate)
+    const absences = allAttendance.filter(a => a.status === 'ABSENT').length;
+    const totalSchoolDays = allAttendance.length;
+    
+    // Calculate expected school days: approximately 20 days in a month (4 weeks * 5 days)
+    // Use actual records if available, otherwise estimate
+    const expectedSchoolDays = totalSchoolDays > 0 ? totalSchoolDays : 20;
+    
+    // Critical/High threshold: 10 absences out of 20 school days (50% absence rate)
+    const criticalThreshold = 10;
+    const highThreshold = 10; // Same threshold for both HIGH and CRITICAL
+    
+    // Medium threshold: 6-9 absences (30-45% absence rate)
+    const mediumThreshold = 6;
+
+    if (absences >= criticalThreshold) {
+      const absenceRate = totalSchoolDays > 0 ? ((absences / totalSchoolDays) * 100).toFixed(1) : 'N/A';
       return {
         type: 'ATTENDANCE',
-        severity: 'CRITICAL',
-        title: `Critical Absenteeism: ${patterns.absences} absences`,
-        description: `Student has been absent ${patterns.absences} times in the last ${rules.criticalThreshold.withinDays} days, indicating critical dropout risk.`,
+        severity: absences >= 12 ? 'CRITICAL' : 'HIGH', // 12+ absences = CRITICAL, 10-11 = HIGH
+        title: `${absences >= 12 ? 'Critical' : 'High'} Absenteeism: ${absences} absences in ${totalSchoolDays} school days`,
+        description: `Student has been absent ${absences} times out of ${totalSchoolDays} school days (${absenceRate}% absence rate) in the last month. This indicates ${absences >= 12 ? 'critical' : 'high'} dropout risk requiring immediate attention.`,
         data: {
           attendanceData: {
-            absences: patterns.absences,
-            period: `${rules.criticalThreshold.withinDays} days`,
-            dates: patterns.dates
+            absences: absences,
+            totalSchoolDays: totalSchoolDays,
+            absenceRate: absenceRate,
+            period: 'Last 30 days (monthly)',
+            dates: allAttendance.filter(a => a.status === 'ABSENT').map(a => a.date)
           }
         }
       };
-    } else if (patterns.absences >= rules.highThreshold.absences) {
-      return {
-        type: 'ATTENDANCE',
-        severity: 'HIGH',
-        title: `High Absenteeism: ${patterns.absences} absences`,
-        description: `Student has been absent ${patterns.absences} times in the last ${rules.highThreshold.withinDays} days, indicating high dropout risk.`,
-        data: {
-          attendanceData: {
-            absences: patterns.absences,
-            period: `${rules.highThreshold.withinDays} days`,
-            dates: patterns.dates
-          }
-        }
-      };
-    } else if (patterns.absences >= rules.mediumThreshold.absences) {
+    } else if (absences >= mediumThreshold) {
+      const absenceRate = totalSchoolDays > 0 ? ((absences / totalSchoolDays) * 100).toFixed(1) : 'N/A';
       return {
         type: 'ATTENDANCE',
         severity: 'MEDIUM',
-        title: `Moderate Absenteeism: ${patterns.absences} absences`,
-        description: `Student has been absent ${patterns.absences} times in the last ${rules.mediumThreshold.withinDays} days. Monitor closely.`,
+        title: `Moderate Absenteeism: ${absences} absences in ${totalSchoolDays} school days`,
+        description: `Student has been absent ${absences} times out of ${totalSchoolDays} school days (${absenceRate}% absence rate) in the last month. Monitor attendance patterns closely.`,
         data: {
           attendanceData: {
-            absences: patterns.absences,
-            period: `${rules.mediumThreshold.withinDays} days`,
-            dates: patterns.dates
+            absences: absences,
+            totalSchoolDays: totalSchoolDays,
+            absenceRate: absenceRate,
+            period: 'Last 30 days (monthly)',
+            dates: allAttendance.filter(a => a.status === 'ABSENT').map(a => a.date)
           }
         }
       };
@@ -172,38 +196,66 @@ class RiskDetectionService {
 
   /**
    * Check performance-based risks
+   * Refined: Only flag as CRITICAL/HIGH if overall average performance is 39% (F grade) or below
+   * This prevents flagging students with minor performance issues as high risk
    */
   async checkPerformanceRisk(studentId, rules) {
-    // Get recent performance records
+    // Get recent performance records (last academic year)
     const currentYear = new Date().getFullYear();
     const recentPerformances = await Performance.find({
       studentId,
-      academicYear: `${currentYear}/${currentYear + 1}`
+      academicYear: { $gte: currentYear - 1 }
     }).sort({ createdAt: -1 });
 
     if (recentPerformances.length === 0) {
       return null;
     }
 
-    // Count failing grades
-    const failingGrades = recentPerformances.filter(p => p.grade === 'F' || p.grade === 'E').length;
-    
-    if (failingGrades >= (rules.criticalThreshold.multipleFailures || 3)) {
+    // Calculate overall average performance percentage
+    let totalScore = 0;
+    let totalMaxScore = 0;
+    let validRecords = 0;
+
+    recentPerformances.forEach(record => {
+      if (record.score !== undefined && record.maxScore && record.maxScore > 0) {
+        totalScore += record.score;
+        totalMaxScore += record.maxScore;
+        validRecords++;
+      }
+    });
+
+    if (validRecords === 0) {
+      return null;
+    }
+
+    const overallAverage = (totalScore / totalMaxScore) * 100;
+    const overallAverageRounded = parseFloat(overallAverage.toFixed(1));
+
+    // Critical/High threshold: 39% or below (F grade)
+    const criticalThreshold = 39;
+
+    // Check overall average performance first
+    if (overallAverageRounded <= criticalThreshold) {
+      const severity = overallAverageRounded <= 30 ? 'CRITICAL' : 'HIGH';
       return {
         type: 'PERFORMANCE',
-        severity: 'CRITICAL',
-        title: `Critical Performance: ${failingGrades} failing grades`,
-        description: `Student has ${failingGrades} failing grades, indicating critical academic risk.`,
+        severity: severity,
+        title: `${severity === 'CRITICAL' ? 'Critical' : 'High'} Performance: ${overallAverageRounded}% average`,
+        description: `Student's overall average performance is ${overallAverageRounded}% (F grade), which is ${severity === 'CRITICAL' ? 'critically' : 'significantly'} below the passing threshold. This indicates ${severity === 'CRITICAL' ? 'critical' : 'high'} academic risk requiring immediate intervention.`,
         data: {
           performanceData: {
-            failingGrades,
-            subjects: recentPerformances.filter(p => p.grade === 'F' || p.grade === 'E').map(p => p.subject)
+            overallAverage: overallAverageRounded,
+            totalRecords: validRecords,
+            totalScore: totalScore,
+            totalMaxScore: totalMaxScore,
+            threshold: criticalThreshold
           }
         }
       };
     }
 
-    // Check for score drops
+    // Check for significant score drops (only if overall average is above 39%)
+    // This is less severe than overall poor performance
     const subjects = [...new Set(recentPerformances.map(p => p.subject))];
     for (const subject of subjects) {
       const subjectPerformances = recentPerformances
@@ -213,35 +265,29 @@ class RiskDetectionService {
       if (subjectPerformances.length >= 2) {
         const current = subjectPerformances[0];
         const previous = subjectPerformances[1];
-        const drop = previous.score - current.score;
-
-        if (drop >= rules.highThreshold.scoreDrop) {
-          return {
-            type: 'PERFORMANCE',
-            severity: 'HIGH',
-            title: `Significant Score Drop in ${subject}`,
-            description: `Score dropped by ${drop} points from ${previous.score} to ${current.score} in ${subject}.`,
-            data: {
-              performanceData: {
-                subject,
-                currentScore: current.score,
-                previousScore: previous.score,
-                drop
-              }
-            }
-          };
-        } else if (drop >= rules.mediumThreshold.scoreDrop) {
+        
+        // Calculate percentage drop
+        const currentPercentage = current.maxScore > 0 ? (current.score / current.maxScore) * 100 : 0;
+        const previousPercentage = previous.maxScore > 0 ? (previous.score / previous.maxScore) * 100 : 0;
+        const percentageDrop = previousPercentage - currentPercentage;
+        
+        // Only flag if current score is also below 50% AND dropped significantly
+        if (currentPercentage <= 50 && percentageDrop >= 20) {
           return {
             type: 'PERFORMANCE',
             severity: 'MEDIUM',
-            title: `Score Drop in ${subject}`,
-            description: `Score dropped by ${drop} points from ${previous.score} to ${current.score} in ${subject}. Monitor progress.`,
+            title: `Performance Decline in ${subject}`,
+            description: `Score in ${subject} dropped from ${previousPercentage.toFixed(1)}% to ${currentPercentage.toFixed(1)}% (${percentageDrop.toFixed(1)}% drop). Current performance is below 50%. Monitor progress.`,
             data: {
               performanceData: {
                 subject,
                 currentScore: current.score,
+                currentMaxScore: current.maxScore,
+                currentPercentage: currentPercentage.toFixed(1),
                 previousScore: previous.score,
-                drop
+                previousMaxScore: previous.maxScore,
+                previousPercentage: previousPercentage.toFixed(1),
+                percentageDrop: percentageDrop.toFixed(1)
               }
             }
           };

@@ -5,6 +5,7 @@ const Student = require('../models/Student');
 const { authenticateToken: auth } = require('../middleware/auth');
 const riskDetectionService = require('../services/riskDetectionService');
 const logger = require('../utils/logger');
+const PDFDocument = require('pdfkit');
 
 // Get risk flags with filtering
 router.get('/', auth, async (req, res) => {
@@ -101,6 +102,195 @@ router.get('/student/:studentId', auth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch student risk summary',
+      error: error.message
+    });
+  }
+});
+
+// Export risk report as PDF
+router.get('/export-pdf', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only administrators can export risk reports'
+      });
+    }
+
+    const { severity, type, isActive } = req.query;
+    const query = {};
+    
+    // Filter by school for non-SUPER_ADMIN users
+    if (req.user.role !== 'SUPER_ADMIN' && req.user.schoolId) {
+      query.schoolId = req.user.schoolId;
+    }
+
+    if (severity) query.severity = severity;
+    if (type) query.type = type;
+    if (isActive !== undefined) query.isActive = isActive === 'true';
+
+    // Get school info
+    const School = require('../models/School');
+    const school = await School.findById(req.user.schoolId);
+    const schoolName = school?.name || 'School';
+
+    // Get all risk flags
+    const riskFlags = await RiskFlag.find(query)
+      .populate('studentId', 'firstName lastName studentId classId riskLevel')
+      .populate('createdBy', 'name email')
+      .sort({ severity: -1, createdAt: -1 });
+
+    // Get students with risk levels
+    const studentQuery = { isActive: true };
+    if (req.user.role !== 'SUPER_ADMIN' && req.user.schoolId) {
+      studentQuery.schoolId = req.user.schoolId;
+    }
+
+    const students = await Student.find(studentQuery)
+      .populate('classId', 'className')
+      .collation({ locale: 'en', strength: 2 })
+      .sort({ lastName: 1, firstName: 1 })
+      .select('firstName lastName studentId riskLevel classId guardianContacts');
+
+    // Group students by risk level
+    const studentsByRisk = {
+      CRITICAL: students.filter(s => s.riskLevel === 'CRITICAL'),
+      HIGH: students.filter(s => s.riskLevel === 'HIGH'),
+      MEDIUM: students.filter(s => s.riskLevel === 'MEDIUM'),
+      LOW: students.filter(s => s.riskLevel === 'LOW'),
+      NONE: students.filter(s => !s.riskLevel || s.riskLevel === 'NONE')
+    };
+
+    // Create PDF
+    const doc = new PDFDocument({ margin: 50 });
+    
+    // Set response headers
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=risk-report-${Date.now()}.pdf`);
+
+    // Pipe PDF to response
+    doc.pipe(res);
+
+    // Header
+    doc.fontSize(20).text('EduGuard Risk Report', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(12).text(schoolName, { align: 'center' });
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, { align: 'center' });
+    doc.moveDown(2);
+
+    // Summary Section
+    doc.fontSize(16).text('Risk Summary', { underline: true });
+    doc.moveDown();
+    doc.fontSize(11);
+    doc.text(`Total Students: ${students.length}`, { indent: 20 });
+    doc.text(`Critical Risk: ${studentsByRisk.CRITICAL.length}`, { indent: 20 });
+    doc.text(`High Risk: ${studentsByRisk.HIGH.length}`, { indent: 20 });
+    doc.text(`Medium Risk: ${studentsByRisk.MEDIUM.length}`, { indent: 20 });
+    doc.text(`Low Risk: ${studentsByRisk.LOW.length}`, { indent: 20 });
+    doc.text(`No Risk: ${studentsByRisk.NONE.length}`, { indent: 20 });
+    doc.text(`Total Risk Flags: ${riskFlags.length}`, { indent: 20 });
+    doc.moveDown(2);
+
+    // Risk Flags Section
+    if (riskFlags.length > 0) {
+      doc.fontSize(16).text('Risk Flags Details', { underline: true });
+      doc.moveDown();
+
+      riskFlags.forEach((flag, index) => {
+        if (doc.y > 700) {
+          doc.addPage();
+        }
+
+        doc.fontSize(12).text(`${index + 1}. ${flag.title}`, { bold: true });
+        doc.fontSize(10);
+        doc.text(`Student: ${flag.studentId?.firstName || 'N/A'} ${flag.studentId?.lastName || ''}`, { indent: 20 });
+        doc.text(`Type: ${flag.type}`, { indent: 20 });
+        doc.text(`Severity: ${flag.severity}`, { indent: 20 });
+        doc.text(`Status: ${flag.isActive ? 'Active' : 'Resolved'}`, { indent: 20 });
+        doc.text(`Description: ${flag.description}`, { indent: 20 });
+        doc.text(`Created: ${new Date(flag.createdAt).toLocaleDateString()}`, { indent: 20 });
+        doc.moveDown();
+      });
+    }
+
+    // Students by Risk Level Section
+    doc.addPage();
+    doc.fontSize(16).text('Students by Risk Level', { underline: true });
+    doc.moveDown();
+
+    // Critical Risk Students
+    if (studentsByRisk.CRITICAL.length > 0) {
+      doc.fontSize(14).text('CRITICAL RISK STUDENTS', { bold: true });
+      doc.moveDown();
+      doc.fontSize(10);
+      studentsByRisk.CRITICAL.forEach((student, index) => {
+        if (doc.y > 700) {
+          doc.addPage();
+        }
+        doc.text(`${index + 1}. ${student.firstName} ${student.lastName} (${student.studentId})`, { indent: 20 });
+        doc.text(`   Class: ${student.classId?.className || 'N/A'}`, { indent: 20 });
+        const guardian = student.guardianContacts?.[0];
+        if (guardian) {
+          doc.text(`   Guardian: ${guardian.name || 'N/A'} - ${guardian.phone || guardian.email || 'No contact'}`, { indent: 20 });
+        }
+        doc.moveDown(0.5);
+      });
+      doc.moveDown();
+    }
+
+    // High Risk Students
+    if (studentsByRisk.HIGH.length > 0) {
+      doc.fontSize(14).text('HIGH RISK STUDENTS', { bold: true });
+      doc.moveDown();
+      doc.fontSize(10);
+      studentsByRisk.HIGH.forEach((student, index) => {
+        if (doc.y > 700) {
+          doc.addPage();
+        }
+        doc.text(`${index + 1}. ${student.firstName} ${student.lastName} (${student.studentId})`, { indent: 20 });
+        doc.text(`   Class: ${student.classId?.className || 'N/A'}`, { indent: 20 });
+        const guardian = student.guardianContacts?.[0];
+        if (guardian) {
+          doc.text(`   Guardian: ${guardian.name || 'N/A'} - ${guardian.phone || guardian.email || 'No contact'}`, { indent: 20 });
+        }
+        doc.moveDown(0.5);
+      });
+      doc.moveDown();
+    }
+
+    // Medium Risk Students
+    if (studentsByRisk.MEDIUM.length > 0) {
+      doc.fontSize(14).text('MEDIUM RISK STUDENTS', { bold: true });
+      doc.moveDown();
+      doc.fontSize(10);
+      studentsByRisk.MEDIUM.forEach((student, index) => {
+        if (doc.y > 700) {
+          doc.addPage();
+        }
+        doc.text(`${index + 1}. ${student.firstName} ${student.lastName} (${student.studentId})`, { indent: 20 });
+        doc.text(`   Class: ${student.classId?.className || 'N/A'}`, { indent: 20 });
+        const guardian = student.guardianContacts?.[0];
+        if (guardian) {
+          doc.text(`   Guardian: ${guardian.name || 'N/A'} - ${guardian.phone || guardian.email || 'No contact'}`, { indent: 20 });
+        }
+        doc.moveDown(0.5);
+      });
+      doc.moveDown();
+    }
+
+    // Footer
+    doc.fontSize(8).text(
+      `Report generated by ${req.user.name || req.user.email} on ${new Date().toLocaleString()}`,
+      { align: 'center' }
+    );
+
+    // Finalize PDF
+    doc.end();
+  } catch (error) {
+    logger.error('Error generating PDF risk report:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate PDF risk report',
       error: error.message
     });
   }

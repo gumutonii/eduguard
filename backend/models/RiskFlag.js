@@ -98,6 +98,7 @@ riskFlagSchema.index({ studentId: 1, isActive: 1, severity: -1 });
 riskFlagSchema.index({ schoolId: 1, isActive: 1, createdAt: -1 });
 riskFlagSchema.index({ type: 1, severity: 1 });
 riskFlagSchema.index({ isResolved: 1, createdAt: -1 });
+riskFlagSchema.index({ schoolId: 1, isActive: 1, severity: 1 }); // For dashboard aggregations
 
 // Method to resolve flag
 riskFlagSchema.methods.resolve = function(userId, notes) {

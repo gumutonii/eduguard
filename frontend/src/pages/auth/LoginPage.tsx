@@ -57,7 +57,7 @@ export function LoginPage() {
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
       <AuthHeader />
-      <div className="flex-1 flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
+      <div className="flex-1 flex items-center justify-center py-8 sm:py-12 lg:py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-6 sm:space-y-8">
         <div className="text-center">
           <div className="flex justify-center">
@@ -101,7 +101,7 @@ export function LoginPage() {
                   {...register('email')}
                   type="email"
                   autoComplete="email"
-                  className="mt-1 input"
+                  className="mt-1 input min-h-[44px] text-sm sm:text-base"
                   placeholder="myemail@example.com"
                 />
                 {errors.email && (
@@ -118,7 +118,7 @@ export function LoginPage() {
                     {...register('password')}
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
-                    className="mt-1 input pr-10"
+                    className="mt-1 input pr-10 min-h-[44px] text-sm sm:text-base"
                     placeholder="password"
                   />
                   <button
@@ -160,7 +160,7 @@ export function LoginPage() {
 
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full min-h-[44px]"
                 loading={isLoading}
                 disabled={isLoading}
               >

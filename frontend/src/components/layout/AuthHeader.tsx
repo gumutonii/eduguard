@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 export function AuthHeader() {
   return (
     <header className="bg-white shadow-sm border-b border-neutral-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl xl:max-w-[1600px] 2xl:max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-10">
         <div className="flex justify-between items-center h-14 sm:h-16">
           {/* Logo and Brand */}
           <div className="flex items-center">

@@ -95,8 +95,8 @@ export function RegisterPage() {
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
       <AuthHeader />
-      <div className="flex-1 flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-6 sm:space-y-8">
+      <div className="flex-1 flex items-center justify-center py-6 sm:py-8 lg:py-12 xl:py-16 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-4 sm:space-y-6 lg:space-y-8">
           <div className="text-center">
             <div className="flex justify-center">
               <svg 
@@ -109,10 +109,10 @@ export function RegisterPage() {
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
               </svg>
             </div>
-            <h2 className="mt-6 text-3xl font-bold text-neutral-900">
+            <h2 className="mt-4 sm:mt-6 text-2xl sm:text-3xl font-bold text-neutral-900">
               Create your account
             </h2>
-            <p className="mt-2 text-sm text-neutral-600">
+            <p className="mt-2 text-xs sm:text-sm text-neutral-600">
               Join EduGuard to help prevent student dropout
             </p>
           </div>
@@ -137,7 +137,7 @@ export function RegisterPage() {
                   {...register('name')}
                   type="text"
                   autoComplete="name"
-                  className="mt-1 input"
+                  className="mt-1 input min-h-[44px] text-sm sm:text-base"
                   placeholder="Enter your full name"
                 />
                 {errors.name && (
@@ -153,7 +153,7 @@ export function RegisterPage() {
                   {...register('email')}
                   type="email"
                   autoComplete="email"
-                  className="mt-1 input"
+                  className="mt-1 input min-h-[44px] text-sm sm:text-base"
                   placeholder="Enter your email"
                 />
                 {errors.email && (
@@ -167,7 +167,7 @@ export function RegisterPage() {
                 </label>
                 <select
                   {...register('role')}
-                  className="mt-1 input"
+                  className="mt-1 input min-h-[44px] text-sm sm:text-base"
                 >
                   <option value="">Select your role</option>
                   <option value="ADMIN">Admin</option>
@@ -186,7 +186,7 @@ export function RegisterPage() {
                 <input
                   {...register('phone')}
                   type="tel"
-                  className="mt-1 input"
+                  className="mt-1 input min-h-[44px] text-sm sm:text-base"
                   placeholder="Enter your phone number"
                 />
                 {errors.phone && (
@@ -207,7 +207,7 @@ export function RegisterPage() {
                       <input
                         {...register('schoolName')}
                         type="text"
-                        className="mt-1 input"
+                        className="mt-1 input min-h-[44px] text-sm sm:text-base"
                         placeholder="Enter school name"
                       />
                       {errors.schoolName && (
@@ -239,7 +239,7 @@ export function RegisterPage() {
                         <input
                           {...register('schoolPhone')}
                           type="tel"
-                          className="mt-1 input"
+                          className="mt-1 input min-h-[44px] text-sm sm:text-base"
                           placeholder="Enter school phone"
                         />
                         {errors.schoolPhone && (
@@ -254,7 +254,7 @@ export function RegisterPage() {
                         <input
                           {...register('schoolEmail')}
                           type="email"
-                          className="mt-1 input"
+                          className="mt-1 input min-h-[44px] text-sm sm:text-base"
                           placeholder="Enter school email"
                         />
                         {errors.schoolEmail && (
@@ -270,7 +270,7 @@ export function RegisterPage() {
                       <input
                         {...register('adminTitle')}
                         type="text"
-                        className="mt-1 input"
+                        className="mt-1 input min-h-[44px] text-sm sm:text-base"
                         placeholder="e.g., Head Teacher, Director of Studies"
                       />
                       {errors.adminTitle && (
@@ -293,7 +293,7 @@ export function RegisterPage() {
                       </label>
                       <select
                         {...register('selectedSchool')}
-                        className="mt-1 input"
+                        className="mt-1 input min-h-[44px] text-sm sm:text-base"
                         disabled={schoolsLoading}
                       >
                         <option value="">
@@ -327,7 +327,7 @@ export function RegisterPage() {
                       <input
                         {...register('teacherTitle')}
                         type="text"
-                        className="mt-1 input"
+                        className="mt-1 input min-h-[44px] text-sm sm:text-base"
                         placeholder="e.g., Mathematics Teacher, Physics Teacher"
                       />
                       {errors.teacherTitle && (
@@ -355,7 +355,7 @@ export function RegisterPage() {
                     {...register('password')}
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
-                    className="input pr-10"
+                    className="input pr-10 min-h-[44px] text-sm sm:text-base"
                     placeholder="Enter your password"
                   />
                   <button
@@ -402,7 +402,7 @@ export function RegisterPage() {
 
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full min-h-[44px]"
                 loading={isLoading}
                 disabled={isLoading}
               >

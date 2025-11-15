@@ -158,6 +158,37 @@ class ApiClient {
     }
   }
 
+  async forgotPassword(email: string) {
+    return this.request<{
+      success: boolean
+      message: string
+      pin?: string // Only in development
+    }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  }
+
+  async verifyPIN(email: string, pin: string) {
+    return this.request<{
+      success: boolean
+      message: string
+    }>('/auth/verify-pin', {
+      method: 'POST',
+      body: JSON.stringify({ email, pin }),
+    })
+  }
+
+  async resetPassword(email: string, pin: string, password: string) {
+    return this.request<{
+      success: boolean
+      message: string
+    }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, pin, password }),
+    })
+  }
+
   async getCurrentUser() {
     return this.request<{
       success: boolean
@@ -330,6 +361,35 @@ class ApiClient {
       success: boolean
       data: any
     }>(`/students/${id}`)
+  }
+
+  async downloadStudentReportPDF(studentId: string) {
+    const url = `${this.baseURL}/students/${studentId}/report-pdf`
+    const token = this.token || localStorage.getItem('auth_token')
+    
+    // Create a temporary link to download the PDF
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `student-report-${studentId}-${Date.now()}.pdf`)
+    
+    // Add authorization header via fetch and create blob
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error('Failed to download PDF')
+    }
+    
+    const blob = await response.blob()
+    const blobUrl = window.URL.createObjectURL(blob)
+    link.href = blobUrl
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(blobUrl)
   }
 
   async createStudent(studentData: any) {
@@ -1093,6 +1153,41 @@ class ApiClient {
     return this.request<{ success: boolean; data: any }>('/risk-flags/summary')
   }
 
+  async downloadRiskReportPDF(params: { severity?: string; type?: string; isActive?: string } = {}) {
+    const searchParams = new URLSearchParams()
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString())
+      }
+    })
+    const url = `${this.baseURL}/risk-flags/export-pdf${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
+    const token = this.token || localStorage.getItem('auth_token')
+    
+    // Create a temporary link to download the PDF
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `risk-report-${Date.now()}.pdf`)
+    
+    // Add authorization header via fetch and create blob
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error('Failed to download PDF')
+    }
+    
+    const blob = await response.blob()
+    const blobUrl = window.URL.createObjectURL(blob)
+    link.href = blobUrl
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(blobUrl)
+  }
+
   // Interventions API
   async getInterventions(params: any = {}) {
     const searchParams = new URLSearchParams(params)
@@ -1300,6 +1395,27 @@ class ApiClient {
     language?: 'EN' | 'RW'
   }) {
     return this.request<{ success: boolean; data: any }>('/messages/send', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async sendBulkMessage(data: {
+    studentIds: string[]
+    content: string
+    subject?: string
+    channel?: 'SMS' | 'EMAIL' | 'BOTH'
+    type?: string
+    language?: 'EN' | 'RW'
+  }) {
+    return this.request<{ 
+      success: boolean
+      message: string
+      sent: number
+      failed: number
+      results?: any[]
+      errors?: any[]
+    }>('/messages/send-bulk', {
       method: 'POST',
       body: JSON.stringify(data),
     })

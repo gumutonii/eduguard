@@ -109,7 +109,71 @@ const sendApprovalNotification = async (userEmail, userName, isApproved = true) 
   }
 };
 
-// Send password reset email
+// Send password reset email with PIN
+const sendPasswordResetPIN = async (userEmail, userName, resetPIN) => {
+  try {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.warn('Email service not configured');
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: `"EduGuard" <${process.env.EMAIL_USER}>`,
+      to: userEmail,
+      subject: '🔐 Reset Your EduGuard Password - Verification PIN',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 28px;">EduGuard</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Password Reset Verification</p>
+          </div>
+          
+          <div style="padding: 40px 30px; background: #f8f9fa;">
+            <h2 style="color: #333; margin-top: 0;">Hello ${userName}!</h2>
+            <p style="font-size: 16px; line-height: 1.6; color: #333;">
+              We received a request to reset your password for your EduGuard account. Use the verification PIN below to proceed.
+            </p>
+            
+            <div style="background: white; padding: 30px; border-radius: 8px; margin: 30px 0; border: 2px solid #667eea; text-align: center;">
+              <h3 style="margin-top: 0; color: #667eea; font-size: 18px; margin-bottom: 15px;">Your Verification PIN</h3>
+              <div style="background: #f0f4ff; padding: 20px; border-radius: 8px; display: inline-block; margin: 10px 0;">
+                <p style="margin: 0; font-size: 36px; font-weight: bold; color: #667eea; letter-spacing: 8px; font-family: 'Courier New', monospace;">
+                  ${resetPIN}
+                </p>
+              </div>
+              <p style="color: #666; font-size: 14px; margin-top: 15px;">
+                Enter this PIN on the password reset page to verify your identity.
+              </p>
+            </div>
+            
+            <div style="background: #fff3cd; padding: 15px; border-radius: 6px; margin: 20px 0;">
+              <p style="margin: 0; color: #856404; font-size: 14px;">
+                <strong>Security Note:</strong> This PIN will expire in 15 minutes for your security. 
+                If you didn't request this password reset, please ignore this email. Your password will remain unchanged.
+              </p>
+            </div>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px;">
+            <p>This PIN expires in 15 minutes for your security.</p>
+            <p>© 2024 EduGuard. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log('Password reset PIN email sent:', result.messageId);
+    return { success: true, messageId: result.messageId };
+  } catch (error) {
+    console.error('Error sending password reset PIN email:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Send password reset email (legacy - kept for backward compatibility)
 const sendPasswordResetEmail = async (userEmail, userName, resetToken) => {
   try {
     const transporter = createTransporter();
@@ -327,6 +391,7 @@ const isEnabled = () => {
 module.exports = {
   sendApprovalNotification,
   sendPasswordResetEmail,
+  sendPasswordResetPIN,
   sendParentRiskAlert,
   sendParentRiskAlertSMS,
   sendEmail,

@@ -28,6 +28,8 @@ const app = express();
 // Allow multiple origins for development and production
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  'https://eduguard-theta.vercel.app',  // Vercel frontend deployment
+  'https://eduguard-w5tr.onrender.com', // Render backend deployment (for frontend API calls)
   'http://localhost:5173',
   'http://localhost:3000',
   'http://127.0.0.1:5173',
@@ -99,6 +101,10 @@ const connectDB = async () => {
       console.error(`❌ MongoDB connection error (attempt ${retries}/${maxRetries}):`, err.message);
       
       if (retries < maxRetries) {
+        // Don't retry during tests
+        if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID) {
+          return;
+        }
         console.log(`⏳ Retrying MongoDB connection in 3 seconds...`);
         setTimeout(connect, 3000);
       } else {
@@ -114,6 +120,10 @@ const connectDB = async () => {
   });
   
   mongoose.connection.on('disconnected', () => {
+    // Don't attempt reconnection during tests
+    if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID) {
+      return;
+    }
     console.warn('⚠️ MongoDB disconnected. Attempting to reconnect...');
     setTimeout(connect, 5000);
   });
@@ -176,7 +186,13 @@ app.use('*', (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 // Start server after MongoDB connection attempt
+// Don't start server if running tests
 const startServer = async () => {
+  // Don't start server during tests
+  if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID) {
+    return;
+  }
+  
   try {
     // Wait a bit for MongoDB connection to establish (non-blocking)
     await new Promise(resolve => setTimeout(resolve, 1000));

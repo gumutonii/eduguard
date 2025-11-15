@@ -11,12 +11,13 @@ class MessageService {
    */
   async sendMessage(messageData) {
     try {
-      // Ensure schoolName and schoolDistrict are populated
-      if (!messageData.schoolName || !messageData.schoolDistrict) {
+      // Ensure schoolId, schoolName and schoolDistrict are populated
+      if (!messageData.schoolId || !messageData.schoolName || !messageData.schoolDistrict) {
         // If studentId is provided, fetch student and school info
         if (messageData.studentId) {
           const student = await Student.findById(messageData.studentId).populate('schoolId');
           if (student && student.schoolId) {
+            messageData.schoolId = student.schoolId._id || messageData.schoolId;
             messageData.schoolName = student.schoolId.name || messageData.schoolName;
             messageData.schoolDistrict = student.schoolId.district || messageData.schoolDistrict;
           }
@@ -26,6 +27,7 @@ class MessageService {
           const School = require('../models/School');
           const school = await School.findById(messageData.schoolId);
           if (school) {
+            messageData.schoolId = school._id;
             messageData.schoolName = school.name || messageData.schoolName;
             messageData.schoolDistrict = school.district || messageData.schoolDistrict;
           }
@@ -33,8 +35,8 @@ class MessageService {
       }
 
       // Validate required fields
-      if (!messageData.schoolName || !messageData.schoolDistrict) {
-        throw new Error('School name and district are required. Unable to determine from student or school.');
+      if (!messageData.schoolId || !messageData.schoolName || !messageData.schoolDistrict) {
+        throw new Error('School ID, name and district are required. Unable to determine from student or school.');
       }
 
       // Create message record

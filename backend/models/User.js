@@ -98,6 +98,8 @@ const userSchema = new mongoose.Schema({
   emailVerificationExpires: Date,
   passwordResetToken: String,
   passwordResetExpires: Date,
+  passwordResetPIN: String,
+  passwordResetPINExpires: Date,
   lastLogin: Date,
   profilePicture: {
     type: String,

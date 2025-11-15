@@ -22,7 +22,8 @@ import {
   PencilIcon,
   CheckIcon,
   XMarkIcon,
-  BellIcon
+  BellIcon,
+  ArrowDownTrayIcon
 } from '@heroicons/react/24/outline'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
 import { apiClient } from '@/lib/api'
@@ -1558,12 +1559,31 @@ export function TeacherStudentDetailPage() {
                   </div>
                 </div>
 
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <h4 className="font-medium text-blue-900 mb-2">Complete Student Report</h4>
+                  <p className="text-sm text-blue-700 mb-4">
+                    Download a comprehensive PDF report including all student details, active attendance records, performance records, risk level, and school admin comments.
+                  </p>
+                  <Button 
+                    variant="primary" 
+                    onClick={async () => {
+                      try {
+                        await apiClient.downloadStudentReportPDF(student._id)
+                      } catch (error) {
+                        alert('Failed to download report. Please try again.')
+                        console.error('PDF download error:', error)
+                      }
+                    }}
+                    className="min-h-[44px]"
+                  >
+                    <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
+                    Download Complete Report (PDF)
+                  </Button>
+                </div>
+
                 <div className="flex justify-center space-x-4">
                   <Button variant="outline" onClick={() => window.print()}>
                     Print Report
-                  </Button>
-                  <Button variant="outline">
-                    Export CSV
                   </Button>
                 </div>
               </div>

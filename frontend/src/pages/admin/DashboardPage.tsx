@@ -26,10 +26,14 @@ import type {
 } from '@/types'
 
 export function DashboardPage() {
-  // Use school admin dashboard endpoint
+  // Use school admin dashboard endpoint with optimized caching
   const { data: schoolAdminStats, isLoading } = useQuery({
     queryKey: ['school-admin-stats'],
     queryFn: () => apiClient.getSchoolAdminStats(),
+    staleTime: 60000, // Consider fresh for 1 minute
+    gcTime: 300000, // Keep in cache for 5 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   })
 
   const loading = isLoading
@@ -80,30 +84,32 @@ export function DashboardPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">School Admin Dashboard</h1>
-          <p className="text-sm sm:text-base text-neutral-600">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-neutral-900">School Admin Dashboard</h1>
+          <p className="text-sm sm:text-base lg:text-lg text-neutral-600">
             {school.name} • {school.district}, {school.sector}
           </p>
-          <p className="text-sm text-neutral-500">Monitor teachers, students, and school activities</p>
+          <p className="text-xs sm:text-sm text-neutral-500">Monitor teachers, students, and school activities</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Link to="/teachers" className="w-full sm:w-auto">
-            <Button variant="outline" className="w-full sm:w-auto">
+            <Button variant="outline" className="w-full sm:w-auto min-h-[44px]">
               <UsersIcon className="h-4 w-4 mr-2" />
-              Manage Teachers
+              <span className="hidden sm:inline">Manage Teachers</span>
+              <span className="sm:hidden">Teachers</span>
             </Button>
           </Link>
           <Link to="/students" className="w-full sm:w-auto">
-            <Button variant="primary" className="w-full sm:w-auto">
+            <Button variant="primary" className="w-full sm:w-auto min-h-[44px]">
               <UsersIcon className="h-4 w-4 mr-2" />
-              View Students
+              <span className="hidden sm:inline">View Students</span>
+              <span className="sm:hidden">Students</span>
             </Button>
           </Link>
         </div>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4">
         <Link to="/students">
           <Card className="hover:shadow-md transition-shadow cursor-pointer h-32">
             <CardContent className="p-6 h-full">
@@ -168,7 +174,7 @@ export function DashboardPage() {
       </div>
 
       {/* Additional Metrics Row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4">
         <Link to="/students">
           <Card className="hover:shadow-md transition-shadow cursor-pointer h-32">
             <CardContent className="p-6 h-full">
@@ -240,7 +246,7 @@ export function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
+            <div className="h-64 sm:h-80 lg:h-96">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={classPerformance.slice(0, 6)}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -272,7 +278,7 @@ export function DashboardPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-red-600">{risks.critical || 0}</div>
               <div className="text-sm text-neutral-600">Critical</div>
@@ -296,7 +302,7 @@ export function DashboardPage() {
           </div>
           <div className="mt-6">
             <div className="text-sm font-medium text-neutral-700 mb-2">By Type</div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-6 2xl:grid-cols-6 gap-2 sm:gap-3">
               <div className="text-center p-2 bg-neutral-50 rounded">
                 <div className="font-bold text-neutral-900">{risks.byType?.attendance || 0}</div>
                 <div className="text-xs text-neutral-600">Attendance</div>
@@ -323,14 +329,14 @@ export function DashboardPage() {
               </div>
             </div>
           </div>
-          <div className="mt-4 flex gap-2">
+          <div className="mt-4 flex flex-col sm:flex-row gap-2 sm:gap-3">
             <Link to="/students" className="flex-1">
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full min-h-[44px]">
                 Manage Risk Flags
               </Button>
             </Link>
             <Link to="/students?riskLevel=HIGH" className="flex-1">
-              <Button variant="primary" className="w-full">
+              <Button variant="primary" className="w-full min-h-[44px]">
                 View High Risk Students
               </Button>
             </Link>
@@ -339,7 +345,7 @@ export function DashboardPage() {
       </Card>
 
       {/* Attendance & Messages Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2">
         {/* Attendance Summary */}
         <Card>
           <CardHeader>
@@ -446,14 +452,14 @@ export function DashboardPage() {
               <div className="text-sm text-neutral-600">Total</div>
             </div>
           </div>
-          <div className="mt-6 flex gap-2">
+          <div className="mt-6 flex flex-col sm:flex-row gap-2 sm:gap-3">
             <Link to="/students" className="flex-1">
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full min-h-[44px]">
                 Active Interventions
               </Button>
             </Link>
             <Link to="/students" className="flex-1">
-              <Button variant="primary" className="w-full">
+              <Button variant="primary" className="w-full min-h-[44px]">
                 All Interventions
               </Button>
             </Link>
@@ -597,41 +603,41 @@ export function DashboardPage() {
           <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-6 2xl:grid-cols-6">
             <Link to="/teachers">
-              <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center">
-                <UsersIcon className="h-6 w-6 mb-1" />
-                <span className="text-xs">Teachers</span>
+              <Button variant="outline" className="w-full h-20 sm:h-24 flex flex-col items-center justify-center min-h-[80px]">
+                <UsersIcon className="h-5 w-5 sm:h-6 sm:w-6 mb-1" />
+                <span className="text-xs sm:text-sm">Teachers</span>
               </Button>
             </Link>
             <Link to="/students">
-              <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center">
-                <UsersIcon className="h-6 w-6 mb-1" />
-                <span className="text-xs">Students</span>
+              <Button variant="outline" className="w-full h-20 sm:h-24 flex flex-col items-center justify-center min-h-[80px]">
+                <UsersIcon className="h-5 w-5 sm:h-6 sm:w-6 mb-1" />
+                <span className="text-xs sm:text-sm">Students</span>
               </Button>
             </Link>
             <Link to="/students">
-              <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center">
-                <ClipboardDocumentCheckIcon className="h-6 w-6 mb-1" />
-                <span className="text-xs">Attendance</span>
+              <Button variant="outline" className="w-full h-20 sm:h-24 flex flex-col items-center justify-center min-h-[80px]">
+                <ClipboardDocumentCheckIcon className="h-5 w-5 sm:h-6 sm:w-6 mb-1" />
+                <span className="text-xs sm:text-sm">Attendance</span>
               </Button>
             </Link>
             <Link to="/students">
-              <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center">
-                <ChartBarIcon className="h-6 w-6 mb-1" />
-                <span className="text-xs">Performance</span>
+              <Button variant="outline" className="w-full h-20 sm:h-24 flex flex-col items-center justify-center min-h-[80px]">
+                <ChartBarIcon className="h-5 w-5 sm:h-6 sm:w-6 mb-1" />
+                <span className="text-xs sm:text-sm">Performance</span>
               </Button>
             </Link>
             <Link to="/students">
-              <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center">
-                <ExclamationTriangleIcon className="h-6 w-6 mb-1" />
-                <span className="text-xs">Risk Flags</span>
+              <Button variant="outline" className="w-full h-20 sm:h-24 flex flex-col items-center justify-center min-h-[80px]">
+                <ExclamationTriangleIcon className="h-5 w-5 sm:h-6 sm:w-6 mb-1" />
+                <span className="text-xs sm:text-sm">Risk Flags</span>
               </Button>
             </Link>
             <Link to="/notifications">
-              <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center">
-                <BellIcon className="h-6 w-6 mb-1" />
-                <span className="text-xs">Messages</span>
+              <Button variant="outline" className="w-full h-20 sm:h-24 flex flex-col items-center justify-center min-h-[80px]">
+                <BellIcon className="h-5 w-5 sm:h-6 sm:w-6 mb-1" />
+                <span className="text-xs sm:text-sm">Messages</span>
               </Button>
             </Link>
           </div>

@@ -1,6 +1,7 @@
 const Notification = require('../models/Notification');
 const Student = require('../models/Student');
 const Class = require('../models/Class');
+const User = require('../models/User');
 
 /**
  * Create in-app notification for admins when a student is flagged as at-risk
@@ -19,7 +20,8 @@ const notifyAdminOfStudentRisk = async (studentId, riskLevel, reason = '', riskT
     // Get student information
     const student = await Student.findById(studentId)
       .populate('classId', 'className grade section')
-      .populate('schoolId', 'name');
+      .populate('schoolId', 'name')
+      .populate('assignedTeacher', '_id name email');
 
     if (!student) {
       console.error('Student not found:', studentId);
@@ -47,8 +49,10 @@ const notifyAdminOfStudentRisk = async (studentId, riskLevel, reason = '', riskT
       message += ` Immediate attention may be required.`;
     }
 
-    // Check if similar notification already exists (avoid duplicates)
-    const existingNotification = await Notification.findOne({
+    const results = [];
+
+    // 1. Create notification for admins
+    const existingAdminNotification = await Notification.findOne({
       entityType: 'STUDENT',
       entityId: studentId,
       type: 'STUDENT_AT_RISK',
@@ -60,46 +64,102 @@ const notifyAdminOfStudentRisk = async (studentId, riskLevel, reason = '', riskT
       }
     });
 
-    if (existingNotification) {
+    if (existingAdminNotification) {
       // Update existing notification with latest risk level
-      existingNotification.priority = priority;
-      existingNotification.message = message;
-      existingNotification.metadata = {
-        ...existingNotification.metadata,
+      existingAdminNotification.priority = priority;
+      existingAdminNotification.message = message;
+      existingAdminNotification.metadata = {
+        ...existingAdminNotification.metadata,
         riskLevel,
         riskType,
         updatedAt: new Date()
       };
-      await existingNotification.save();
-      return { success: true, message: 'Updated existing notification', notification: existingNotification };
+      await existingAdminNotification.save();
+      results.push({ type: 'admin', action: 'updated', notification: existingAdminNotification });
+    } else {
+      // Create new notification for admins
+      const adminNotification = new Notification({
+        entityType: 'STUDENT',
+        entityId: studentId,
+        recipientType: 'ADMIN',
+        title,
+        message,
+        type: 'STUDENT_AT_RISK',
+        priority,
+        schoolId: schoolId,
+        actionUrl: `/students/${studentId}`,
+        actionText: 'View Student',
+        metadata: {
+          riskLevel,
+          riskType,
+          className,
+          studentName
+        }
+      });
+      await adminNotification.save();
+      results.push({ type: 'admin', action: 'created', notification: adminNotification });
     }
 
-    // Create new notification for admins
-    const notification = new Notification({
-      entityType: 'STUDENT',
-      entityId: studentId,
-      recipientType: 'ADMIN',
-      title,
-      message,
-      type: 'STUDENT_AT_RISK',
-      priority,
-      schoolId: schoolId,
-      actionUrl: `/classes/${student.classId?._id || ''}`,
-      actionText: 'View Class',
-      metadata: {
-        riskLevel,
-        riskType,
-        className,
-        studentName
+    // 2. Create notification for assigned teacher (if student has an assigned teacher)
+    if (student.assignedTeacher && student.assignedTeacher._id) {
+      const teacherId = student.assignedTeacher._id;
+      
+      // Check if similar notification already exists for this teacher
+      const existingTeacherNotification = await Notification.findOne({
+        entityType: 'STUDENT',
+        entityId: studentId,
+        type: 'STUDENT_AT_RISK',
+        schoolId: schoolId,
+        recipientType: 'TEACHER',
+        recipientId: teacherId,
+        isRead: false,
+        createdAt: {
+          $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Within last 24 hours
+        }
+      });
+
+      if (existingTeacherNotification) {
+        // Update existing notification with latest risk level
+        existingTeacherNotification.priority = priority;
+        existingTeacherNotification.message = message;
+        existingTeacherNotification.metadata = {
+          ...existingTeacherNotification.metadata,
+          riskLevel,
+          riskType,
+          updatedAt: new Date()
+        };
+        await existingTeacherNotification.save();
+        results.push({ type: 'teacher', action: 'updated', notification: existingTeacherNotification });
+      } else {
+        // Create new notification for teacher
+        const teacherNotification = new Notification({
+          entityType: 'STUDENT',
+          entityId: studentId,
+          recipientType: 'TEACHER',
+          recipientId: teacherId,
+          title,
+          message,
+          type: 'STUDENT_AT_RISK',
+          priority,
+          schoolId: schoolId,
+          actionUrl: `/students/${studentId}`,
+          actionText: 'View Student',
+          metadata: {
+            riskLevel,
+            riskType,
+            className,
+            studentName
+          }
+        });
+        await teacherNotification.save();
+        results.push({ type: 'teacher', action: 'created', notification: teacherNotification });
       }
-    });
+    }
 
-    await notification.save();
-
-    console.log(`Admin notification created for at-risk student: ${studentName} (${riskLevel})`);
-    return { success: true, notification };
+    console.log(`Notifications created for at-risk student: ${studentName} (${riskLevel})`);
+    return { success: true, results };
   } catch (error) {
-    console.error('Error creating admin notification for student risk:', error);
+    console.error('Error creating notifications for student risk:', error);
     return { success: false, error: error.message };
   }
 };

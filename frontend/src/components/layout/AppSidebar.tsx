@@ -30,7 +30,6 @@ const getNavigation = (role: string) => {
         { name: 'System Overview', href: '/dashboard', icon: HomeIcon },
         { name: 'Schools', href: '/schools', icon: ChartBarIcon },
         { name: 'Users', href: '/users', icon: UserGroupIcon },
-        { name: 'Students', href: '/students', icon: AcademicCapIcon },
         { name: 'Approvals', href: '/approvals', icon: UserPlusIcon },
         { name: 'Profile', href: '/profile', icon: Cog6ToothIcon },
       ]
@@ -49,6 +48,7 @@ const getNavigation = (role: string) => {
       return [
         { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
         { name: 'Students', href: '/students', icon: UserGroupIcon },
+        { name: 'Risk Flags', href: '/risk-flags', icon: ExclamationTriangleIcon },
         { name: 'Attendance & Performance', href: '/attendance-performance', icon: ClipboardDocumentCheckIcon },
         { name: 'Notifications', href: '/notifications', icon: BellIcon },
         { name: 'Profile', href: '/profile', icon: Cog6ToothIcon },
@@ -63,7 +63,12 @@ const getNavigation = (role: string) => {
   }
 }
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  mobileMenuOpen?: boolean
+  setMobileMenuOpen?: (open: boolean) => void
+}
+
+export function AppSidebar({ mobileMenuOpen, setMobileMenuOpen }: AppSidebarProps) {
   const location = useLocation()
   const { user } = useAuthStore()
   
@@ -84,7 +89,9 @@ export function AppSidebar() {
   const userInitials = userName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
 
   return (
-    <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
+    <>
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
       <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-4 shadow-sm">
         <div className="flex h-16 shrink-0 items-center">
           <div className="flex flex-col">
@@ -153,5 +160,91 @@ export function AppSidebar() {
         </nav>
       </div>
     </div>
+
+    {/* Mobile Sidebar */}
+    {mobileMenuOpen && (
+      <div className="lg:hidden fixed inset-0 z-50">
+        <div 
+          className="fixed inset-0 bg-gray-600 bg-opacity-75 transition-opacity"
+          onClick={() => setMobileMenuOpen?.(false)}
+        />
+        <div className="fixed inset-y-0 left-0 z-50 w-full max-w-sm overflow-y-auto bg-white shadow-xl">
+          <div className="flex h-16 shrink-0 items-center justify-between px-6 border-b border-neutral-200">
+            <div className="flex items-center">
+              <h1 className="text-xl font-bold text-primary-600">EduGuard</h1>
+              <span className="ml-2 text-xs text-neutral-500 font-medium">
+                {user?.role === 'SUPER_ADMIN' ? 'Super Admin' : 
+                 user?.role === 'ADMIN' ? 'Admin' : 
+                 user?.role === 'TEACHER' ? 'Teacher' : user?.role}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="-m-2.5 rounded-md p-2.5 text-neutral-700"
+              onClick={() => setMobileMenuOpen?.(false)}
+            >
+              <span className="sr-only">Close sidebar</span>
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <nav className="flex flex-1 flex-col gap-y-5 px-6 py-4">
+            <ul role="list" className="flex flex-1 flex-col gap-y-1">
+              {navigation.map((item) => {
+                const isActive = location.pathname === item.href
+                return (
+                  <li key={item.name}>
+                    <Link
+                      to={item.href}
+                      onClick={() => setMobileMenuOpen?.(false)}
+                      className={cn(
+                        isActive
+                          ? 'bg-primary-50 text-primary-600'
+                          : 'text-neutral-700 hover:text-primary-600 hover:bg-neutral-50',
+                        'group flex gap-x-3 rounded-xl p-3 text-base font-medium leading-6'
+                      )}
+                    >
+                      <item.icon
+                        className={cn(
+                          isActive ? 'text-primary-600' : 'text-neutral-400 group-hover:text-primary-600',
+                          'h-6 w-6 shrink-0'
+                        )}
+                        aria-hidden="true"
+                      />
+                      {item.name}
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+            <div className="mt-auto pt-4 border-t border-neutral-200">
+              <Link
+                to="/profile"
+                onClick={() => setMobileMenuOpen?.(false)}
+                className="flex items-center gap-x-4 px-3 py-3 text-base font-medium text-neutral-700 hover:text-primary-600 hover:bg-neutral-50 rounded-xl transition-colors"
+              >
+                {profilePicture ? (
+                  <img
+                    src={profilePicture}
+                    alt={userName}
+                    className="h-10 w-10 rounded-full object-cover border-2 border-primary-200"
+                  />
+                ) : (
+                  <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center border-2 border-primary-200">
+                    <span className="text-sm font-semibold text-primary-600">
+                      {userInitials}
+                    </span>
+                  </div>
+                )}
+                <span className="sr-only">Your profile</span>
+                <span aria-hidden="true" className="truncate">{userName}</span>
+              </Link>
+            </div>
+          </nav>
+        </div>
+      </div>
+    )}
+    </>
   )
 }

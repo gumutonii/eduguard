@@ -23,25 +23,41 @@ import {
 import { apiClient } from '@/lib/api'
 
 export function SuperAdminDashboardPage() {
-  // System-wide analytics
+  // System-wide analytics with optimized caching
   const { data: systemStats, isLoading: statsLoading } = useQuery({
     queryKey: ['super-admin-stats'],
     queryFn: () => apiClient.getSystemStats(),
+    staleTime: 60000, // 1 minute
+    gcTime: 300000, // 5 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   })
 
   const { data: schoolsData, isLoading: schoolsLoading } = useQuery({
     queryKey: ['all-schools'],
     queryFn: () => apiClient.getAllSchools(),
+    staleTime: 60000,
+    gcTime: 300000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   })
 
   const { data: usersData, isLoading: usersLoading } = useQuery({
     queryKey: ['all-users'],
     queryFn: () => apiClient.getAllUsers(),
+    staleTime: 60000,
+    gcTime: 300000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   })
 
   const { data: riskSummary, isLoading: riskLoading } = useQuery({
     queryKey: ['system-risk-summary'],
     queryFn: () => apiClient.getSystemRiskSummary(),
+    staleTime: 60000,
+    gcTime: 300000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   })
 
   const isLoading = statsLoading || schoolsLoading || usersLoading || riskLoading
@@ -95,31 +111,33 @@ export function SuperAdminDashboardPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">System Overview</h1>
-          <p className="text-gray-600">EduGuard platform-wide analytics and management</p>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">System Overview</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">EduGuard platform-wide analytics and management</p>
         </div>
-        <div className="flex gap-3">
-          <Link to="/schools">
-            <Button>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+          <Link to="/schools" className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto min-h-[44px]">
               <BuildingOfficeIcon className="h-4 w-4 mr-2" />
-              Manage Schools
+              <span className="hidden sm:inline">Manage Schools</span>
+              <span className="sm:hidden">Schools</span>
             </Button>
           </Link>
-          <Link to="/approvals">
-            <Button>
+          <Link to="/approvals" className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto min-h-[44px]">
               <UserGroupIcon className="h-4 w-4 mr-2" />
-              Approvals
+              <span className="hidden sm:inline">Approvals</span>
+              <span className="sm:hidden">Approvals</span>
             </Button>
           </Link>
         </div>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4">
         <Link to="/schools">
           <Card className="hover:shadow-lg transition-shadow cursor-pointer h-32">
             <CardContent className="p-6 h-full">
@@ -192,7 +210,7 @@ export function SuperAdminDashboardPage() {
       </div>
 
       {/* Additional Metrics Row */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4">
         <Link to="/students">
           <Card className="hover:shadow-lg transition-shadow cursor-pointer h-32">
             <CardContent className="p-6 h-full">
@@ -263,7 +281,7 @@ export function SuperAdminDashboardPage() {
       </div>
 
       {/* Essential Charts - Right After Data Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2 gap-4 sm:gap-6">
         {/* School Performance Comparison */}
         <Card>
           <CardHeader>
@@ -273,7 +291,7 @@ export function SuperAdminDashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
+            <div className="h-64 sm:h-80 lg:h-96">
               {(stats.schoolPerformance && stats.schoolPerformance.length > 0) || schoolPerformance.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={(stats.schoolPerformance?.slice(0, 5) || schoolPerformance.slice(0, 5))}>
@@ -304,7 +322,7 @@ export function SuperAdminDashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
+            <div className="h-64 sm:h-80 lg:h-96">
               {stats.attendanceTrend && stats.attendanceTrend.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={stats.attendanceTrend}>
@@ -336,7 +354,7 @@ export function SuperAdminDashboardPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-red-600">{stats.riskFlags?.critical || 0}</div>
               <div className="text-sm text-gray-600">Critical</div>
@@ -370,7 +388,7 @@ export function SuperAdminDashboardPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{stats.messages?.total || 0}</div>
               <div className="text-sm text-gray-600">Total Sent</div>
@@ -403,59 +421,61 @@ export function SuperAdminDashboardPage() {
           <CardTitle>Schools Overview</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    School
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    District
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Students
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    At Risk
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Risk Rate
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {schools.map((school) => (
-                  <tr key={school._id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{school.name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{school.district}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{school.studentCount || 0}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{school.atRiskCount || 0}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge variant={school.riskRate > 20 ? 'error' : school.riskRate > 10 ? 'warning' : 'low'}>
-                        {school.riskRate || 0}%
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <Link to={`/schools/${school._id}`}>
-                        <Button size="sm">View</Button>
-                      </Link>
-                    </td>
+          <div className="overflow-x-auto -mx-3 sm:mx-0">
+            <div className="inline-block min-w-full align-middle">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      School
+                    </th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      District
+                    </th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Students
+                    </th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      At Risk
+                    </th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Risk Rate
+                    </th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {schools.map((school) => (
+                    <tr key={school._id}>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{school.name}</div>
+                      </td>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">{school.district}</div>
+                      </td>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{school.studentCount || 0}</div>
+                      </td>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{school.atRiskCount || 0}</div>
+                      </td>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                        <Badge variant={school.riskRate > 20 ? 'error' : school.riskRate > 10 ? 'warning' : 'low'}>
+                          {school.riskRate || 0}%
+                        </Badge>
+                      </td>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <Link to={`/schools/${school._id}`}>
+                          <Button size="sm" className="min-h-[44px]">View</Button>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </CardContent>
       </Card>

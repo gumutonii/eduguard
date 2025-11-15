@@ -6,6 +6,7 @@ import { LandingPage } from '@/pages/LandingPage'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { RegisterPage } from '@/pages/auth/RegisterPage'
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage'
+import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
 import { PrivacyPolicy } from '@/pages/PrivacyPolicy'
 import { TermsConditions } from '@/pages/TermsConditions'
 
@@ -40,6 +41,7 @@ import { TeacherSettingsPage } from '@/pages/teacher/TeacherSettingsPage'
 import { StudentRegistrationPage } from '@/pages/teacher/StudentRegistrationPage'
 import { ClassAttendancePerformancePage } from '@/pages/teacher/ClassAttendancePerformancePage'
 import { SelectClassPage } from '@/pages/teacher/SelectClassPage'
+import { TeacherRiskFlagsPage } from '@/pages/teacher/TeacherRiskFlagsPage'
 
 
 
@@ -54,6 +56,7 @@ function App() {
           <Route path="/auth/login" element={<LoginPage />} />
           <Route path="/auth/register" element={<RegisterPage />} />
           <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-conditions" element={<TermsConditions />} />
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -117,6 +120,7 @@ function App() {
           <Route path="/students/register" element={<StudentRegistrationPage />} />
           <Route path="/attendance-performance" element={<SelectClassPage />} />
           <Route path="/classes/:id/attendance-performance" element={<ClassAttendancePerformancePage />} />
+          <Route path="/risk-flags" element={<TeacherRiskFlagsPage />} />
           <Route path="/notifications" element={<TeacherNotificationsPage />} />
           <Route path="/profile" element={<TeacherSettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

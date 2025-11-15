@@ -17,9 +17,10 @@ import './styles/globals.css'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 0, // Always consider data stale for real-time updates
-      refetchOnWindowFocus: true, // Refetch when window regains focus
-      refetchOnMount: true, // Refetch when component mounts
+      staleTime: 30000, // Consider data fresh for 30 seconds (dashboard data)
+      gcTime: 300000, // Keep in cache for 5 minutes (formerly cacheTime)
+      refetchOnWindowFocus: false, // Don't refetch on window focus for better performance
+      refetchOnMount: false, // Use cached data if fresh
       retry: 1,
     },
     mutations: {

@@ -6,6 +6,11 @@ const messageSchema = new mongoose.Schema({
     ref: 'Student',
     required: [true, 'Student ID is required']
   },
+  schoolId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'School',
+    required: [true, 'School ID is required']
+  },
   schoolName: {
     type: String,
     required: [true, 'School name is required'],
@@ -142,6 +147,8 @@ messageSchema.index({ schoolName: 1, schoolDistrict: 1, status: 1, createdAt: -1
 messageSchema.index({ status: 1, scheduledFor: 1 });
 messageSchema.index({ sentBy: 1, createdAt: -1 });
 messageSchema.index({ type: 1, status: 1 });
+messageSchema.index({ schoolId: 1, sentAt: -1 }); // For dashboard queries
+messageSchema.index({ sentAt: -1, status: 1 }); // For date range queries
 
 // Method to mark as sent
 messageSchema.methods.markAsSent = function(channel, messageId) {

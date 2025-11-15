@@ -231,7 +231,7 @@ router.post('/send-template', auth, async (req, res) => {
 // Send bulk messages
 router.post('/send-bulk', auth, async (req, res) => {
   try {
-    const { studentIds, content, subject, channel, type } = req.body;
+    const { studentIds, content, subject, channel, type, language } = req.body;
 
     if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
       return res.status(400).json({
@@ -294,6 +294,7 @@ router.post('/send-bulk', auth, async (req, res) => {
           type: type || 'GENERAL',
           content,
           subject: subject || 'Message from EduGuard',
+          language: language || 'RW',
           sentBy: req.user._id
         };
 

@@ -4,7 +4,7 @@ const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
 const { generateToken, generateRefreshToken } = require('../utils/jwt');
-const { sendApprovalNotification, sendPasswordResetEmail } = require('../utils/emailService');
+const { sendApprovalNotification, sendPasswordResetEmail, sendPasswordResetPIN } = require('../utils/emailService');
 
 const router = express.Router();
 
@@ -264,15 +264,22 @@ router.post('/login', [
     const token = generateToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
-    // Update last login
-    user.lastLogin = new Date();
-    await user.save();
+    // Update last login - use findByIdAndUpdate to avoid document modification issues
+    try {
+      await User.findByIdAndUpdate(user._id, { lastLogin: new Date() }, { new: false });
+    } catch (updateError) {
+      // If update fails, continue anyway - lastLogin is not critical
+      console.warn('Failed to update lastLogin:', updateError.message);
+    }
+
+    // Refresh user to get updated lastLogin
+    const updatedUser = await User.findById(user._id);
 
     res.json({
       success: true,
       message: 'Login successful',
       data: {
-        user: user.getPublicProfile(),
+        user: updatedUser ? updatedUser.getPublicProfile() : user.getPublicProfile(),
         token,
         refreshToken
       }
@@ -370,48 +377,71 @@ router.post('/logout', authenticateToken, async (req, res) => {
 });
 
 // @route   POST /api/auth/forgot-password
-// @desc    Send password reset email
+// @desc    Send password reset PIN via email
 // @access  Public
 router.post('/forgot-password', [
   body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email')
 ], async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
     const { email } = req.body;
 
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
-      // Don't reveal if email exists or not
+      // Don't reveal if email exists or not for security
       return res.json({
         success: true,
-        message: 'If an account with that email exists, a password reset link has been sent'
+        message: 'If an account with that email exists, a password reset PIN has been sent to your email'
       });
     }
 
-    // Generate reset token
-    const resetToken = jwt.sign(
-      { userId: user._id, type: 'password-reset' },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
+    // Generate 5-digit PIN
+    const resetPIN = Math.floor(10000 + Math.random() * 90000).toString();
 
-    // Save reset token to user
-    user.passwordResetToken = resetToken;
-    user.passwordResetExpires = Date.now() + 3600000; // 1 hour
+    // Save PIN to user (hashed for security)
+    const bcrypt = require('bcryptjs');
+    const salt = await bcrypt.genSalt(10);
+    const hashedPIN = await bcrypt.hash(resetPIN, salt);
+    
+    user.passwordResetPIN = hashedPIN;
+    user.passwordResetPINExpires = Date.now() + 15 * 60 * 1000; // 15 minutes
+    // Clear old token-based reset if exists
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
     await user.save();
 
-    // In a real application, you would send an email here
-    // For now, we'll just return the token in development
+    // Send PIN via email
+    const emailResult = await sendPasswordResetPIN(user.email, user.name, resetPIN);
+    
+    if (!emailResult.success) {
+      console.error('Failed to send password reset PIN email:', emailResult.error);
+      // Still return success to user for security (don't reveal email issues)
+      return res.json({
+        success: true,
+        message: 'If an account with that email exists, a password reset PIN has been sent to your email'
+      });
+    }
+
+    // In development, also return PIN for testing
     if (process.env.NODE_ENV === 'development') {
       return res.json({
         success: true,
-        message: 'Password reset token generated',
-        resetToken // Only in development
+        message: 'Password reset PIN sent to email',
+        pin: resetPIN // Only in development for testing
       });
     }
 
     res.json({
       success: true,
-      message: 'If an account with that email exists, a password reset link has been sent'
+      message: 'If an account with that email exists, a password reset PIN has been sent to your email'
     });
   } catch (error) {
     console.error('Forgot password error:', error);
@@ -422,42 +452,142 @@ router.post('/forgot-password', [
   }
 });
 
-// @route   POST /api/auth/reset-password
-// @desc    Reset password with token
+// @route   POST /api/auth/verify-pin
+// @desc    Verify password reset PIN
 // @access  Public
-router.post('/reset-password', [
-  body('token').notEmpty().withMessage('Reset token is required'),
-  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
+router.post('/verify-pin', [
+  body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
+  body('pin').matches(/^\d{5}$/).withMessage('PIN must be exactly 5 digits')
 ], async (req, res) => {
   try {
-    const { token, password } = req.body;
-
-    // Verify reset token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    if (decoded.type !== 'password-reset') {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid reset token'
+        message: 'Validation failed',
+        errors: errors.array()
       });
     }
 
-    // Find user with valid reset token
-    const user = await User.findOne({
-      _id: decoded.userId,
-      passwordResetToken: token,
-      passwordResetExpires: { $gt: Date.now() }
-    });
+    const { email, pin } = req.body;
 
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired reset token'
+        message: 'Invalid email or PIN'
       });
     }
 
-    // Update password
+    // Check if PIN exists and is not expired
+    if (!user.passwordResetPIN || !user.passwordResetPINExpires) {
+      return res.status(400).json({
+        success: false,
+        message: 'No active password reset request found. Please request a new PIN.'
+      });
+    }
+
+    if (user.passwordResetPINExpires < Date.now()) {
+      // Clear expired PIN
+      user.passwordResetPIN = undefined;
+      user.passwordResetPINExpires = undefined;
+      await user.save();
+      
+      return res.status(400).json({
+        success: false,
+        message: 'PIN has expired. Please request a new PIN.'
+      });
+    }
+
+    // Verify PIN
+    const bcrypt = require('bcryptjs');
+    const isPINValid = await bcrypt.compare(pin, user.passwordResetPIN);
+    
+    if (!isPINValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid PIN'
+      });
+    }
+
+    // PIN is valid - return success (PIN remains valid for password reset)
+    res.json({
+      success: true,
+      message: 'PIN verified successfully'
+    });
+  } catch (error) {
+    console.error('Verify PIN error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify PIN'
+    });
+  }
+});
+
+// @route   POST /api/auth/reset-password
+// @desc    Reset password with PIN
+// @access  Public
+router.post('/reset-password', [
+  body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
+  body('pin').matches(/^\d{5}$/).withMessage('PIN must be exactly 5 digits'),
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { email, pin, password } = req.body;
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email or PIN'
+      });
+    }
+
+    // Check if PIN exists and is not expired
+    if (!user.passwordResetPIN || !user.passwordResetPINExpires) {
+      return res.status(400).json({
+        success: false,
+        message: 'No active password reset request found. Please request a new PIN.'
+      });
+    }
+
+    if (user.passwordResetPINExpires < Date.now()) {
+      // Clear expired PIN
+      user.passwordResetPIN = undefined;
+      user.passwordResetPINExpires = undefined;
+      await user.save();
+      
+      return res.status(400).json({
+        success: false,
+        message: 'PIN has expired. Please request a new PIN.'
+      });
+    }
+
+    // Verify PIN
+    const bcrypt = require('bcryptjs');
+    const isPINValid = await bcrypt.compare(pin, user.passwordResetPIN);
+    
+    if (!isPINValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid PIN'
+      });
+    }
+
+    // PIN is valid - update password and clear PIN
     user.password = password;
+    user.passwordResetPIN = undefined;
+    user.passwordResetPINExpires = undefined;
+    // Also clear old token-based reset if exists
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
     await user.save();
@@ -468,9 +598,9 @@ router.post('/reset-password', [
     });
   } catch (error) {
     console.error('Reset password error:', error);
-    res.status(400).json({
+    res.status(500).json({
       success: false,
-      message: 'Invalid or expired reset token'
+      message: 'Failed to reset password'
     });
   }
 });

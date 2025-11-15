@@ -129,7 +129,8 @@ router.get('/:id/students', authenticateToken, async (req, res) => {
     })
     .populate('classId', 'className name grade section')
     .select('firstName lastName studentId gender age dateOfBirth riskLevel guardianContacts address socioEconomic createdAt profilePicture')
-    .sort({ firstName: 1, lastName: 1 });
+    .collation({ locale: 'en', strength: 2 }) // Case-insensitive sorting
+    .sort({ lastName: 1, firstName: 1 });
 
     res.json({
       success: true,

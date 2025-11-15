@@ -22,15 +22,30 @@ router.get('/', authenticateToken, async (req, res) => {
     const user = req.user;
     const schoolId = user.schoolId;
 
-    // Build base query
-    const query = {
-      schoolId,
-      $or: [
-        { recipientType: 'ADMIN' },
-        { recipientType: 'ALL' },
-        { recipientId: user._id }
-      ]
+    // Build base query based on user role
+    let query = {
+      schoolId
     };
+
+    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+      // Admins see all admin notifications and ALL notifications
+      query.$or = [
+        { recipientType: 'ADMIN' },
+        { recipientType: 'ALL' }
+      ];
+    } else if (user.role === 'TEACHER') {
+      // Teachers see their own notifications (recipientId matches) and ALL notifications
+      query.$or = [
+        { recipientType: 'TEACHER', recipientId: user._id },
+        { recipientType: 'ALL' }
+      ];
+    } else {
+      // Other roles see only their specific notifications
+      query.$or = [
+        { recipientId: user._id },
+        { recipientType: 'ALL' }
+      ];
+    }
 
     // Apply filters
     if (entityType) {
@@ -55,14 +70,32 @@ router.get('/', authenticateToken, async (req, res) => {
       };
       
       // Use $and to combine recipient filter with search
-      query.$and = [
-        {
+      let recipientFilter;
+      if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+        recipientFilter = {
           $or: [
             { recipientType: 'ADMIN' },
-            { recipientType: 'ALL' },
-            { recipientId: user._id }
+            { recipientType: 'ALL' }
           ]
-        },
+        };
+      } else if (user.role === 'TEACHER') {
+        recipientFilter = {
+          $or: [
+            { recipientType: 'TEACHER', recipientId: user._id },
+            { recipientType: 'ALL' }
+          ]
+        };
+      } else {
+        recipientFilter = {
+          $or: [
+            { recipientId: user._id },
+            { recipientType: 'ALL' }
+          ]
+        };
+      }
+
+      query.$and = [
+        recipientFilter,
         searchQuery
       ];
       
@@ -325,16 +358,31 @@ router.put('/read-all', authenticateToken, async (req, res) => {
     const Notification = require('../models/Notification');
     const user = req.user;
 
+    // Build query based on user role
+    let markReadQuery = {
+      schoolId: user.schoolId,
+      isRead: false
+    };
+
+    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+      markReadQuery.$or = [
+        { recipientType: 'ADMIN' },
+        { recipientType: 'ALL' }
+      ];
+    } else if (user.role === 'TEACHER') {
+      markReadQuery.$or = [
+        { recipientType: 'TEACHER', recipientId: user._id },
+        { recipientType: 'ALL' }
+      ];
+    } else {
+      markReadQuery.$or = [
+        { recipientId: user._id },
+        { recipientType: 'ALL' }
+      ];
+    }
+
     const result = await Notification.updateMany(
-      {
-        schoolId: user.schoolId,
-        $or: [
-          { recipientType: 'ADMIN' },
-          { recipientType: 'ALL' },
-          { recipientId: user._id }
-        ],
-        isRead: false
-      },
+      markReadQuery,
       {
         $set: {
           isRead: true,

@@ -30,10 +30,14 @@ import type {
 } from '@/types'
 
 export function TeacherDashboardPage() {
-  // Use comprehensive teacher dashboard endpoint
+  // Use comprehensive teacher dashboard endpoint with optimized caching
   const { data: teacherStats, isLoading } = useQuery({
     queryKey: ['teacher-stats'],
     queryFn: () => apiClient.getTeacherStats(),
+    staleTime: 60000, // 1 minute
+    gcTime: 300000, // 5 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   })
 
   const loading = isLoading
@@ -85,30 +89,32 @@ export function TeacherDashboardPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Teacher Dashboard</h1>
-          <p className="text-sm sm:text-base text-neutral-600">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-neutral-900">Teacher Dashboard</h1>
+          <p className="text-sm sm:text-base lg:text-lg text-neutral-600">
             {teacher.name} • {teacher.className}
           </p>
-          <p className="text-sm text-neutral-500">{teacher.schoolName}</p>
+          <p className="text-xs sm:text-sm text-neutral-500">{teacher.schoolName}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Link to="/students" className="w-full sm:w-auto">
-            <Button variant="outline" className="w-full sm:w-auto">
+            <Button variant="outline" className="w-full sm:w-auto min-h-[44px]">
               <UsersIcon className="h-4 w-4 mr-2" />
-              View Students
+              <span className="hidden sm:inline">View Students</span>
+              <span className="sm:hidden">Students</span>
             </Button>
           </Link>
           <Link to="/students" className="w-full sm:w-auto">
-            <Button variant="primary" className="w-full sm:w-auto">
+            <Button variant="primary" className="w-full sm:w-auto min-h-[44px]">
               <ClipboardDocumentCheckIcon className="h-4 w-4 mr-2" />
-              Take Attendance
+              <span className="hidden sm:inline">Take Attendance</span>
+              <span className="sm:hidden">Attendance</span>
             </Button>
           </Link>
         </div>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4">
         <Link to="/students">
           <Card className="hover:shadow-lg transition-shadow cursor-pointer h-32">
             <CardContent className="p-6 h-full">
@@ -169,7 +175,7 @@ export function TeacherDashboardPage() {
       </div>
 
       {/* Additional Metrics Row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -226,7 +232,7 @@ export function TeacherDashboardPage() {
       </div>
 
       {/* Essential Charts - Right After Data Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2 gap-4 sm:gap-6">
         {/* Class Performance Comparison */}
         <Card>
           <CardHeader>
@@ -236,7 +242,7 @@ export function TeacherDashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
+            <div className="h-64 sm:h-80 lg:h-96">
               {classes.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={classes.slice(0, 5).map((c: any) => ({
@@ -272,7 +278,7 @@ export function TeacherDashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
+            <div className="h-64 sm:h-80 lg:h-96">
               {stats.attendanceTrend && stats.attendanceTrend.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={stats.attendanceTrend}>

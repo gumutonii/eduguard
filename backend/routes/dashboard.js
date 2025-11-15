@@ -1108,59 +1108,125 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
     const schoolId = req.user.schoolId;
     const schoolName = req.user.schoolName;
 
-    // Get school data
-    const school = await School.findOne({ _id: schoolId, isActive: true });
-
-    // Get teachers data with profile pictures
-    const teachers = await User.find({ 
-      schoolId, 
-      role: 'TEACHER', 
-      isActive: true 
-    })
-    .select('name email phone role teacherTitle profilePicture isApproved isActive createdAt assignedClasses')
-    .sort({ createdAt: -1 });
-
-    const pendingTeachers = await User.find({ 
-      schoolId, 
-      role: 'TEACHER', 
-      isApproved: false,
-      isActive: true 
-    })
-    .select('name email phone role teacherTitle profilePicture isApproved isActive createdAt assignedClasses');
-
-    // Get students data
-    const totalStudents = await Student.countDocuments({ schoolId, isActive: true });
-    const atRiskStudents = await Student.countDocuments({ 
-      schoolId, 
-      isActive: true, 
-      riskLevel: { $in: ['MEDIUM', 'HIGH', 'CRITICAL'] } 
-    });
-
-    // Get classes data
-    const totalClasses = await Class.countDocuments({ schoolId, isActive: true });
-    const classesWithTeachers = await Class.countDocuments({ 
-      schoolId, 
-      isActive: true, 
-      assignedTeacher: { $ne: null } 
-    });
+    // Parallelize all independent queries
+    const [
+      school,
+      teachers,
+      pendingTeachers,
+      totalStudents,
+      atRiskStudents,
+      totalClasses,
+      classesWithTeachers
+    ] = await Promise.all([
+      School.findOne({ _id: schoolId, isActive: true }).lean(),
+      User.find({ 
+        schoolId, 
+        role: 'TEACHER', 
+        isActive: true 
+      })
+      .select('name email phone role teacherTitle profilePicture isApproved isActive createdAt assignedClasses')
+      .sort({ createdAt: -1 })
+      .lean(),
+      User.find({ 
+        schoolId, 
+        role: 'TEACHER', 
+        isApproved: false,
+        isActive: true 
+      })
+      .select('name email phone role teacherTitle profilePicture isApproved isActive createdAt assignedClasses')
+      .lean(),
+      Student.countDocuments({ schoolId, isActive: true }),
+      Student.countDocuments({ 
+        schoolId, 
+        isActive: true, 
+        riskLevel: { $in: ['MEDIUM', 'HIGH', 'CRITICAL'] } 
+      }),
+      Class.countDocuments({ schoolId, isActive: true }),
+      Class.countDocuments({ 
+        schoolId, 
+        isActive: true, 
+        assignedTeacher: { $ne: null } 
+      })
+    ]);
 
     // Get attendance data (last 30 days) - normalized to UTC
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     thirtyDaysAgo.setUTCHours(0, 0, 0, 0);
     
-    const attendanceStats = await Attendance.aggregate([
-      { $match: { schoolId, date: { $gte: thirtyDaysAgo } } },
-      {
-        $group: {
-          _id: null,
-          totalRecords: { $sum: 1 },
-          present: { $sum: { $cond: [{ $eq: ['$status', 'PRESENT'] }, 1, 0] } },
-          late: { $sum: { $cond: [{ $eq: ['$status', 'LATE'] }, 1, 0] } },
-          absent: { $sum: { $cond: [{ $eq: ['$status', 'ABSENT'] }, 1, 0] } },
-          excused: { $sum: { $cond: [{ $eq: ['$status', 'EXCUSED'] }, 1, 0] } }
+    // Parallelize all aggregations
+    const [
+      attendanceStats,
+      performanceStats,
+      riskStats,
+      interventionStats,
+      messageStats
+    ] = await Promise.all([
+      Attendance.aggregate([
+        { $match: { schoolId, date: { $gte: thirtyDaysAgo } } },
+        {
+          $group: {
+            _id: null,
+            totalRecords: { $sum: 1 },
+            present: { $sum: { $cond: [{ $eq: ['$status', 'PRESENT'] }, 1, 0] } },
+            late: { $sum: { $cond: [{ $eq: ['$status', 'LATE'] }, 1, 0] } },
+            absent: { $sum: { $cond: [{ $eq: ['$status', 'ABSENT'] }, 1, 0] } },
+            excused: { $sum: { $cond: [{ $eq: ['$status', 'EXCUSED'] }, 1, 0] } }
+          }
         }
-      }
+      ]),
+      Performance.aggregate([
+        { $match: { schoolId } },
+        {
+          $group: {
+            _id: null,
+            totalRecords: { $sum: 1 },
+            averageScore: { $avg: '$score' },
+            passingRate: {
+              $avg: { $cond: [{ $gte: ['$score', 60] }, 1, 0] }
+            }
+          }
+        }
+      ]),
+      RiskFlag.aggregate([
+        { $match: { schoolId, isActive: true } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            critical: { $sum: { $cond: [{ $eq: ['$severity', 'CRITICAL'] }, 1, 0] } },
+            high: { $sum: { $cond: [{ $eq: ['$severity', 'HIGH'] }, 1, 0] } },
+            medium: { $sum: { $cond: [{ $eq: ['$severity', 'MEDIUM'] }, 1, 0] } },
+            low: { $sum: { $cond: [{ $eq: ['$severity', 'LOW'] }, 1, 0] } }
+          }
+        }
+      ]),
+      Intervention.aggregate([
+        { $match: { schoolId, isActive: true } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            planned: { $sum: { $cond: [{ $eq: ['$status', 'PLANNED'] }, 1, 0] } },
+            inProgress: { $sum: { $cond: [{ $eq: ['$status', 'IN_PROGRESS'] }, 1, 0] } },
+            completed: { $sum: { $cond: [{ $eq: ['$status', 'COMPLETED'] }, 1, 0] } },
+            cancelled: { $sum: { $cond: [{ $eq: ['$status', 'CANCELLED'] }, 1, 0] } }
+          }
+        }
+      ]),
+      Message.aggregate([
+        { $match: { schoolId, sentAt: { $gte: thirtyDaysAgo } } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            sent: { $sum: { $cond: [{ $eq: ['$status', 'SENT'] }, 1, 0] } },
+            delivered: { $sum: { $cond: [{ $eq: ['$status', 'DELIVERED'] }, 1, 0] } },
+            failed: { $sum: { $cond: [{ $eq: ['$status', 'FAILED'] }, 1, 0] } },
+            pending: { $sum: { $cond: [{ $eq: ['$status', 'PENDING'] }, 1, 0] } }
+          }
+        }
+      ])
     ]);
 
     const attendance = attendanceStats[0] || { totalRecords: 0, present: 0, late: 0, absent: 0, excused: 0 };
@@ -1169,84 +1235,58 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
     const attendanceRate = attendance.totalRecords > 0 ? 
       Math.round((presentAndLate / attendance.totalRecords) * 100) : 0;
 
-    // Get performance data
-    const performanceStats = await Performance.aggregate([
-      { $match: { schoolId } },
-      {
-        $group: {
-          _id: null,
-          totalRecords: { $sum: 1 },
-          averageScore: { $avg: '$score' },
-          passingRate: {
-            $avg: { $cond: [{ $gte: ['$score', 60] }, 1, 0] }
-          }
-        }
-      }
-    ]);
-
     const performance = performanceStats[0] || { totalRecords: 0, averageScore: 0, passingRate: 0 };
-
-    // Get risk flags data
-    const riskStats = await RiskFlag.aggregate([
-      { $match: { schoolId, isActive: true } },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          critical: { $sum: { $cond: [{ $eq: ['$severity', 'CRITICAL'] }, 1, 0] } },
-          high: { $sum: { $cond: [{ $eq: ['$severity', 'HIGH'] }, 1, 0] } },
-          medium: { $sum: { $cond: [{ $eq: ['$severity', 'MEDIUM'] }, 1, 0] } },
-          low: { $sum: { $cond: [{ $eq: ['$severity', 'LOW'] }, 1, 0] } }
-        }
-      }
-    ]);
-
     const riskFlags = riskStats[0] || { total: 0, critical: 0, high: 0, medium: 0, low: 0 };
-
-    // Get interventions data
-    const interventionStats = await Intervention.aggregate([
-      { $match: { schoolId, isActive: true } },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          planned: { $sum: { $cond: [{ $eq: ['$status', 'PLANNED'] }, 1, 0] } },
-          inProgress: { $sum: { $cond: [{ $eq: ['$status', 'IN_PROGRESS'] }, 1, 0] } },
-          completed: { $sum: { $cond: [{ $eq: ['$status', 'COMPLETED'] }, 1, 0] } },
-          cancelled: { $sum: { $cond: [{ $eq: ['$status', 'CANCELLED'] }, 1, 0] } }
-        }
-      }
-    ]);
-
     const interventions = interventionStats[0] || { total: 0, planned: 0, inProgress: 0, completed: 0, cancelled: 0 };
-
-    // Get messages data (last 30 days)
-    const messageStats = await Message.aggregate([
-      { $match: { schoolId, sentAt: { $gte: thirtyDaysAgo } } },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          sent: { $sum: { $cond: [{ $eq: ['$status', 'SENT'] }, 1, 0] } },
-          delivered: { $sum: { $cond: [{ $eq: ['$status', 'DELIVERED'] }, 1, 0] } },
-          failed: { $sum: { $cond: [{ $eq: ['$status', 'FAILED'] }, 1, 0] } },
-          pending: { $sum: { $cond: [{ $eq: ['$status', 'PENDING'] }, 1, 0] } }
-        }
-      }
-    ]);
-
     const messages = messageStats[0] || { total: 0, sent: 0, delivered: 0, failed: 0, pending: 0 };
 
-    // Get attendance trend (weekly for last 6 weeks)
+    // Get attendance trend (weekly for last 6 weeks) - optimized with aggregation
     const weeks = 6;
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - (weeks * 7));
     
-    const attendanceRecords = await Attendance.find({
-      schoolId,
-      date: { $gte: startDate, $lte: endDate }
-    }).select('date status').lean();
+    // Use aggregation instead of fetching all records
+    const attendanceTrendData = await Attendance.aggregate([
+      {
+        $match: {
+          schoolId,
+          date: { $gte: startDate, $lte: endDate }
+        }
+      },
+      {
+        $project: {
+          date: 1,
+          status: 1,
+          week: {
+            $subtract: [
+              weeks,
+              {
+                $floor: {
+                  $divide: [
+                    { $subtract: [endDate, '$date'] },
+                    7 * 24 * 60 * 60 * 1000
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: '$week',
+          present: { $sum: { $cond: [{ $eq: ['$status', 'PRESENT'] }, 1, 0] } },
+          late: { $sum: { $cond: [{ $eq: ['$status', 'LATE'] }, 1, 0] } },
+          absent: { $sum: { $cond: [{ $eq: ['$status', 'ABSENT'] }, 1, 0] } },
+          excused: { $sum: { $cond: [{ $eq: ['$status', 'EXCUSED'] }, 1, 0] } },
+          total: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Build weekly data map
+    const attendanceRecords = attendanceTrendData;
     
     const weeklyData = new Map();
     const targetRate = 90;
@@ -1301,8 +1341,11 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
       };
     });
 
-    // Get class performance data - real-time from database
-    const classPerformance = await Class.aggregate([
+    // Get class performance data - optimized aggregation
+    const currentYear = new Date().getFullYear();
+    
+    // First get all classes with students
+    const classesWithStudents = await Class.aggregate([
       { $match: { schoolId, isActive: true } },
       {
         $lookup: {
@@ -1327,24 +1370,11 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
               }
             }
           },
-          averageScore: {
-            $cond: {
-              if: { $gt: [{ $size: '$students' }, 0] },
-              then: {
-                $avg: {
-                  $map: {
-                    input: {
-                      $filter: {
-                        input: '$students',
-                        cond: { $ifNull: ['$$this.averageScore', false] }
-                      }
-                    },
-                    as: 'student',
-                    in: '$$student.averageScore'
-                  }
-                }
-              },
-              else: 0
+          studentIds: {
+            $map: {
+              input: '$students',
+              as: 'student',
+              in: '$$student._id'
             }
           },
           assignedTeacher: 1
@@ -1353,6 +1383,45 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
       { $sort: { totalStudents: -1 } },
       { $limit: 20 } // Limit to top 20 classes for better visualization
     ]);
+    
+    // Calculate average scores from performance records
+    const classPerformance = await Promise.all(classesWithStudents.map(async (cls) => {
+      let averageScore = 0;
+      
+      if (cls.studentIds && cls.studentIds.length > 0) {
+        // Get all performance records for students in this class
+        const performanceRecords = await Performance.find({
+          studentId: { $in: cls.studentIds },
+          academicYear: { $gte: currentYear - 1 } // Include current and previous year
+        }).select('score maxScore').lean();
+        
+        if (performanceRecords.length > 0) {
+          // Calculate average percentage across all performance records
+          let totalPercentage = 0;
+          let validRecords = 0;
+          
+          performanceRecords.forEach(record => {
+            if (record.maxScore && record.maxScore > 0) {
+              const percentage = (record.score / record.maxScore) * 100;
+              totalPercentage += percentage;
+              validRecords++;
+            }
+          });
+          
+          if (validRecords > 0) {
+            averageScore = Math.round(totalPercentage / validRecords);
+          }
+        }
+      }
+      
+      return {
+        name: cls.name,
+        totalStudents: cls.totalStudents,
+        atRiskStudents: cls.atRiskStudents,
+        averageScore: averageScore,
+        assignedTeacher: cls.assignedTeacher
+      };
+    }));
 
     res.json({
       success: true,
@@ -1465,143 +1534,146 @@ router.get('/teacher-stats', authenticateToken, async (req, res) => {
     const teacherId = req.user._id;
     const schoolId = req.user.schoolId;
 
-    // Get teacher's classes
-    const classes = await Class.find({ 
-      assignedTeacher: teacherId, 
-      isActive: true 
-    }).sort({ className: 1 });
-
-    // Get students assigned to this teacher
-    const totalStudents = await Student.countDocuments({ 
-      assignedTeacher: teacherId, 
-      isActive: true 
-    });
-
-    const atRiskStudents = await Student.countDocuments({ 
-      assignedTeacher: teacherId, 
-      isActive: true, 
-      riskLevel: { $in: ['MEDIUM', 'HIGH', 'CRITICAL'] } 
-    });
-
-    // Get attendance data (last 30 days) - filter by teacher's students
-    const teacherStudents = await Student.find({ 
-      assignedTeacher: teacherId, 
-      isActive: true 
-    }).select('_id');
+    // Parallelize initial queries
+    const [
+      classes,
+      teacherStudents,
+      totalStudents,
+      atRiskStudents
+    ] = await Promise.all([
+      Class.find({ 
+        assignedTeacher: teacherId, 
+        isActive: true 
+      }).sort({ className: 1 }).lean(),
+      Student.find({ 
+        assignedTeacher: teacherId, 
+        isActive: true 
+      }).select('_id').lean(),
+      Student.countDocuments({ 
+        assignedTeacher: teacherId, 
+        isActive: true 
+      }),
+      Student.countDocuments({ 
+        assignedTeacher: teacherId, 
+        isActive: true, 
+        riskLevel: { $in: ['MEDIUM', 'HIGH', 'CRITICAL'] } 
+      })
+    ]);
+    
     const teacherStudentIds = teacherStudents.map(s => s._id);
     
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     thirtyDaysAgo.setUTCHours(0, 0, 0, 0);
     
-    const attendanceStats = await Attendance.aggregate([
-      { 
-        $match: { 
-          studentId: { $in: teacherStudentIds },
-          date: { $gte: thirtyDaysAgo } 
-        } 
-      },
-      {
-        $group: {
-          _id: null,
-          totalRecords: { $sum: 1 },
-          present: { $sum: { $cond: [{ $eq: ['$status', 'PRESENT'] }, 1, 0] } },
-          late: { $sum: { $cond: [{ $eq: ['$status', 'LATE'] }, 1, 0] } },
-          absent: { $sum: { $cond: [{ $eq: ['$status', 'ABSENT'] }, 1, 0] } },
-          excused: { $sum: { $cond: [{ $eq: ['$status', 'EXCUSED'] }, 1, 0] } }
+    // Parallelize all aggregations - only run if we have students
+    const aggregationPromises = teacherStudentIds.length > 0 ? [
+      Attendance.aggregate([
+        { 
+          $match: { 
+            studentId: { $in: teacherStudentIds },
+            date: { $gte: thirtyDaysAgo } 
+          } 
+        },
+        {
+          $group: {
+            _id: null,
+            totalRecords: { $sum: 1 },
+            present: { $sum: { $cond: [{ $eq: ['$status', 'PRESENT'] }, 1, 0] } },
+            late: { $sum: { $cond: [{ $eq: ['$status', 'LATE'] }, 1, 0] } },
+            absent: { $sum: { $cond: [{ $eq: ['$status', 'ABSENT'] }, 1, 0] } },
+            excused: { $sum: { $cond: [{ $eq: ['$status', 'EXCUSED'] }, 1, 0] } }
+          }
         }
-      }
+      ]),
+      Performance.aggregate([
+        { $match: { studentId: { $in: teacherStudentIds } } },
+        {
+          $group: {
+            _id: null,
+            totalRecords: { $sum: 1 },
+            averageScore: { $avg: '$score' },
+            passingRate: {
+              $avg: { $cond: [{ $gte: ['$score', 60] }, 1, 0] }
+            }
+          }
+        }
+      ]),
+      RiskFlag.aggregate([
+        { 
+          $match: { 
+            schoolId, 
+            isActive: true,
+            studentId: { $in: teacherStudentIds }
+          } 
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            critical: { $sum: { $cond: [{ $eq: ['$severity', 'CRITICAL'] }, 1, 0] } },
+            high: { $sum: { $cond: [{ $eq: ['$severity', 'HIGH'] }, 1, 0] } },
+            medium: { $sum: { $cond: [{ $eq: ['$severity', 'MEDIUM'] }, 1, 0] } },
+            low: { $sum: { $cond: [{ $eq: ['$severity', 'LOW'] }, 1, 0] } }
+          }
+        }
+      ])
+    ] : [
+      Promise.resolve([]),
+      Promise.resolve([]),
+      Promise.resolve([])
+    ];
+    
+    const [
+      attendanceStats,
+      performanceStats,
+      riskStats,
+      interventionStats,
+      messageStats
+    ] = await Promise.all([
+      ...aggregationPromises,
+      Intervention.aggregate([
+        { 
+          $match: { 
+            schoolId, 
+            isActive: true,
+            assignedTo: teacherId
+          } 
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            planned: { $sum: { $cond: [{ $eq: ['$status', 'PLANNED'] }, 1, 0] } },
+            inProgress: { $sum: { $cond: [{ $eq: ['$status', 'IN_PROGRESS'] }, 1, 0] } },
+            completed: { $sum: { $cond: [{ $eq: ['$status', 'COMPLETED'] }, 1, 0] } },
+            cancelled: { $sum: { $cond: [{ $eq: ['$status', 'CANCELLED'] }, 1, 0] } }
+          }
+        }
+      ]),
+      Message.aggregate([
+        { $match: { sentBy: teacherId, sentAt: { $gte: thirtyDaysAgo } } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            sent: { $sum: { $cond: [{ $eq: ['$status', 'SENT'] }, 1, 0] } },
+            delivered: { $sum: { $cond: [{ $eq: ['$status', 'DELIVERED'] }, 1, 0] } },
+            failed: { $sum: { $cond: [{ $eq: ['$status', 'FAILED'] }, 1, 0] } },
+            pending: { $sum: { $cond: [{ $eq: ['$status', 'PENDING'] }, 1, 0] } }
+          }
+        }
+      ])
     ]);
 
     const attendance = attendanceStats[0] || { totalRecords: 0, present: 0, late: 0, absent: 0, excused: 0 };
-    // Attendance rate = (PRESENT + LATE) / total * 100 (LATE counts as present)
     const presentAndLate = (attendance.present || 0) + (attendance.late || 0);
     const attendanceRate = attendance.totalRecords > 0 ? 
       Math.round((presentAndLate / attendance.totalRecords) * 100) : 0;
 
-    // Get performance data - filter by teacher's students
-    const performanceStats = await Performance.aggregate([
-      { $match: { studentId: { $in: teacherStudentIds } } },
-      {
-        $group: {
-          _id: null,
-          totalRecords: { $sum: 1 },
-          averageScore: { $avg: '$score' },
-          passingRate: {
-            $avg: { $cond: [{ $gte: ['$score', 60] }, 1, 0] }
-          }
-        }
-      }
-    ]);
-
     const performance = performanceStats[0] || { totalRecords: 0, averageScore: 0, passingRate: 0 };
-
-    // Get risk flags for teacher's students
-    const teacherStudentIdsForRisk = await Student.find({ 
-      assignedTeacher: teacherId,
-      isActive: true 
-    }).distinct('_id');
-    
-    const riskStats = await RiskFlag.aggregate([
-      { 
-        $match: { 
-          schoolId, 
-          isActive: true,
-          studentId: { $in: teacherStudentIdsForRisk }
-        } 
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          critical: { $sum: { $cond: [{ $eq: ['$severity', 'CRITICAL'] }, 1, 0] } },
-          high: { $sum: { $cond: [{ $eq: ['$severity', 'HIGH'] }, 1, 0] } },
-          medium: { $sum: { $cond: [{ $eq: ['$severity', 'MEDIUM'] }, 1, 0] } },
-          low: { $sum: { $cond: [{ $eq: ['$severity', 'LOW'] }, 1, 0] } }
-        }
-      }
-    ]);
-
     const riskFlags = riskStats[0] || { total: 0, critical: 0, high: 0, medium: 0, low: 0 };
-
-    // Get interventions for teacher's students
-    const interventionStats = await Intervention.aggregate([
-      { 
-        $match: { 
-          schoolId, 
-          isActive: true,
-          assignedTo: teacherId
-        } 
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          planned: { $sum: { $cond: [{ $eq: ['$status', 'PLANNED'] }, 1, 0] } },
-          inProgress: { $sum: { $cond: [{ $eq: ['$status', 'IN_PROGRESS'] }, 1, 0] } },
-          completed: { $sum: { $cond: [{ $eq: ['$status', 'COMPLETED'] }, 1, 0] } },
-          cancelled: { $sum: { $cond: [{ $eq: ['$status', 'CANCELLED'] }, 1, 0] } }
-        }
-      }
-    ]);
-
     const interventions = interventionStats[0] || { total: 0, planned: 0, inProgress: 0, completed: 0, cancelled: 0 };
-
-    // Get messages sent by teacher (last 30 days)
-    const messageStats = await Message.aggregate([
-      { $match: { sentBy: teacherId, sentAt: { $gte: thirtyDaysAgo } } },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          sent: { $sum: { $cond: [{ $eq: ['$status', 'SENT'] }, 1, 0] } },
-          delivered: { $sum: { $cond: [{ $eq: ['$status', 'DELIVERED'] }, 1, 0] } },
-          failed: { $sum: { $cond: [{ $eq: ['$status', 'FAILED'] }, 1, 0] } },
-          pending: { $sum: { $cond: [{ $eq: ['$status', 'PENDING'] }, 1, 0] } }
-        }
-      }
-    ]);
-
     const messages = messageStats[0] || { total: 0, sent: 0, delivered: 0, failed: 0, pending: 0 };
 
     // Get attendance trend (weekly for last 6 weeks)
@@ -1681,7 +1753,8 @@ router.get('/teacher-stats', authenticateToken, async (req, res) => {
       riskLevel: { $in: ['MEDIUM', 'HIGH', 'CRITICAL'] }
     })
     .select('firstName lastName className riskLevel riskFlags')
-    .sort({ riskLevel: -1, createdAt: -1 })
+    .collation({ locale: 'en', strength: 2 }) // Case-insensitive sorting
+    .sort({ riskLevel: -1, lastName: 1, firstName: 1 })
     .limit(10);
 
     // Get low score alerts
@@ -1797,15 +1870,43 @@ router.get('/teacher-stats', authenticateToken, async (req, res) => {
             riskLevel: { $in: ['MEDIUM', 'HIGH', 'CRITICAL'] }
           });
           
-          // Calculate average score for this class
+          // Calculate average score for this class from actual performance records
+          const currentYear = new Date().getFullYear();
+          const currentAcademicYear = `${currentYear}-${currentYear + 1}`;
+          
           const classStudents = await Student.find({ 
             classId: cls._id, 
             isActive: true 
-          }).select('averageScore').lean();
+          }).select('_id').lean();
           
-          const averageScore = classStudents.length > 0 && classStudents.some(s => s.averageScore) 
-            ? Math.round(classStudents.reduce((sum, s) => sum + (s.averageScore || 0), 0) / classStudents.filter(s => s.averageScore).length)
-            : 0;
+          const studentIds = classStudents.map(s => s._id);
+          
+          let averageScore = 0;
+          if (studentIds.length > 0) {
+            // Get all performance records for students in this class
+            const performanceRecords = await Performance.find({
+              studentId: { $in: studentIds },
+              academicYear: { $gte: currentYear - 1 } // Include current and previous year
+            }).select('score maxScore').lean();
+            
+            if (performanceRecords.length > 0) {
+              // Calculate average percentage across all performance records
+              let totalPercentage = 0;
+              let validRecords = 0;
+              
+              performanceRecords.forEach(record => {
+                if (record.maxScore && record.maxScore > 0) {
+                  const percentage = (record.score / record.maxScore) * 100;
+                  totalPercentage += percentage;
+                  validRecords++;
+                }
+              });
+              
+              if (validRecords > 0) {
+                averageScore = Math.round(totalPercentage / validRecords);
+              }
+            }
+          }
           
           return {
           _id: cls._id,

@@ -7,7 +7,8 @@ import {
   ExclamationTriangleIcon,
   CheckCircleIcon,
   ClockIcon,
-  BellIcon
+  BellIcon,
+  ArrowDownTrayIcon
 } from '@heroicons/react/24/outline'
 import { apiClient } from '@/lib/api'
 import { SendAlertModal } from '@/components/SendAlertModal'
@@ -75,15 +76,35 @@ export function RiskFlagsPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Risk Flags</h1>
-          <p className="text-neutral-600">Monitor and manage all student risk flags</p>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-neutral-900">Risk Flags</h1>
+          <p className="text-sm sm:text-base text-neutral-600">Monitor and manage all student risk flags</p>
         </div>
+        <Button
+          variant="primary"
+          onClick={async () => {
+            try {
+              const params: any = {}
+              if (severityFilter) params.severity = severityFilter
+              if (isActiveFilter === 'true') params.isActive = 'true'
+              else if (isActiveFilter === 'false') params.isActive = 'false'
+              await apiClient.downloadRiskReportPDF(params)
+            } catch (error) {
+              alert('Failed to download PDF. Please try again.')
+              console.error('PDF download error:', error)
+            }
+          }}
+          className="min-h-[44px]"
+        >
+          <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
+          <span className="hidden sm:inline">Download Risk Report (PDF)</span>
+          <span className="sm:hidden">Download PDF</span>
+        </Button>
       </div>
 
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">
                 Severity
@@ -91,7 +112,7 @@ export function RiskFlagsPage() {
               <select
                 value={severityFilter}
                 onChange={(e) => setSeverityFilter(e.target.value)}
-                className="px-3 py-2 border border-neutral-300 rounded-md"
+                className="px-3 py-2 border border-neutral-300 rounded-md min-h-[44px] text-sm sm:text-base w-full sm:w-auto"
               >
                 <option value="">All Severities</option>
                 <option value="CRITICAL">Critical</option>
@@ -107,7 +128,7 @@ export function RiskFlagsPage() {
               <select
                 value={isActiveFilter}
                 onChange={(e) => setIsActiveFilter(e.target.value)}
-                className="px-3 py-2 border border-neutral-300 rounded-md"
+                className="px-3 py-2 border border-neutral-300 rounded-md min-h-[44px] text-sm sm:text-base w-full sm:w-auto"
               >
                 <option value="">All</option>
                 <option value="true">Active</option>
@@ -148,8 +169,8 @@ export function RiskFlagsPage() {
                       : 'bg-green-50 border-green-200'
                   }`}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-0">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
                         {getSeverityBadge(flag.severity)}
                         {getTypeBadge(flag.type)}
@@ -187,11 +208,12 @@ export function RiskFlagsPage() {
                         )}
                       </div>
                     </div>
-                    <div className="ml-4 flex flex-col gap-2">
+                    <div className="ml-4 flex flex-col gap-2 min-w-[120px] sm:min-w-0">
                       {flag.isActive && (
                         <Button
                           variant="outline"
                           size="sm"
+                          className="min-h-[44px] flex items-center gap-1"
                           onClick={async () => {
                             const student = flag.studentId
                             if (student) {
@@ -216,7 +238,6 @@ export function RiskFlagsPage() {
                               })
                             }
                           }}
-                          className="flex items-center gap-1"
                         >
                           <BellIcon className="h-4 w-4" />
                           Send Alert
@@ -226,6 +247,7 @@ export function RiskFlagsPage() {
                         <Button
                           variant="outline"
                           size="sm"
+                          className="min-h-[44px]"
                           onClick={() => {
                             if (confirm('Are you sure you want to resolve this risk flag?')) {
                               resolveMutation.mutate(flag._id)
