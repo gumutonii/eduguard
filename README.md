@@ -213,7 +213,7 @@ npm test -- --testPathPattern="integration" # Integration tests only
 - Comprehensive coverage of critical system components
 - Fast execution time ensuring efficient development workflow
 
-![General Test Results](general-testing.jpeg)
+![General Test Results](https://github.com/user-attachments/assets/45ff8243-1c16-4e43-9764-855ef2134b5e)
 
 ### 2. Unit Testing Results
 
@@ -228,7 +228,7 @@ npm test -- --testPathPattern="integration" # Integration tests only
 - ✅ Risk detection for performance metrics
 - ✅ Risk detection for socioeconomic factors
 
-![Unit Test Results](testing-unit-results.png)
+![Unit Test Results](https://github.com/user-attachments/assets/b8b736ee-80ff-4590-8516-05f49fe05cbd)
 
 ### 3. Validation Testing Results
 
@@ -244,7 +244,8 @@ npm test -- --testPathPattern="integration" # Integration tests only
 - ✅ Invalid role rejection
 - ✅ Missing required fields handling
 
-![Validation Test Results](testing-validation-results.png)
+![Validation Test Results](https://github.com/user-attachments/assets/59efcb01-3617-4ab0-84d8-03b07450861e)
+
 
 ### 4. Integration Testing Results
 
@@ -260,7 +261,8 @@ npm test -- --testPathPattern="integration" # Integration tests only
 - ✅ Dashboard statistics aggregation
 - ✅ Student data retrieval and management
 
-![Integration Test Results](testing-integration-results.png)
+![Integration Test Results](https://github.com/user-attachments/assets/aa763f84-ed8a-4d47-8353-e6af721eb47b)
+
 
 ### Testing with Different Data Values
 
@@ -571,7 +573,9 @@ EduGuard is deployed as a full-stack application with the frontend and backend h
 - ✅ API connections working
 - ✅ Static assets loading correctly
 
-![Vercel Deployment Dashboard](deployment-vercel-dashboard.png)
+![Vercel Deployment Dashboard](https://github.com/user-attachments/assets/539df74c-f23c-4a48-917f-013b2d1138ff)
+
+
 
 ### 2. Backend Deployment (Render)
 
@@ -617,7 +621,8 @@ RATE_LIMIT_MAX_REQUESTS=1000
 - Added `https://eduguard-theta.vercel.app` to allowed origins
 - Configured credentials and headers properly
 
-![Render Deployment Dashboard](deployment-render-dashboard.png)
+![Render Deployment Dashboard](https://github.com/user-attachments/assets/8dc8bf28-527b-4460-b6e8-56db0d26ee50)
+
 
 ### 3. Deployment Verification
 
@@ -733,19 +738,22 @@ RATE_LIMIT_MAX_REQUESTS=1000
 
 The Super Admin dashboard provides system-wide analytics and management capabilities, allowing oversight of all schools, users, and system-wide statistics.
 
-![Super Admin Dashboard](dashboard-super-admin.png)
+![Super Admin Dashboard](https://github.com/user-attachments/assets/44f746b9-c475-457a-901c-ac8ffedd9d65)
+
 
 ### Admin Dashboard
 
 The Admin dashboard provides school-specific analytics, student management, and risk flag monitoring for individual school administrators.
 
-![Admin Dashboard](dashboard-admin.png)
+![Admin Dashboard](https://github.com/user-attachments/assets/c1524c77-5f0b-4377-8588-4c391471b8ec)
+
 
 ### Teacher Dashboard
 
 The Teacher dashboard provides class-specific insights, student performance tracking, and risk flag management for individual teachers.
 
-![Teacher Dashboard](dashboard-teacher.png)
+![Teacher Dashboard](https://github.com/user-attachments/assets/01486c42-f911-477b-88c0-fe71213437d9)
+
 
 ---
 
@@ -814,6 +822,7 @@ For support, email gumutoni@alueducation.com or create an issue in this reposito
 - Open source community for excellent tools and libraries
 - Academic advisors for guidance and feedback
 - Supervisor for valuable feedback and recommendations throughout the project
+- African Leadership Univesrity
 
 ---
 
