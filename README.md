@@ -9,7 +9,7 @@ A comprehensive, data-driven platform designed to help educational institutions 
 
 ### Figma UI Design: [Click Here](https://www.figma.com/design/hACT4bbmrQ3VqLkud1xntM/EduGuard?node-id=0-1&t=AuO482VYgGrCe8xM-1)
 
-### Demo video: [Click Here](https://youtu.be/dWZjJd4SyCo)
+### Demo video: [Click Here](https://drive.google.com/file/d/1ooJIXkn3Jky_6n_8YmVB48Ez7lTcC2tG/view?usp=sharing)
 
 ### GitHub Repository: [Click Here](https://github.com/gumutonii/eduguard)
 
