@@ -46,11 +46,15 @@ export function UserDetailPage() {
   const { userId } = useParams<{ userId: string }>()
   const navigate = useNavigate()
 
-  // Fetch user details
+  // Fetch user details with real-time updates
   const { data: userData, isLoading, error } = useQuery({
     queryKey: ['user', userId],
     queryFn: () => apiClient.getUserById(userId!),
     enabled: !!userId,
+    staleTime: 30000, // 30 seconds - data is fresh for 30 seconds
+    gcTime: 300000, // 5 minutes - keep in cache for 5 minutes
+    refetchOnWindowFocus: true, // Refetch when window regains focus for real-time updates
+    refetchOnMount: true, // Always refetch on mount to ensure fresh data
   })
 
   const user = userData?.data

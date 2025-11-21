@@ -112,7 +112,7 @@ export function RiskFlagsPage() {
               <select
                 value={severityFilter}
                 onChange={(e) => setSeverityFilter(e.target.value)}
-                className="px-3 py-2 border border-neutral-300 rounded-md min-h-[44px] text-sm sm:text-base w-full sm:w-auto"
+                className="px-3 py-2 pr-8 border border-neutral-300 rounded-md min-h-[44px] text-sm sm:text-base w-full sm:w-auto"
               >
                 <option value="">All Severities</option>
                 <option value="CRITICAL">Critical</option>
@@ -128,7 +128,7 @@ export function RiskFlagsPage() {
               <select
                 value={isActiveFilter}
                 onChange={(e) => setIsActiveFilter(e.target.value)}
-                className="px-3 py-2 border border-neutral-300 rounded-md min-h-[44px] text-sm sm:text-base w-full sm:w-auto"
+                className="px-3 py-2 pr-8 border border-neutral-300 rounded-md min-h-[44px] text-sm sm:text-base w-full sm:w-auto"
               >
                 <option value="">All</option>
                 <option value="true">Active</option>

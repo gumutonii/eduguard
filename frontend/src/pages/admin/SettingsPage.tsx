@@ -61,25 +61,37 @@ export function SettingsPage() {
   // Mutations for updating profile
   const updateProfileMutation = useMutation({
     mutationFn: (profileData: any) => apiClient.updateProfile(profileData),
-    onSuccess: () => {
+    onSuccess: (response) => {
+      // Update auth store if token is provided
+      if (response.success && response.data?.token && response.data?.user) {
+        login(response.data.user, response.data.token)
+      }
       queryClient.invalidateQueries({ queryKey: ['user-profile'] })
       queryClient.invalidateQueries({ queryKey: ['user-profile', authUser?._id] })
       setUpdateMessage('Profile updated successfully!')
+      setTimeout(() => setUpdateMessage(''), 3000)
     },
     onError: (error: any) => {
       setUpdateMessage(error.message || 'Failed to update profile')
+      setTimeout(() => setUpdateMessage(''), 5000)
     }
   })
 
   const uploadPictureMutation = useMutation({
     mutationFn: (file: File) => apiClient.uploadProfilePicture(file),
-    onSuccess: () => {
+    onSuccess: (response) => {
+      // Update auth store if token is provided
+      if (response.success && response.data?.token && response.data?.user) {
+        login(response.data.user, response.data.token)
+      }
       queryClient.invalidateQueries({ queryKey: ['user-profile'] })
       queryClient.invalidateQueries({ queryKey: ['user-profile', authUser?._id] })
       setUpdateMessage('Profile picture uploaded successfully!')
+      setTimeout(() => setUpdateMessage(''), 3000)
     },
     onError: (error: any) => {
       setUpdateMessage(error.message || 'Failed to upload profile picture')
+      setTimeout(() => setUpdateMessage(''), 5000)
     }
   })
 

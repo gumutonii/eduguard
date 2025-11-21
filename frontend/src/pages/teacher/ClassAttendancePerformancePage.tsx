@@ -548,19 +548,26 @@ export function ClassAttendancePerformancePage() {
       {activeTab === 'performance' && (
         <Card>
           <CardHeader>
+            <div className="flex flex-col space-y-3">
             <div className="flex items-center justify-between">
-              <CardTitle>Term Performance</CardTitle>
+                <div>
+                  <CardTitle>Overall Term Performance</CardTitle>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Record overall grades per term (Rwanda: 3 terms per year). Enter percentage scores (0-100%) for each student.
+                  </p>
+                </div>
               <div className="flex items-center space-x-2">
-                <label className="text-sm text-gray-600">Term:</label>
+                  <label className="text-sm font-medium text-gray-700">Select Term:</label>
                 <select
                   value={selectedTerm}
                   onChange={(e) => setSelectedTerm(e.target.value)}
-                  className="input"
+                    className="px-4 py-2 pr-8 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm font-medium min-w-[120px]"
                 >
                   <option value="TERM_1">Term 1</option>
                   <option value="TERM_2">Term 2</option>
                   <option value="TERM_3">Term 3</option>
                 </select>
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -579,7 +586,7 @@ export function ClassAttendancePerformancePage() {
                         Student
                       </th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">
-                        Performance Score (%)
+                        Overall Performance (%)
                       </th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">
                         Grade
@@ -642,12 +649,15 @@ export function ClassAttendancePerformancePage() {
                     })}
                   </tbody>
                 </table>
-                <div className="mt-4 flex justify-end">
+                <div className="mt-4 flex items-center justify-between">
+                  <p className="text-sm text-gray-600">
+                    <strong>Note:</strong> This saves the overall grade for <strong>{selectedTerm === 'TERM_1' ? 'Term 1' : selectedTerm === 'TERM_2' ? 'Term 2' : 'Term 3'}</strong> for all students. Each student can have one overall grade per term.
+                  </p>
                   <Button 
                     onClick={() => savePerformanceMutation.mutate()}
                     disabled={savePerformanceMutation.isPending}
                   >
-                    {savePerformanceMutation.isPending ? 'Saving...' : 'Save Performance'}
+                    {savePerformanceMutation.isPending ? 'Saving...' : `Save ${selectedTerm === 'TERM_1' ? 'Term 1' : selectedTerm === 'TERM_2' ? 'Term 2' : 'Term 3'} Performance`}
                   </Button>
                 </div>
               </div>

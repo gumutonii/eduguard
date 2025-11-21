@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -34,56 +35,65 @@ interface PendingUser {
 }
 
 export function UserApprovalPage() {
-  const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
-  const fetchPendingUsers = async () => {
-    try {
-      setLoading(true)
+  // Fetch pending users with real-time updates using React Query
+  const { data: pendingUsersData, isLoading: loading, refetch } = useQuery({
+    queryKey: ['pending-approvals'],
+    queryFn: async () => {
       const response = await apiClient.getPendingApprovals()
-      if (response.success) {
-        setPendingUsers(response.data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch pending users:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+      return response.success ? response.data : []
+    },
+    staleTime: 15000, // 15 seconds - pending approvals need frequent updates
+    gcTime: 60000, // 1 minute - keep in cache for 1 minute
+    refetchOnWindowFocus: true, // Refetch when window regains focus for real-time updates
+    refetchOnMount: true, // Always refetch on mount to ensure fresh data
+    refetchInterval: 30000, // Auto-refetch every 30 seconds for real-time updates
+  })
 
-  useEffect(() => {
-    fetchPendingUsers()
-  }, [])
+  const pendingUsers = pendingUsersData || []
 
-  const handleApprove = async (userId: string) => {
-    try {
-      setActionLoading(userId)
-      const response = await apiClient.approveUser(userId)
-      
-      if (response.success) {
-        setPendingUsers(prev => prev.filter(user => user._id !== userId))
-      }
-    } catch (error) {
+  // Approve user mutation
+  const approveUserMutation = useMutation({
+    mutationFn: (userId: string) => apiClient.approveUser(userId),
+    onSuccess: () => {
+      // Invalidate and refetch pending approvals
+      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] })
+      queryClient.invalidateQueries({ queryKey: ['all-users'] })
+      queryClient.invalidateQueries({ queryKey: ['super-admin-stats'] })
+      setActionLoading(null)
+    },
+    onError: (error) => {
       console.error('Failed to approve user:', error)
-    } finally {
       setActionLoading(null)
     }
+  })
+
+  // Reject user mutation
+  const rejectUserMutation = useMutation({
+    mutationFn: (userId: string) => apiClient.rejectUser(userId),
+    onSuccess: () => {
+      // Invalidate and refetch pending approvals
+      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] })
+      queryClient.invalidateQueries({ queryKey: ['all-users'] })
+      queryClient.invalidateQueries({ queryKey: ['super-admin-stats'] })
+      setActionLoading(null)
+    },
+    onError: (error) => {
+      console.error('Failed to reject user:', error)
+      setActionLoading(null)
+    }
+  })
+
+  const handleApprove = async (userId: string) => {
+    setActionLoading(userId)
+    approveUserMutation.mutate(userId)
   }
 
   const handleReject = async (userId: string) => {
-    try {
-      setActionLoading(userId)
-      const response = await apiClient.rejectUser(userId)
-      
-      if (response.success) {
-        setPendingUsers(prev => prev.filter(user => user._id !== userId))
-      }
-    } catch (error) {
-      console.error('Failed to reject user:', error)
-    } finally {
-      setActionLoading(null)
-    }
+    setActionLoading(userId)
+    rejectUserMutation.mutate(userId)
   }
 
   const getRoleColor = (role: string) => {
@@ -124,7 +134,7 @@ export function UserApprovalPage() {
           <h1 className="text-2xl font-bold text-neutral-900">Teacher Approvals</h1>
           <p className="text-neutral-600">Review and approve teachers registered for your school</p>
         </div>
-        <Button onClick={fetchPendingUsers} variant="outline">
+        <Button onClick={() => refetch()} variant="outline" disabled={loading}>
           Refresh
         </Button>
       </div>
@@ -220,21 +230,27 @@ export function UserApprovalPage() {
                   <div className="flex space-x-3 pt-4">
                     <Button
                       onClick={() => handleApprove(user._id)}
-                      loading={actionLoading === user._id}
-                      disabled={actionLoading === user._id}
+                      disabled={actionLoading === user._id || approveUserMutation.isPending}
                       className="flex-1"
                     >
+                      {actionLoading === user._id && approveUserMutation.isPending ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      ) : (
                       <UserPlusIcon className="w-4 h-4 mr-2" />
+                      )}
                       Approve
                     </Button>
                     <Button
                       onClick={() => handleReject(user._id)}
                       variant="outline"
-                      loading={actionLoading === user._id}
-                      disabled={actionLoading === user._id}
+                      disabled={actionLoading === user._id || rejectUserMutation.isPending}
                       className="flex-1"
                     >
+                      {actionLoading === user._id && rejectUserMutation.isPending ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                      ) : (
                       <UserMinusIcon className="w-4 h-4 mr-2" />
+                      )}
                       Reject
                     </Button>
                   </div>

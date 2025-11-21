@@ -40,10 +40,14 @@ export function AllUsersPage() {
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const queryClient = useQueryClient()
 
-  // Fetch all users
+  // Fetch all users with real-time updates
   const { data: usersData, isLoading, error } = useQuery({
     queryKey: ['all-users'],
     queryFn: () => apiClient.getAllUsers(),
+    staleTime: 30000, // 30 seconds - data is fresh for 30 seconds
+    gcTime: 300000, // 5 minutes - keep in cache for 5 minutes
+    refetchOnWindowFocus: true, // Refetch when window regains focus for real-time updates
+    refetchOnMount: true, // Always refetch on mount to ensure fresh data
   })
 
   // Delete user mutation
@@ -169,7 +173,7 @@ export function AllUsersPage() {
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 pr-8 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="ALL">All Roles</option>
                 <option value="SUPER_ADMIN">Super Admin</option>
@@ -183,7 +187,7 @@ export function AllUsersPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 pr-8 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="ALL">All Status</option>
                 <option value="ACTIVE">Active</option>

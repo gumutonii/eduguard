@@ -44,8 +44,20 @@
     @apply bg-white rounded-xl shadow-sm border border-neutral-200;
   }
   
+  select.input,
+  select {
+    padding-right: 2rem; /* pr-8 - space for dropdown arrow */
+  }
+
   .input {
     @apply block w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm placeholder-neutral-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:bg-neutral-50 disabled:text-neutral-500;
+  }
+  
+  /* Add space between dropdown text and arrow for all select elements */
+  select.input,
+  select[class*="border"],
+  select[class*="rounded"] {
+    @apply pr-8;
   }
   
   .badge {

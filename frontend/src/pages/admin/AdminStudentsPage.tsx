@@ -36,11 +36,19 @@ export function AdminStudentsPage() {
   const { data: studentsData, isLoading: studentsLoading, error: studentsError } = useQuery({
     queryKey: ['admin-students', searchTerm, filterRisk],
     queryFn: () => apiClient.getStudents({ search: searchTerm, riskLevel: filterRisk === 'all' ? undefined : filterRisk }),
+    staleTime: 30000, // 30 seconds - data is fresh for 30 seconds
+    gcTime: 300000, // 5 minutes - keep in cache for 5 minutes
+    refetchOnWindowFocus: true, // Refetch when window regains focus for real-time updates
+    refetchOnMount: true, // Always refetch on mount to ensure fresh data
   })
 
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
     queryKey: ['admin-dashboard'],
     queryFn: () => apiClient.getDashboardStats(),
+    staleTime: 30000, // 30 seconds
+    gcTime: 300000, // 5 minutes
+    refetchOnWindowFocus: true, // Real-time updates
+    refetchOnMount: true,
   })
 
   if (studentsLoading || dashboardLoading) {

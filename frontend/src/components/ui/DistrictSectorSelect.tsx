@@ -43,7 +43,7 @@ const DistrictSectorSelect: React.FC<DistrictSectorSelectProps> = ({
             value={selectedDistrict}
             onChange={(e) => handleDistrictChange(e.target.value)}
             disabled={disabled}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           >
             <option value="">Select District</option>
             {allDistricts.map((district, index) => (
@@ -66,7 +66,7 @@ const DistrictSectorSelect: React.FC<DistrictSectorSelectProps> = ({
             value={selectedSector}
             onChange={(e) => onSectorChange(e.target.value)}
             disabled={disabled || !selectedDistrict}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           >
             <option value="">Select Sector</option>
             {availableSectors.map((sector, index) => (

@@ -255,10 +255,17 @@ router.put('/profile', authenticateToken, [
       userProfile.schoolEmail = user.schoolId.email;
     }
 
+    // Generate new token with updated user data
+    const { generateToken } = require('../utils/jwt');
+    const token = generateToken(user._id);
+
     res.json({
       success: true,
       message: 'Profile updated successfully',
-      data: userProfile
+      data: {
+        user: userProfile,
+        token: token
+      }
     });
   } catch (error) {
     console.error('Update profile error:', error);
@@ -321,10 +328,17 @@ router.post('/profile/upload-picture', authenticateToken, upload.single('profile
       userProfile.schoolEmail = user.schoolId.email;
     }
 
+    // Generate new token with updated user data
+    const { generateToken } = require('../utils/jwt');
+    const token = generateToken(user._id);
+
     res.json({
       success: true,
       message: 'Profile picture uploaded successfully',
-      data: userProfile
+      data: {
+        user: userProfile,
+        token: token
+      }
     });
   } catch (error) {
     console.error('Upload profile picture error:', error);

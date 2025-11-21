@@ -18,46 +18,47 @@ import {
 import { Link } from 'react-router-dom'
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  BarChart, Bar, Legend
+  BarChart, Bar, Legend, ComposedChart
 } from 'recharts'
 import { apiClient } from '@/lib/api'
 
 export function SuperAdminDashboardPage() {
-  // System-wide analytics with optimized caching
+  // System-wide analytics with real-time updates
   const { data: systemStats, isLoading: statsLoading } = useQuery({
     queryKey: ['super-admin-stats'],
     queryFn: () => apiClient.getSystemStats(),
-    staleTime: 60000, // 1 minute
-    gcTime: 300000, // 5 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    staleTime: 30000, // 30 seconds - data is fresh for 30 seconds
+    gcTime: 300000, // 5 minutes - keep in cache for 5 minutes
+    refetchOnWindowFocus: true, // Refetch when window regains focus for real-time updates
+    refetchOnMount: true, // Always refetch on mount to ensure fresh data
+    refetchInterval: 60000, // Auto-refetch every 60 seconds for real-time dashboard updates
   })
 
   const { data: schoolsData, isLoading: schoolsLoading } = useQuery({
     queryKey: ['all-schools'],
     queryFn: () => apiClient.getAllSchools(),
-    staleTime: 60000,
-    gcTime: 300000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    staleTime: 30000, // 30 seconds
+    gcTime: 300000, // 5 minutes
+    refetchOnWindowFocus: true, // Real-time updates
+    refetchOnMount: true,
   })
 
   const { data: usersData, isLoading: usersLoading } = useQuery({
     queryKey: ['all-users'],
     queryFn: () => apiClient.getAllUsers(),
-    staleTime: 60000,
-    gcTime: 300000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    staleTime: 30000, // 30 seconds
+    gcTime: 300000, // 5 minutes
+    refetchOnWindowFocus: true, // Real-time updates
+    refetchOnMount: true,
   })
 
   const { data: riskSummary, isLoading: riskLoading } = useQuery({
     queryKey: ['system-risk-summary'],
     queryFn: () => apiClient.getSystemRiskSummary(),
-    staleTime: 60000,
-    gcTime: 300000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    staleTime: 30000, // 30 seconds
+    gcTime: 300000, // 5 minutes
+    refetchOnWindowFocus: true, // Real-time updates
+    refetchOnMount: true,
   })
 
   const isLoading = statsLoading || schoolsLoading || usersLoading || riskLoading
@@ -95,12 +96,112 @@ export function SuperAdminDashboardPage() {
   const pendingApprovals = stats.pendingApprovals || users.filter(user => !user.isApproved).length
   const activeUsers = stats.activeUsers || 0
 
-  // School performance data
+  // Helper function to abbreviate school names intelligently
+  const abbreviateSchoolName = (name: string): string => {
+    if (!name) return ''
+    
+    let abbreviated = name.trim()
+    
+    // Handle common Rwandan school name patterns
+    // Pattern 1: "Ecole Primaire et Secondaire de [Location]" -> "EPS [Location]"
+    if (/^Ecole\s+Primaire\s+et\s+Secondaire\s+de\s+/i.test(abbreviated)) {
+      abbreviated = abbreviated.replace(/^Ecole\s+Primaire\s+et\s+Secondaire\s+de\s+/i, 'EPS ')
+    }
+    // Pattern 2: "Ecole Primaire de [Location]" -> "EP [Location]"
+    else if (/^Ecole\s+Primaire\s+de\s+/i.test(abbreviated)) {
+      abbreviated = abbreviated.replace(/^Ecole\s+Primaire\s+de\s+/i, 'EP ')
+    }
+    // Pattern 3: "Ecole Secondaire de [Location]" -> "ES [Location]"
+    else if (/^Ecole\s+Secondaire\s+de\s+/i.test(abbreviated)) {
+      abbreviated = abbreviated.replace(/^Ecole\s+Secondaire\s+de\s+/i, 'ES ')
+    }
+    // Pattern 4: "Secondaire de [Location]" -> "S [Location]"
+    else if (/^Secondaire\s+de\s+/i.test(abbreviated)) {
+      abbreviated = abbreviated.replace(/^Secondaire\s+de\s+/i, 'S ')
+    }
+    // Pattern 5: "[Name] SS" or "[Name] Secondary School" -> Keep as is
+    else if (/\s+SS$/i.test(abbreviated) || /\s+Secondary\s+School$/i.test(abbreviated)) {
+      // Already abbreviated, just clean up
+      abbreviated = abbreviated.replace(/\s+Secondary\s+School$/i, ' SS')
+    }
+    // Pattern 6: Remove standalone "Ecole" prefix
+    else if (/^Ecole\s+/i.test(abbreviated)) {
+      abbreviated = abbreviated.replace(/^Ecole\s+/i, '')
+    }
+    
+    // If still too long (more than 18 chars), intelligently truncate
+    if (abbreviated.length > 18) {
+      const words = abbreviated.split(/\s+/)
+      if (words.length >= 2) {
+        // Take first word (usually abbreviation) + location (last word or two)
+        if (words[0].length <= 5) {
+          // First word is short (like "EPS", "EP", "ES"), take it + location
+          abbreviated = words[0] + ' ' + words.slice(-1).join(' ')
+        } else {
+          // Take first 2 words
+          abbreviated = words.slice(0, 2).join(' ')
+        }
+      }
+      
+      // Final check: if still too long, truncate with ellipsis
+      if (abbreviated.length > 18) {
+        abbreviated = abbreviated.substring(0, 15) + '...'
+      }
+    }
+    
+    return abbreviated
+  }
+
+  // School performance data with abbreviated names for display
   const schoolPerformance = schools.map(school => ({
-    name: school.name,
+    name: school.name, // Full name for tooltip
+    abbreviatedName: abbreviateSchoolName(school.name), // Abbreviated for X-axis
     students: school.studentCount || 0,
     atRisk: school.atRiskCount || 0,
+    totalStudents: school.studentCount || 0,
+    atRiskStudents: school.atRiskCount || 0,
     riskRate: school.studentCount > 0 ? ((school.atRiskCount || 0) / school.studentCount * 100).toFixed(1) : 0
+  }))
+
+  // Process backend school performance data to add abbreviated names
+  const processedSchoolPerformance = (stats.schoolPerformance || []).map((school: any) => ({
+    ...school,
+    abbreviatedName: abbreviateSchoolName(school.name || ''),
+    totalStudents: school.totalStudents || school.students || 0,
+    atRiskStudents: school.atRiskStudents || school.atRisk || 0,
+    riskRate: school.riskRate || (school.totalStudents > 0 
+      ? Math.round((school.atRiskStudents / school.totalStudents) * 100 * 10) / 10 
+      : 0)
+  }))
+
+  // Merge school data with performance data for the table
+  // Use schoolPerformance from backend (has real student counts) as primary source
+  const schoolsForTable = (stats.schoolPerformance || []).map((schoolPerf: any) => {
+    // Find matching school from schoolsData for additional info
+    const schoolInfo = schools.find((s: any) => s._id === schoolPerf._id || s.name === schoolPerf.name)
+    return {
+      _id: schoolPerf._id || schoolInfo?._id,
+      name: schoolPerf.name || schoolInfo?.name,
+      district: schoolPerf.district || schoolInfo?.district,
+      sector: schoolPerf.sector || schoolInfo?.sector,
+      totalStudents: schoolPerf.totalStudents || schoolPerf.students || 0,
+      atRiskStudents: schoolPerf.atRiskStudents || schoolPerf.atRisk || 0,
+      studentCount: schoolPerf.totalStudents || schoolPerf.students || 0,
+      atRiskCount: schoolPerf.atRiskStudents || schoolPerf.atRisk || 0,
+      riskRate: schoolPerf.riskRate || (schoolPerf.totalStudents > 0 
+        ? Math.round((schoolPerf.atRiskStudents / schoolPerf.totalStudents) * 100 * 10) / 10 
+        : 0)
+    }
+  })
+
+  // If no schoolPerformance data, fall back to schools data
+  const displaySchools = schoolsForTable.length > 0 ? schoolsForTable : schools.map((school: any) => ({
+    ...school,
+    totalStudents: school.studentCount || 0,
+    atRiskStudents: school.atRiskCount || 0,
+    riskRate: school.riskRate || (school.studentCount > 0 
+      ? Math.round((school.atRiskCount / school.studentCount) * 100 * 10) / 10 
+      : 0)
   }))
 
   // User role distribution
@@ -282,62 +383,217 @@ export function SuperAdminDashboardPage() {
 
       {/* Essential Charts - Right After Data Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2 gap-4 sm:gap-6">
-        {/* School Performance Comparison */}
+        {/* School Students Overview - Total and At Risk */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
               <ChartBarIcon className="h-5 w-5 mr-2 text-blue-600" />
-              School Performance Comparison
+              School Students Overview
             </CardTitle>
+            <p className="text-sm text-gray-600 mt-1">
+              Total and At Risk students per school
+            </p>
           </CardHeader>
           <CardContent>
             <div className="h-64 sm:h-80 lg:h-96">
-              {(stats.schoolPerformance && stats.schoolPerformance.length > 0) || schoolPerformance.length > 0 ? (
+              {(processedSchoolPerformance.length > 0) || schoolPerformance.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={(stats.schoolPerformance?.slice(0, 5) || schoolPerformance.slice(0, 5))}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} fontSize={12} />
-                  <YAxis fontSize={12} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="students" fill="#3B82F6" name="Total Students" />
-                  <Bar dataKey="atRisk" fill="#EF4444" name="At Risk" />
+                  <BarChart 
+                    data={(processedSchoolPerformance.slice(0, 8) || schoolPerformance.slice(0, 8))}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                  >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis 
+                    dataKey="abbreviatedName" 
+                    angle={-45} 
+                    textAnchor="end" 
+                    height={80} 
+                    fontSize={11}
+                    interval={0}
+                    tick={{ fill: '#6B7280' }}
+                  />
+                  <YAxis 
+                    fontSize={12}
+                    tick={{ fill: '#6B7280' }}
+                    label={{ value: 'Number of Students', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#6B7280' } }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#FFFFFF', 
+                      border: '2px solid #3B82F6',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                      padding: '12px 16px'
+                    }}
+                    cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
+                    formatter={(value: any, name: string) => {
+                      return [
+                        <span key={name} style={{ fontWeight: 600, color: name === 'Total Students' ? '#3B82F6' : '#EF4444' }}>
+                          {value} students
+                        </span>,
+                        name
+                      ]
+                    }}
+                    labelFormatter={(label: string, payload: any) => {
+                      const fullName = payload?.[0]?.payload?.name || label
+                      const abbreviatedName = payload?.[0]?.payload?.abbreviatedName || label
+                      return (
+                        <div style={{ 
+                          fontWeight: 700, 
+                          marginBottom: '8px', 
+                          color: '#111827',
+                          fontSize: '14px',
+                          borderBottom: '2px solid #E5E7EB',
+                          paddingBottom: '6px'
+                        }}>
+                          <div style={{ color: '#3B82F6', fontSize: '12px', fontWeight: 500, marginBottom: '4px' }}>
+                            Full School Name:
+                          </div>
+                          <div>{fullName}</div>
+                          {abbreviatedName !== fullName && (
+                            <div style={{ 
+                              color: '#6B7280', 
+                              fontSize: '11px', 
+                              fontWeight: 400, 
+                              marginTop: '4px',
+                              fontStyle: 'italic'
+                            }}>
+                              (Shown as: {abbreviatedName})
+                            </div>
+                          )}
+                        </div>
+                      )
+                    }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '20px' }}
+                    iconType="rect"
+                  />
+                  <Bar 
+                    dataKey="totalStudents" 
+                    fill="#3B82F6" 
+                    name="Total Students"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar 
+                    dataKey="atRiskStudents" 
+                    fill="#EF4444" 
+                    name="At Risk Students"
+                    radius={[4, 4, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-500">
-                  <p>No school performance data available yet</p>
+                  <p>No school data available yet</p>
                 </div>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Attendance Trend */}
+        {/* Combined Attendance & Performance Trend */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
-              <ClipboardDocumentCheckIcon className="h-5 w-5 mr-2 text-green-600" />
-              Attendance Trend (Last 6 Weeks)
+              <AcademicCapIcon className="h-5 w-5 mr-2 text-green-600" />
+              Attendance & Performance Trend
             </CardTitle>
+            <p className="text-sm text-gray-600 mt-1">Last 6 weeks - Real-time data</p>
           </CardHeader>
           <CardContent>
             <div className="h-64 sm:h-80 lg:h-96">
-              {stats.attendanceTrend && stats.attendanceTrend.length > 0 ? (
+              {(stats.combinedTrend && stats.combinedTrend.length > 0) || (stats.attendanceTrend && stats.performanceTrend) ? (
               <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={stats.attendanceTrend}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="week" fontSize={12} />
-                  <YAxis domain={[80, 100]} fontSize={12} />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="attendance" stroke="#10B981" strokeWidth={2} name="Actual" />
-                  <Line type="monotone" dataKey="target" stroke="#6B7280" strokeDasharray="5 5" name="Target" />
-                </LineChart>
+                  <ComposedChart 
+                    data={stats.combinedTrend || stats.attendanceTrend?.map((att: any, index: number) => ({
+                      week: att.week,
+                      attendance: att.attendance,
+                      performance: stats.performanceTrend?.[index]?.performance || 0,
+                      attendanceTarget: att.target,
+                      performanceTarget: 70
+                    }))}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                  >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis 
+                    dataKey="week" 
+                    fontSize={12}
+                    tick={{ fill: '#6B7280' }}
+                  />
+                  <YAxis 
+                    yAxisId="left"
+                    domain={[0, 100]}
+                    fontSize={12}
+                    tick={{ fill: '#6B7280' }}
+                    label={{ value: 'Attendance (%)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#6B7280' } }}
+                  />
+                  <YAxis 
+                    yAxisId="right"
+                    orientation="right"
+                    domain={[0, 100]}
+                    fontSize={12}
+                    tick={{ fill: '#6B7280' }}
+                    label={{ value: 'Performance (%)', angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: '#6B7280' } }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#FFFFFF', 
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                    }}
+                    cursor={{ stroke: '#E5E7EB', strokeWidth: 1 }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '20px' }}
+                    iconType="line"
+                  />
+                  <Line 
+                    yAxisId="left"
+                    type="monotone" 
+                    dataKey="attendance" 
+                    stroke="#10B981" 
+                    strokeWidth={3}
+                    dot={{ fill: '#10B981', r: 5 }}
+                    activeDot={{ r: 7 }}
+                    name="Attendance (%)"
+                  />
+                  <Line 
+                    yAxisId="left"
+                    type="monotone" 
+                    dataKey="attendanceTarget" 
+                    stroke="#6B7280" 
+                    strokeDasharray="5 5"
+                    strokeWidth={2}
+                    dot={false}
+                    name="Attendance Target"
+                  />
+                  <Line 
+                    yAxisId="right"
+                    type="monotone" 
+                    dataKey="performance" 
+                    stroke="#3B82F6" 
+                    strokeWidth={3}
+                    dot={{ fill: '#3B82F6', r: 5 }}
+                    activeDot={{ r: 7 }}
+                    name="Performance (%)"
+                  />
+                  <Line 
+                    yAxisId="right"
+                    type="monotone" 
+                    dataKey="performanceTarget" 
+                    stroke="#9CA3AF" 
+                    strokeDasharray="5 5"
+                    strokeWidth={2}
+                    dot={false}
+                    name="Performance Target"
+                  />
+                </ComposedChart>
               </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-500">
-                  <p>No attendance data available yet</p>
+                  <p>No trend data available yet</p>
                 </div>
               )}
             </div>
@@ -447,32 +703,46 @@ export function SuperAdminDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {schools.map((school) => (
-                    <tr key={school._id}>
+                  {displaySchools.length > 0 ? (
+                    displaySchools.map((school) => (
+                      <tr key={school._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{school.name}</div>
+                          <div className="text-sm font-medium text-gray-900">{school.name || 'N/A'}</div>
                       </td>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{school.district}</div>
+                          <div className="text-sm text-gray-500">{school.district || 'N/A'}</div>
                       </td>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{school.studentCount || 0}</div>
+                          <div className="text-sm font-medium text-gray-900">{school.totalStudents || school.studentCount || 0}</div>
                       </td>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{school.atRiskCount || 0}</div>
+                          <div className="text-sm font-medium text-gray-900">{school.atRiskStudents || school.atRiskCount || 0}</div>
                       </td>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                        <Badge variant={school.riskRate > 20 ? 'error' : school.riskRate > 10 ? 'warning' : 'low'}>
-                          {school.riskRate || 0}%
+                          <Badge variant={
+                            (school.riskRate || 0) > 20 ? 'error' : 
+                            (school.riskRate || 0) > 10 ? 'warning' : 'low'
+                          }>
+                            {school.riskRate?.toFixed(1) || '0.0'}%
                         </Badge>
                       </td>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          {school._id && (
                         <Link to={`/schools/${school._id}`}>
                           <Button size="sm" className="min-h-[44px]">View</Button>
                         </Link>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="px-3 sm:px-6 py-8 text-center text-gray-500">
+                        <BuildingOfficeIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                        <p>No schools found. Data will appear here once schools are registered.</p>
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>

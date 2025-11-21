@@ -25,7 +25,11 @@ export function SchoolDetailPage() {
   const { data: schoolData, isLoading: schoolLoading } = useQuery({
     queryKey: ['school-detail', schoolId],
     queryFn: () => apiClient.getSchoolById(schoolId!),
-    enabled: !!schoolId
+    enabled: !!schoolId,
+    staleTime: 30000, // 30 seconds - data is fresh for 30 seconds
+    gcTime: 300000, // 5 minutes - keep in cache for 5 minutes
+    refetchOnWindowFocus: true, // Refetch when window regains focus for real-time updates
+    refetchOnMount: true, // Always refetch on mount to ensure fresh data
   })
 
   const isLoading = schoolLoading

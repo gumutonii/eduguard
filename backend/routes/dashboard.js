@@ -710,7 +710,53 @@ router.get('/system-stats', authenticateToken, async (req, res) => {
       };
     });
 
-    // Get school performance data
+    // Get performance trend (weekly for last 6 weeks) - system-wide
+    const performanceRecords = await Performance.find({
+      createdAt: { $gte: startDate, $lte: endDate }
+    }).select('score createdAt').lean();
+    
+    const weeklyPerformanceData = new Map();
+    const targetPerformance = 70; // Target average performance
+    
+    for (let i = weeks - 1; i >= 0; i--) {
+      const weekKey = `W${weeks - i}`;
+      weeklyPerformanceData.set(weekKey, {
+        week: weekKey,
+        scores: [],
+        total: 0,
+        target: targetPerformance
+      });
+    }
+    
+    performanceRecords.forEach(record => {
+      const recordDate = new Date(record.createdAt);
+      const weekNum = Math.floor((endDate - recordDate) / (7 * 24 * 60 * 60 * 1000));
+      
+      if (weekNum >= 0 && weekNum < weeks) {
+        const weekKey = `W${weeks - weekNum}`;
+        const weekData = weeklyPerformanceData.get(weekKey);
+        
+        if (weekData && record.score !== undefined && record.score !== null) {
+          weekData.scores.push(record.score);
+          weekData.total++;
+        }
+      }
+    });
+    
+    // Calculate average performance rates per week
+    const performanceTrend = Array.from(weeklyPerformanceData.values()).map(week => {
+      const averageScore = week.scores.length > 0
+        ? Math.round((week.scores.reduce((sum, score) => sum + score, 0) / week.scores.length) * 10) / 10
+        : 0;
+      
+      return {
+        week: week.week,
+        performance: averageScore,
+        target: week.target
+      };
+    });
+
+    // Get school performance data with students count
     const schoolPerformance = await School.aggregate([
       { $match: { isActive: true } },
       {
@@ -731,10 +777,19 @@ router.get('/system-stats', authenticateToken, async (req, res) => {
       },
       {
         $project: {
-          name: 1,
+          name: 1, // Full name for tooltip
           district: 1,
           sector: 1,
+          students: { $size: '$students' },
           totalStudents: { $size: '$students' },
+          atRisk: {
+            $size: {
+              $filter: {
+                input: '$students',
+                cond: { $in: ['$$this.riskLevel', ['MEDIUM', 'HIGH', 'CRITICAL']] }
+              }
+            }
+          },
           atRiskStudents: {
             $size: {
               $filter: {
@@ -837,6 +892,21 @@ router.get('/system-stats', authenticateToken, async (req, res) => {
         
         // Attendance Trend
         attendanceTrend: attendanceTrend,
+        
+        // Performance Trend
+        performanceTrend: performanceTrend,
+        
+        // Combined Attendance & Performance Trend (for combined chart)
+        combinedTrend: attendanceTrend.map((att, index) => {
+          const perf = performanceTrend[index] || { performance: 0 };
+          return {
+            week: att.week,
+            attendance: att.attendance,
+            performance: perf.performance,
+            attendanceTarget: att.target,
+            performanceTarget: perf.target || 70
+          };
+        }),
         
         // School performance
         schoolPerformance
@@ -1197,7 +1267,13 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
             critical: { $sum: { $cond: [{ $eq: ['$severity', 'CRITICAL'] }, 1, 0] } },
             high: { $sum: { $cond: [{ $eq: ['$severity', 'HIGH'] }, 1, 0] } },
             medium: { $sum: { $cond: [{ $eq: ['$severity', 'MEDIUM'] }, 1, 0] } },
-            low: { $sum: { $cond: [{ $eq: ['$severity', 'LOW'] }, 1, 0] } }
+            low: { $sum: { $cond: [{ $eq: ['$severity', 'LOW'] }, 1, 0] } },
+            byType: {
+              $push: {
+                type: '$type',
+                severity: '$severity'
+              }
+            }
           }
         }
       ]),
@@ -1236,7 +1312,39 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
       Math.round((presentAndLate / attendance.totalRecords) * 100) : 0;
 
     const performance = performanceStats[0] || { totalRecords: 0, averageScore: 0, passingRate: 0 };
-    const riskFlags = riskStats[0] || { total: 0, critical: 0, high: 0, medium: 0, low: 0 };
+    const riskFlagsRaw = riskStats[0] || { total: 0, critical: 0, high: 0, medium: 0, low: 0, byType: [] };
+    
+    // Process byType breakdown
+    const byTypeCounts = {
+      attendance: 0,
+      performance: 0,
+      behavior: 0,
+      socioeconomic: 0,
+      combined: 0,
+      other: 0
+    };
+    
+    if (riskFlagsRaw.byType && Array.isArray(riskFlagsRaw.byType)) {
+      riskFlagsRaw.byType.forEach((item) => {
+        const type = (item.type || 'OTHER').toUpperCase();
+        if (type === 'ATTENDANCE') byTypeCounts.attendance++;
+        else if (type === 'PERFORMANCE') byTypeCounts.performance++;
+        else if (type === 'BEHAVIOR') byTypeCounts.behavior++;
+        else if (type === 'SOCIOECONOMIC') byTypeCounts.socioeconomic++;
+        else if (type === 'COMBINED') byTypeCounts.combined++;
+        else byTypeCounts.other++;
+      });
+    }
+    
+    const riskFlags = {
+      total: riskFlagsRaw.total || 0,
+      critical: riskFlagsRaw.critical || 0,
+      high: riskFlagsRaw.high || 0,
+      medium: riskFlagsRaw.medium || 0,
+      low: riskFlagsRaw.low || 0,
+      byType: byTypeCounts
+    };
+    
     const interventions = interventionStats[0] || { total: 0, planned: 0, inProgress: 0, completed: 0, cancelled: 0 };
     const messages = messageStats[0] || { total: 0, sent: 0, delivered: 0, failed: 0, pending: 0 };
 
@@ -1342,10 +1450,11 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
     });
 
     // Get class performance data - optimized aggregation
+    // Include ALL classes (even those without students) for complete real-time data
     const currentYear = new Date().getFullYear();
     
-    // First get all classes with students
-    const classesWithStudents = await Class.aggregate([
+    // Get all active classes for the school
+    const allClasses = await Class.aggregate([
       { $match: { schoolId, isActive: true } },
       {
         $lookup: {
@@ -1380,12 +1489,11 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
           assignedTeacher: 1
         }
       },
-      { $sort: { totalStudents: -1 } },
-      { $limit: 20 } // Limit to top 20 classes for better visualization
+      { $sort: { name: 1 } } // Sort alphabetically for consistent display
     ]);
     
-    // Calculate average scores from performance records
-    const classPerformance = await Promise.all(classesWithStudents.map(async (cls) => {
+    // Calculate average scores from performance records for all classes
+    const classPerformance = await Promise.all(allClasses.map(async (cls) => {
       let averageScore = 0;
       
       if (cls.studentIds && cls.studentIds.length > 0) {
@@ -1463,7 +1571,8 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
           critical: riskFlags.critical,
           high: riskFlags.high,
           medium: riskFlags.medium,
-          low: riskFlags.low
+          low: riskFlags.low,
+          byType: riskFlags.byType
         },
         
         // Interventions

@@ -20,11 +20,19 @@ export function AllSchoolsPage() {
   const { data: schoolsData, isLoading: schoolsLoading, error: schoolsError } = useQuery({
     queryKey: ['all-schools'],
     queryFn: () => apiClient.getAllSchools(),
+    staleTime: 30000, // 30 seconds - data is fresh for 30 seconds
+    gcTime: 300000, // 5 minutes - keep in cache for 5 minutes
+    refetchOnWindowFocus: true, // Refetch when window regains focus for real-time updates
+    refetchOnMount: true, // Always refetch on mount to ensure fresh data
   })
 
   const { data: systemStats, isLoading: statsLoading } = useQuery({
     queryKey: ['super-admin-stats'],
     queryFn: () => apiClient.getSystemStats(),
+    staleTime: 30000, // 30 seconds
+    gcTime: 300000, // 5 minutes
+    refetchOnWindowFocus: true, // Real-time updates
+    refetchOnMount: true,
   })
 
   // Delete school mutation

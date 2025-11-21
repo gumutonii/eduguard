@@ -47,6 +47,10 @@ export function StudentDetailPage() {
     queryKey: ['student', id],
     queryFn: () => apiClient.getStudent(id!),
     enabled: !!id,
+    staleTime: 30000, // 30 seconds - data is fresh for 30 seconds
+    gcTime: 300000, // 5 minutes - keep in cache for 5 minutes
+    refetchOnWindowFocus: true, // Refetch when window regains focus for real-time updates
+    refetchOnMount: true, // Always refetch on mount to ensure fresh data
   })
 
   // Upload profile picture mutation
@@ -86,29 +90,45 @@ export function StudentDetailPage() {
     })
   }
 
-  // Fetch data for all tabs - enable queries for overview and active tab
+  // Fetch data for all tabs - enable queries for overview and active tab with real-time updates
   const { data: attendanceData, isLoading: attendanceLoading } = useQuery({
     queryKey: ['student-attendance', id],
     queryFn: () => apiClient.getStudentAttendance(id!),
     enabled: !!id && (activeTab === 'attendance' || activeTab === 'overview'),
+    staleTime: 30000, // 30 seconds
+    gcTime: 300000, // 5 minutes
+    refetchOnWindowFocus: true, // Real-time updates
+    refetchOnMount: true,
   })
 
   const { data: performanceData, isLoading: performanceLoading } = useQuery({
     queryKey: ['student-performance', id],
     queryFn: () => apiClient.getStudentPerformance(id!),
     enabled: !!id && (activeTab === 'performance' || activeTab === 'overview'),
+    staleTime: 30000, // 30 seconds
+    gcTime: 300000, // 5 minutes
+    refetchOnWindowFocus: true, // Real-time updates
+    refetchOnMount: true,
   })
 
   const { data: riskFlagsData, isLoading: riskFlagsLoading } = useQuery({
     queryKey: ['student-risk-flags', id],
     queryFn: () => apiClient.getStudentRiskFlags(id!),
     enabled: !!id && (activeTab === 'risk' || activeTab === 'overview'),
+    staleTime: 30000, // 30 seconds
+    gcTime: 300000, // 5 minutes
+    refetchOnWindowFocus: true, // Real-time updates
+    refetchOnMount: true,
   })
 
   const { data: interventionsData, isLoading: interventionsLoading } = useQuery({
     queryKey: ['student-interventions', id],
     queryFn: () => apiClient.getStudentInterventions(id!),
     enabled: !!id && (activeTab === 'interventions' || activeTab === 'overview'),
+    staleTime: 30000, // 30 seconds
+    gcTime: 300000, // 5 minutes
+    refetchOnWindowFocus: true, // Real-time updates
+    refetchOnMount: true,
   })
 
   if (studentLoading) {

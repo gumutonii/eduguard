@@ -279,7 +279,14 @@ class ApiClient {
       throw new Error(error.message || 'Failed to upload profile picture')
     }
     
-    return response.json()
+    const result = await response.json()
+    
+    // Update token if provided in response
+    if (result.success && result.data?.token) {
+      this.setToken(result.data.token)
+    }
+    
+    return result
   }
 
   // Dashboard methods

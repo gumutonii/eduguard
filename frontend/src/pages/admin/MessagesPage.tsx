@@ -102,7 +102,7 @@ export function MessagesPage() {
                   setStatusFilter(e.target.value)
                   setPage(1)
                 }}
-                className="px-3 py-2 border border-neutral-300 rounded-md min-h-[44px] text-sm sm:text-base w-full sm:w-auto"
+                className="px-3 py-2 pr-8 border border-neutral-300 rounded-md min-h-[44px] text-sm sm:text-base w-full sm:w-auto"
               >
                 <option value="">All Status</option>
                 <option value="SENT">Sent</option>
@@ -121,7 +121,7 @@ export function MessagesPage() {
                   setTypeFilter(e.target.value)
                   setPage(1)
                 }}
-                className="px-3 py-2 border border-neutral-300 rounded-md min-h-[44px] text-sm sm:text-base w-full sm:w-auto"
+                className="px-3 py-2 pr-8 border border-neutral-300 rounded-md min-h-[44px] text-sm sm:text-base w-full sm:w-auto"
               >
                 <option value="">All Types</option>
                 <option value="ABSENCE_ALERT">Absence Alert</option>

@@ -1137,18 +1137,23 @@ export function TeacherStudentDetailPage() {
           <div className="space-y-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
+                <div>
                 <CardTitle>Performance History</CardTitle>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Record overall grades per term (Rwanda: 3 terms per year). Enter percentage scores (0-100%).
+                  </p>
+                </div>
                 <Button
                   onClick={() => {
                     const newPerformance = {
                       studentId: id!,
                       classId: student?.classId?._id || '',
-                      subject: '',
+                      subject: 'Overall',
                       score: 0,
                       maxScore: 100,
                       term: 'TERM_1',
                       academicYear: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1),
-                      assessmentType: 'EXAM',
+                      assessmentType: 'FINAL',
                       grade: 'C',
                       remarks: ''
                     }
@@ -1157,7 +1162,7 @@ export function TeacherStudentDetailPage() {
                   }}
                 >
                   <AcademicCapIcon className="h-4 w-4 mr-2" />
-                  Add Performance
+                  Add Overall Performance
                 </Button>
               </CardHeader>
               <CardContent>
@@ -1172,34 +1177,44 @@ export function TeacherStudentDetailPage() {
                           createPerformanceMutation.mutate({
                             studentId: id!,
                             classId: student?.classId?._id || '',
-                            subject: newPerformanceRecord.subject,
+                            subject: 'Overall',
                             score: Number(newPerformanceRecord.score),
                             maxScore: Number(newPerformanceRecord.maxScore) || 100,
                             term: newPerformanceRecord.term,
                             academicYear: newPerformanceRecord.academicYear,
-                            assessmentType: newPerformanceRecord.assessmentType,
+                            assessmentType: 'FINAL',
                             grade: newPerformanceRecord.grade,
                             remarks: newPerformanceRecord.remarks || ''
                           })
                         }}>
+                          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                            <p className="text-sm text-blue-800">
+                              <strong>Recording Overall Performance:</strong> This will record the overall grade for the selected term. In Rwanda, there are 3 terms per year.
+                            </p>
+                          </div>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Subject *</label>
-                              <input
-                                type="text"
-                                value={newPerformanceRecord.subject || ''}
-                                onChange={(e) => setNewPerformanceRecord({ ...newPerformanceRecord, subject: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="e.g., Mathematics"
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Term *</label>
+                              <select
+                                value={newPerformanceRecord.term || 'TERM_1'}
+                                onChange={(e) => setNewPerformanceRecord({ ...newPerformanceRecord, term: e.target.value })}
+                                className="w-full px-4 py-2 pr-8 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 required
-                              />
+                              >
+                                <option value="TERM_1">Term 1</option>
+                                <option value="TERM_2">Term 2</option>
+                                <option value="TERM_3">Term 3</option>
+                              </select>
+                              <p className="text-xs text-gray-500 mt-1">Select the term for this overall grade</p>
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Score *</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Overall Score (%) *</label>
+                              <div className="flex items-center space-x-2">
                               <input
                                 type="number"
                                 min="0"
                                 max="100"
+                                  step="0.1"
                                 value={newPerformanceRecord.score || 0}
                                 onChange={(e) => {
                                   const score = Number(e.target.value)
@@ -1214,35 +1229,9 @@ export function TeacherStudentDetailPage() {
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 required
                               />
+                                <span className="text-gray-600 font-medium">%</span>
                             </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Term *</label>
-                              <select
-                                value={newPerformanceRecord.term || 'TERM_1'}
-                                onChange={(e) => setNewPerformanceRecord({ ...newPerformanceRecord, term: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                required
-                              >
-                                <option value="TERM_1">Term 1</option>
-                                <option value="TERM_2">Term 2</option>
-                                <option value="TERM_3">Term 3</option>
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Assessment Type *</label>
-                              <select
-                                value={newPerformanceRecord.assessmentType || 'EXAM'}
-                                onChange={(e) => setNewPerformanceRecord({ ...newPerformanceRecord, assessmentType: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                required
-                              >
-                                <option value="EXAM">Exam</option>
-                                <option value="TEST">Test</option>
-                                <option value="QUIZ">Quiz</option>
-                                <option value="ASSIGNMENT">Assignment</option>
-                                <option value="PROJECT">Project</option>
-                                <option value="FINAL">Final</option>
-                              </select>
+                              <p className="text-xs text-gray-500 mt-1">Enter overall percentage (0-100%)</p>
                             </div>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">Grade</label>
@@ -1250,14 +1239,16 @@ export function TeacherStudentDetailPage() {
                                 value={newPerformanceRecord.grade || 'C'}
                                 onChange={(e) => setNewPerformanceRecord({ ...newPerformanceRecord, grade: e.target.value })}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                disabled
                               >
-                                <option value="A">A</option>
-                                <option value="B">B</option>
-                                <option value="C">C</option>
-                                <option value="D">D</option>
-                                <option value="E">E</option>
-                                <option value="F">F</option>
+                                <option value="A">A (90-100%)</option>
+                                <option value="B">B (80-89%)</option>
+                                <option value="C">C (70-79%)</option>
+                                <option value="D">D (60-69%)</option>
+                                <option value="E">E (50-59%)</option>
+                                <option value="F">F (0-49%)</option>
                               </select>
+                              <p className="text-xs text-gray-500 mt-1">Auto-calculated from score</p>
                             </div>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
@@ -1295,12 +1286,128 @@ export function TeacherStudentDetailPage() {
                   ) : (
                     performanceData?.data && performanceData.data.length > 0 ? (
                       <div className="space-y-3">
-                        {performanceData.data.map((performance: Performance) => (
+                        {/* Group by term for better organization */}
+                        {['TERM_1', 'TERM_2', 'TERM_3'].map(term => {
+                          const termPerformances = performanceData.data.filter((p: Performance) => p.term === term && p.subject === 'Overall')
+                          if (termPerformances.length === 0) return null
+                          
+                          return termPerformances.map((performance: Performance) => (
                         <div key={performance._id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-xl hover:bg-gray-50">
                           <div className="flex-1">
+                                <div className="flex items-center space-x-2">
+                                  <p className="font-medium text-neutral-900">
+                                    {performance.subject === 'Overall' ? 'Overall Performance' : performance.subject}
+                                  </p>
+                                  <Badge variant="info" className="text-xs">
+                                    {performance.term === 'TERM_1' ? 'Term 1' : performance.term === 'TERM_2' ? 'Term 2' : 'Term 3'}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-neutral-600">
+                                  Academic Year: {(performance as any).academicYear || 'N/A'}
+                                </p>
+                                {(performance as any).remarks && (
+                                  <p className="text-sm text-neutral-500 mt-1">{(performance as any).remarks}</p>
+                                )}
+                              </div>
+                              <div className="flex items-center space-x-3">
+                                <div className="text-right">
+                                  <p className="text-2xl font-bold text-neutral-900">{performance.score}%</p>
+                                  <Badge variant={performance.score >= 80 ? 'success' : performance.score >= 60 ? 'warning' : 'error'}>
+                                    Grade: {(performance as any).grade || 'N/A'}
+                                  </Badge>
+                                </div>
+                            {editingPerformanceId === performance._id ? (
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={editPerformanceScore}
+                                  onChange={(e) => {
+                                    const score = Number(e.target.value)
+                                    let grade = 'F'
+                                    if (score >= 90) grade = 'A'
+                                    else if (score >= 80) grade = 'B'
+                                    else if (score >= 70) grade = 'C'
+                                    else if (score >= 60) grade = 'D'
+                                    else if (score >= 50) grade = 'E'
+                                    setEditPerformanceScore(score)
+                                    setEditPerformanceGrade(grade)
+                                  }}
+                                  className="px-2 py-1 text-sm border border-gray-300 rounded-md w-20"
+                                />
+                                <select
+                                  value={editPerformanceGrade}
+                                  onChange={(e) => setEditPerformanceGrade(e.target.value)}
+                                  className="px-2 py-1 text-sm border border-gray-300 rounded-md"
+                                >
+                                  <option value="A">A</option>
+                                  <option value="B">B</option>
+                                  <option value="C">C</option>
+                                  <option value="D">D</option>
+                                  <option value="E">E</option>
+                                  <option value="F">F</option>
+                                </select>
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    updatePerformanceMutation.mutate({
+                                      performanceId: performance._id,
+                                      data: {
+                                        score: editPerformanceScore,
+                                        grade: editPerformanceGrade,
+                                        remarks: editPerformanceRemarks
+                                      }
+                                    })
+                                  }}
+                                  disabled={updatePerformanceMutation.isPending}
+                                >
+                                  <CheckIcon className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setEditingPerformanceId(null)
+                                    setEditPerformanceScore(0)
+                                    setEditPerformanceGrade('C')
+                                    setEditPerformanceRemarks('')
+                                  }}
+                                >
+                                  <XMarkIcon className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingPerformanceId(performance._id)
+                                  setEditPerformanceScore(performance.score)
+                                  setEditPerformanceGrade((performance as any).grade || 'C')
+                                  setEditPerformanceRemarks((performance as any).remarks || '')
+                                }}
+                              >
+                                <PencilIcon className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                          ))
+                        }).filter(Boolean)}
+                        
+                        {/* Show other subject performances if any */}
+                        {performanceData.data.filter((p: Performance) => p.subject !== 'Overall').map((performance: Performance) => (
+                          <div key={performance._id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-xl hover:bg-gray-50">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2">
                             <p className="font-medium text-neutral-900">{performance.subject}</p>
+                                <Badge variant="info" className="text-xs">
+                                  {performance.term === 'TERM_1' ? 'Term 1' : performance.term === 'TERM_2' ? 'Term 2' : 'Term 3'}
+                                </Badge>
+                              </div>
                             <p className="text-sm text-neutral-600">
-                              {performance.term} • {(performance as any).assessmentType || 'EXAM'} • {(performance as any).academicYear || 'N/A'}
+                                {(performance as any).assessmentType || 'EXAM'} • {(performance as any).academicYear || 'N/A'}
                             </p>
                             {(performance as any).remarks && (
                               <p className="text-sm text-neutral-500 mt-1">{(performance as any).remarks}</p>

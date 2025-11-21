@@ -88,6 +88,10 @@ router.get('/', auth, async (req, res) => {
 // All performance must be created through authenticated teachers/admins entering
 // performance data from real student assessments. No sample/test data should be
 // created through this or any other route.
+// 
+// NOTE: In Rwanda, there are 3 terms per year (TERM_1, TERM_2, TERM_3).
+// Teachers record overall grades per term as percentages (0-100%).
+// Each student can have one "Overall" performance record per term per academic year.
 router.post('/', auth, async (req, res) => {
   try {
     const { studentId, classId, academicYear, term, subject, score, maxScore, assessmentType } = req.body;
@@ -140,7 +144,8 @@ router.post('/', auth, async (req, res) => {
     // Check if performance record already exists for this student, term, and subject
     const academicYearValue = academicYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
     const termValue = term || 'TERM_1';
-    const subjectValue = subject || 'Overall';
+    // Default to 'Overall' for term-based performance recording (Rwanda: 3 terms per year)
+    const subjectValue = subject && subject.trim() !== '' ? subject.trim() : 'Overall';
     
     const existingPerformance = await Performance.findOne({
       studentId,

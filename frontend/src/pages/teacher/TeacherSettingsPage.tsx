@@ -66,14 +66,20 @@ export function TeacherSettingsPage() {
   // Upload profile picture mutation
   const uploadPictureMutation = useMutation({
     mutationFn: (file: File) => apiClient.uploadProfilePicture(file),
-    onSuccess: () => {
+    onSuccess: (response) => {
+      // Update auth store if token is provided
+      if (response.success && response.data?.token && response.data?.user) {
+        login(response.data.user, response.data.token)
+      }
       queryClient.invalidateQueries({ queryKey: ['user-profile'] })
       queryClient.invalidateQueries({ queryKey: ['user-profile', user?._id] })
       setUpdateMessage('Profile picture uploaded successfully!')
+      setTimeout(() => setUpdateMessage(''), 3000)
       setUploadingPicture(false)
     },
     onError: (error: any) => {
       setUpdateMessage(error.message || 'Failed to upload profile picture')
+      setTimeout(() => setUpdateMessage(''), 5000)
       setUploadingPicture(false)
     }
   })

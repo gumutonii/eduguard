@@ -129,7 +129,7 @@ export function SchoolSelect({
                 {selectedSchool ? getSchoolDisplayName(selectedSchool) : placeholder}
               </span>
             </div>
-            <ChevronDownIcon className={`h-4 w-4 text-neutral-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            <ChevronDownIcon className={`h-4 w-4 ml-2 text-neutral-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
           </div>
         </button>
 

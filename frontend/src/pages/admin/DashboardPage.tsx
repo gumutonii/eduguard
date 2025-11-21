@@ -26,14 +26,15 @@ import type {
 } from '@/types'
 
 export function DashboardPage() {
-  // Use school admin dashboard endpoint with optimized caching
+  // Use school admin dashboard endpoint with real-time updates
   const { data: schoolAdminStats, isLoading } = useQuery({
     queryKey: ['school-admin-stats'],
     queryFn: () => apiClient.getSchoolAdminStats(),
-    staleTime: 60000, // Consider fresh for 1 minute
-    gcTime: 300000, // Keep in cache for 5 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    staleTime: 30000, // 30 seconds - data is fresh for 30 seconds
+    gcTime: 300000, // 5 minutes - keep in cache for 5 minutes
+    refetchOnWindowFocus: true, // Refetch when window regains focus for real-time updates
+    refetchOnMount: true, // Always refetch on mount to ensure fresh data
+    refetchInterval: 60000, // Auto-refetch every 60 seconds for real-time dashboard updates
   })
 
   const loading = isLoading
@@ -240,28 +241,64 @@ export function DashboardPage() {
       {classPerformance.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center">
               <ChartBarIcon className="h-5 w-5 mr-2 text-blue-600" />
               Class Performance Comparison
+              </span>
+              <span className="text-sm font-normal text-gray-600">
+                {classPerformance.length} {classPerformance.length === 1 ? 'Class' : 'Classes'}
+              </span>
             </CardTitle>
+            <p className="text-sm text-gray-600 mt-1">All school classes with real-time student and risk data</p>
           </CardHeader>
           <CardContent>
-            <div className="h-64 sm:h-80 lg:h-96">
+            <div className="h-56 sm:h-64 lg:h-[320px] xl:h-[380px] 2xl:h-[420px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={classPerformance.slice(0, 6)}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                <BarChart 
+                  data={classPerformance} 
+                  margin={{ top: 10, right: 30, left: 20, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis 
                     dataKey="name" 
-                    angle={-45} 
+                    angle={classPerformance.length > 10 ? -60 : -45} 
                     textAnchor="end" 
-                    height={80}
-                    fontSize={12}
+                    height={classPerformance.length > 10 ? 140 : 100}
+                    fontSize={classPerformance.length > 15 ? 10 : 12}
+                    interval={0}
+                    tick={{ fill: '#6B7280' }}
                   />
-                  <YAxis fontSize={12} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="totalStudents" fill="#3B82F6" name="Total Students" />
-                  <Bar dataKey="atRiskStudents" fill="#EF4444" name="At Risk" />
+                  <YAxis 
+                    fontSize={12}
+                    tick={{ fill: '#6B7280' }}
+                    label={{ value: 'Number of Students', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#6B7280' } }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#FFFFFF', 
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                    }}
+                    cursor={{ stroke: '#E5E7EB', strokeWidth: 1 }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '0px', paddingBottom: '0px', marginTop: '-30px', marginBottom: '0px' }}
+                    iconType="rect"
+                  />
+                  <Bar 
+                    dataKey="totalStudents" 
+                    fill="#3B82F6" 
+                    name="Total Students"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar 
+                    dataKey="atRiskStudents" 
+                    fill="#EF4444" 
+                    name="At Risk Students"
+                    radius={[4, 4, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
