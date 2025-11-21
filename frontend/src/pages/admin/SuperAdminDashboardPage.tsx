@@ -704,7 +704,7 @@ export function SuperAdminDashboardPage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {displaySchools.length > 0 ? (
-                    displaySchools.map((school) => (
+                    displaySchools.map((school: any) => (
                       <tr key={school._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{school.name || 'N/A'}</div>
