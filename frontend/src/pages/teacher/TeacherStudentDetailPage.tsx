@@ -9,8 +9,6 @@ import {
   UserIcon,
   ClipboardDocumentCheckIcon,
   ChartBarIcon,
-  ExclamationTriangleIcon,
-  ClipboardDocumentListIcon,
   PhoneIcon,
   EnvelopeIcon,
   DocumentTextIcon,
@@ -27,7 +25,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
 import { apiClient } from '@/lib/api'
-import type { Student, Attendance, Performance, RiskFlag, Intervention } from '@/types'
+import type { Student, Attendance, Performance } from '@/types'
 import DistrictSectorSelect from '@/components/ui/DistrictSectorSelect'
 import { getDistricts, getSectorsByDistrict } from '@/lib/rwandaDistrictsSectors'
 import { SendAlertModal } from '@/components/SendAlertModal'
@@ -37,8 +35,6 @@ const tabs = [
   { id: 'details', name: 'Details', icon: UserIcon },
   { id: 'attendance', name: 'Attendance', icon: ClipboardDocumentCheckIcon },
   { id: 'performance', name: 'Performance', icon: ChartBarIcon },
-  { id: 'risk', name: 'Risk Center', icon: ExclamationTriangleIcon },
-  { id: 'interventions', name: 'Interventions', icon: ClipboardDocumentListIcon },
   { id: 'report', name: 'Report', icon: DocumentTextIcon },
 ]
 
@@ -317,29 +313,27 @@ export function TeacherStudentDetailPage() {
   }, [selectedDistrict, setValue, watch])
 
   // Fetch data for all tabs - enable queries for overview and active tab
+  // Ensure proper cache invalidation when student ID changes
   const { data: attendanceData, isLoading: attendanceLoading } = useQuery({
     queryKey: ['student-attendance', id],
     queryFn: () => apiClient.getStudentAttendance(id!),
     enabled: !!id && (activeTab === 'attendance' || activeTab === 'overview'),
+    staleTime: 30000, // 30 seconds
+    gcTime: 300000, // 5 minutes
+    refetchOnWindowFocus: true,
+    refetchOnMount: true, // Always refetch when component mounts or student ID changes
   })
 
   const { data: performanceData, isLoading: performanceLoading } = useQuery({
     queryKey: ['student-performance', id],
     queryFn: () => apiClient.getStudentPerformance(id!),
     enabled: !!id && (activeTab === 'performance' || activeTab === 'overview'),
+    staleTime: 30000, // 30 seconds
+    gcTime: 300000, // 5 minutes
+    refetchOnWindowFocus: true,
+    refetchOnMount: true, // Always refetch when component mounts or student ID changes
   })
 
-  const { data: riskFlagsData, isLoading: riskFlagsLoading } = useQuery({
-    queryKey: ['student-risk-flags', id],
-    queryFn: () => apiClient.getStudentRiskFlags(id!),
-    enabled: !!id && (activeTab === 'risk' || activeTab === 'overview'),
-  })
-
-  const { data: interventionsData, isLoading: interventionsLoading } = useQuery({
-    queryKey: ['student-interventions', id],
-    queryFn: () => apiClient.getStudentInterventions(id!),
-    enabled: !!id && (activeTab === 'interventions' || activeTab === 'overview'),
-  })
 
   if (studentLoading) {
     return (
@@ -1216,16 +1210,17 @@ export function TeacherStudentDetailPage() {
                                 max="100"
                                   step="0.1"
                                 value={newPerformanceRecord.score || 0}
-                                onChange={(e) => {
-                                  const score = Number(e.target.value)
-                                  let grade = 'F'
-                                  if (score >= 90) grade = 'A'
-                                  else if (score >= 80) grade = 'B'
-                                  else if (score >= 70) grade = 'C'
-                                  else if (score >= 60) grade = 'D'
-                                  else if (score >= 50) grade = 'E'
-                                  setNewPerformanceRecord({ ...newPerformanceRecord, score, grade })
-                                }}
+                                  onChange={(e) => {
+                                    const score = Number(e.target.value)
+                                    // Grade calculation: A: 80-100, B: 70-79.9, C: 60-69.9, D: 50-59.9, E: 40-49.9, F: 0-39.9
+                                    let grade = 'F'
+                                    if (score >= 80) grade = 'A'
+                                    else if (score >= 70) grade = 'B'
+                                    else if (score >= 60) grade = 'C'
+                                    else if (score >= 50) grade = 'D'
+                                    else if (score >= 40) grade = 'E'
+                                    setNewPerformanceRecord({ ...newPerformanceRecord, score, grade })
+                                  }}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 required
                               />
@@ -1325,12 +1320,13 @@ export function TeacherStudentDetailPage() {
                                   value={editPerformanceScore}
                                   onChange={(e) => {
                                     const score = Number(e.target.value)
+                                    // Grade calculation: A: 80-100, B: 70-79.9, C: 60-69.9, D: 50-59.9, E: 40-49.9, F: 0-39.9
                                     let grade = 'F'
-                                    if (score >= 90) grade = 'A'
-                                    else if (score >= 80) grade = 'B'
-                                    else if (score >= 70) grade = 'C'
-                                    else if (score >= 60) grade = 'D'
-                                    else if (score >= 50) grade = 'E'
+                                    if (score >= 80) grade = 'A'
+                                    else if (score >= 70) grade = 'B'
+                                    else if (score >= 60) grade = 'C'
+                                    else if (score >= 50) grade = 'D'
+                                    else if (score >= 40) grade = 'E'
                                     setEditPerformanceScore(score)
                                     setEditPerformanceGrade(grade)
                                   }}
@@ -1429,12 +1425,13 @@ export function TeacherStudentDetailPage() {
                                   value={editPerformanceScore}
                                   onChange={(e) => {
                                     const score = Number(e.target.value)
+                                    // Grade calculation: A: 80-100, B: 70-79.9, C: 60-69.9, D: 50-59.9, E: 40-49.9, F: 0-39.9
                                     let grade = 'F'
-                                    if (score >= 90) grade = 'A'
-                                    else if (score >= 80) grade = 'B'
-                                    else if (score >= 70) grade = 'C'
-                                    else if (score >= 60) grade = 'D'
-                                    else if (score >= 50) grade = 'E'
+                                    if (score >= 80) grade = 'A'
+                                    else if (score >= 70) grade = 'B'
+                                    else if (score >= 60) grade = 'C'
+                                    else if (score >= 50) grade = 'D'
+                                    else if (score >= 40) grade = 'E'
                                     setEditPerformanceScore(score)
                                     setEditPerformanceGrade(grade)
                                   }}
@@ -1511,125 +1508,6 @@ export function TeacherStudentDetailPage() {
               </CardContent>
             </Card>
           </div>
-        )
-
-      case 'risk':
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle>Risk Assessment</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {riskFlagsLoading ? (
-                  <div className="animate-pulse space-y-4">
-                    {[...Array(3)].map((_, i) => (
-                      <div key={i} className="h-20 bg-neutral-200 rounded-xl"></div>
-                    ))}
-                  </div>
-                ) : riskFlagsData?.data && riskFlagsData.data.length > 0 ? (
-                  <div className="space-y-3">
-                    {riskFlagsData.data.map((riskFlag: RiskFlag) => (
-                      <div key={riskFlag._id} className={`p-4 border rounded-xl ${
-                        riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' ? 'bg-red-50 border-red-200' :
-                        riskFlag.severity === 'MEDIUM' ? 'bg-yellow-50 border-yellow-200' :
-                        'bg-green-50 border-green-200'
-                      }`}>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className={`font-medium ${
-                              riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' ? 'text-red-800' :
-                              riskFlag.severity === 'MEDIUM' ? 'text-yellow-800' :
-                              'text-green-800'
-                            }`}>
-                              {riskFlag.title || 'Risk Flag'}
-                            </p>
-                            <p className={`text-sm ${
-                              riskFlag.severity === 'CRITICAL' || riskFlag.severity === 'HIGH' ? 'text-red-600' :
-                              riskFlag.severity === 'MEDIUM' ? 'text-yellow-600' :
-                              'text-green-600'
-                            }`}>
-                              Type: {riskFlag.type || 'UNKNOWN'} • Severity: {riskFlag.severity || 'UNKNOWN'}
-                            </p>
-                            {riskFlag.description && (
-                              <p className="text-sm text-neutral-600 mt-1">{riskFlag.description}</p>
-                            )}
-                            <p className="text-xs text-neutral-500 mt-1">
-                              Status: {riskFlag.isResolved ? 'RESOLVED' : riskFlag.isActive ? 'ACTIVE' : 'INACTIVE'} • Created: {new Date(riskFlag.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <Badge variant={(riskFlag.severity || 'low').toLowerCase() as 'low' | 'medium' | 'high'}>
-                            {riskFlag.severity || 'UNKNOWN'}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <ExclamationTriangleIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
-                    <p className="text-neutral-600 font-medium">No risk flags found</p>
-                    <p className="text-sm text-neutral-500 mt-2">Risk flags will appear here when detected by the system.</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )
-
-      case 'interventions':
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle>Intervention History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {interventionsLoading ? (
-                  <div className="animate-pulse space-y-4">
-                    {[...Array(3)].map((_, i) => (
-                      <div key={i} className="h-20 bg-neutral-200 rounded-xl"></div>
-                    ))}
-                  </div>
-                ) : interventionsData?.data && interventionsData.data.length > 0 ? (
-                  <div className="space-y-3">
-                    {interventionsData.data.map((intervention: Intervention) => (
-                      <div key={intervention._id} className="p-4 border border-neutral-200 rounded-xl">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-neutral-900">{intervention.title || 'Intervention'}</p>
-                            {intervention.description && (
-                              <p className="text-sm text-neutral-600 mt-1">{intervention.description}</p>
-                            )}
-                            <p className="text-xs text-neutral-500 mt-1">
-                              Status: {intervention.status || 'UNKNOWN'} • 
-                              {intervention.dueDate ? ` Due: ${new Date(intervention.dueDate).toLocaleDateString()}` : ' No due date'} • 
-                              Created: {new Date(intervention.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <Badge variant={
-                            intervention.status === 'COMPLETED' ? 'success' : 
-                            intervention.status === 'IN_PROGRESS' ? 'info' : 
-                            intervention.status === 'PLANNED' ? 'warning' :
-                            intervention.status === 'ON_HOLD' ? 'warning' :
-                            'error'
-                          }>
-                            {intervention.status || 'UNKNOWN'}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <ClipboardDocumentListIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
-                    <p className="text-neutral-600 font-medium">No interventions found</p>
-                    <p className="text-sm text-neutral-500 mt-2">Interventions will appear here once they are created for this student.</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
         )
 
       case 'report':

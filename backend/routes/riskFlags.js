@@ -19,14 +19,30 @@ router.get('/', auth, async (req, res) => {
       query.schoolId = req.user.schoolId;
     }
 
+    // For teachers, verify they have access to the requested student
+    if (studentId && req.user.role === 'TEACHER') {
+      const student = await Student.findOne({
+        _id: studentId,
+        assignedTeacher: req.user._id,
+        schoolId: req.user.schoolId,
+        isActive: true
+      }).select('_id');
+      if (!student) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You do not have access to this student'
+        });
+      }
+    }
+    
     if (studentId) query.studentId = studentId;
     if (type) query.type = type;
     if (severity) query.severity = severity;
     if (isActive !== undefined) query.isActive = isActive === 'true';
     if (isResolved !== undefined) query.isResolved = isResolved === 'true';
 
-    // For teachers, filter by their assigned students
-    if (req.user.role === 'TEACHER') {
+    // For teachers, filter by their assigned students ONLY if no specific studentId is requested
+    if (req.user.role === 'TEACHER' && !studentId) {
       const students = await Student.find({
         assignedTeacher: req.user._id,
         schoolId: req.user.schoolId,

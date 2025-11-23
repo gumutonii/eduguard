@@ -6,6 +6,7 @@ const multer = require('multer');
 const csv = require('fast-csv');
 const { stringify } = require('csv-stringify/sync');
 const cloudinary = require('../config/cloudinary');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -289,20 +290,19 @@ router.post('/', [
     const student = new Student(studentData);
     await student.save();
 
-    // Notify admins if student is at-risk
-    if (['MEDIUM', 'HIGH', 'CRITICAL'].includes(studentData.riskLevel)) {
-      const { notifyAdminOfStudentRisk } = require('../utils/adminNotificationService');
-      const riskReason = `Student registered with ${studentData.riskLevel} risk level based on socio-economic factors.`;
-      await notifyAdminOfStudentRisk(student._id, studentData.riskLevel, riskReason, 'SOCIOECONOMIC');
-
-      // Automatically notify parents/guardians if student registered with HIGH or CRITICAL risk
-      if (studentData.riskLevel === 'HIGH' || studentData.riskLevel === 'CRITICAL') {
-        const { notifyParentsOfRisk } = require('../utils/notificationService');
-        notifyParentsOfRisk(student._id, studentData.riskLevel, riskReason).catch(err => {
-          console.error('Error notifying parents during registration:', err);
-        });
+    // Detect socio-economic and family-based risks immediately after registration
+    const riskDetectionService = require('../services/riskDetectionService');
+    setTimeout(async () => {
+      try {
+        await riskDetectionService.detectSocioeconomicRisks(
+          student._id,
+          req.user.schoolId,
+          req.user._id
+        );
+      } catch (error) {
+        logger.error(`Socioeconomic risk detection failed for student ${student._id}:`, error);
       }
-    }
+    }, 100); // Small delay to ensure response is sent first
 
     const populatedStudent = await Student.findById(student._id)
       .populate('assignedTeacher', 'name email')

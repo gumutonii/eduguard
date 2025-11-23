@@ -12,6 +12,7 @@ const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Helper function to calculate grade from score (matches pre-save hook logic)
+// Grade scale: A: 80-100, B: 70-79.9, C: 60-69.9, D: 50-59.9, E: 40-49.9, F: 0-39.9
 function calculateGrade(score, maxScore = 100) {
   // Validate inputs
   if (typeof score !== 'number' || isNaN(score)) {
@@ -22,11 +23,11 @@ function calculateGrade(score, maxScore = 100) {
   }
   
   const percentage = (score / maxScore) * 100;
-  if (percentage >= 90) return 'A';
-  if (percentage >= 80) return 'B';
-  if (percentage >= 70) return 'C';
-  if (percentage >= 60) return 'D';
-  if (percentage >= 50) return 'E';
+  if (percentage >= 80) return 'A';
+  if (percentage >= 70) return 'B';
+  if (percentage >= 60) return 'C';
+  if (percentage >= 50) return 'D';
+  if (percentage >= 40) return 'E';
   return 'F';
 }
 
@@ -42,14 +43,31 @@ router.get('/', auth, async (req, res) => {
       query.schoolId = req.user.schoolId;
     }
 
+    // For teachers, verify they have access to the requested student
+    if (studentId && req.user.role === 'TEACHER') {
+      const student = await Student.findOne({
+        _id: studentId,
+        assignedTeacher: req.user._id,
+        schoolId: req.user.schoolId,
+        isActive: true
+      }).select('_id');
+      if (!student) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You do not have access to this student'
+        });
+      }
+    }
+    
     if (studentId) query.studentId = studentId;
     if (classId) query.classId = classId;
     if (subject) query.subject = subject;
     if (term) query.term = term;
     if (academicYear) query.academicYear = academicYear;
 
-    // For teachers, filter by their assigned students
-    if (req.user.role === 'TEACHER') {
+    // For teachers, filter by their assigned students ONLY if no specific studentId is requested
+    // If studentId is provided, we should respect it (after verifying access in middleware if needed)
+    if (req.user.role === 'TEACHER' && !studentId) {
       const students = await Student.find({
         assignedTeacher: req.user._id,
         schoolId: req.user.schoolId,
@@ -519,30 +537,37 @@ router.post('/bulk', auth, async (req, res) => {
       p.grade === 'F' || p.grade === 'E'
     );
 
-    if (failingRecords.length > 0) {
+    // Process term-based performance risk detection and alerts asynchronously (non-blocking)
+    // Get unique students who had performance recorded
+    const uniqueStudents = [...new Set(records.map(r => r.studentId))];
+    
+    if (uniqueStudents.length > 0) {
       setTimeout(async () => {
-        for (const perf of failingRecords) {
+        for (const studentId of uniqueStudents) {
           try {
-            // Run risk detection (non-blocking)
-            riskDetectionService.detectRisksForStudent(
-              perf.studentId,
+            // Run term-based performance risk detection (current term)
+            riskDetectionService.detectTermPerformanceRisks(
+              studentId,
               req.user.schoolId,
               req.user._id
             ).catch(err => {
-              logger.error(`Risk detection failed for student ${perf.studentId}:`, err);
+              logger.error(`Term performance risk detection failed for student ${studentId}:`, err);
             });
 
-            // Send performance alert (non-blocking)
-            messageService.sendPerformanceAlert(
-              perf.studentId,
-              perf.subject,
-              perf.score,
-              req.user._id
-            ).catch(msgError => {
-              logger.error('Failed to send performance alert:', msgError);
-            });
+            // Send performance alerts for failing records (non-blocking)
+            const failingForStudent = failingRecords.filter(p => p.studentId.toString() === studentId.toString());
+            for (const perf of failingForStudent) {
+              messageService.sendPerformanceAlert(
+                perf.studentId,
+                perf.subject,
+                perf.score,
+                req.user._id
+              ).catch(msgError => {
+                logger.error('Failed to send performance alert:', msgError);
+              });
+            }
           } catch (error) {
-            logger.error(`Error processing performance alert for student ${perf.studentId}:`, error);
+            logger.error(`Error processing performance for student ${studentId}:`, error);
           }
         }
       }, 100);

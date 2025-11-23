@@ -19,6 +19,22 @@ router.get('/', auth, async (req, res) => {
       query.schoolId = req.user.schoolId;
     }
 
+    // For teachers, verify they have access to the requested student
+    if (studentId && req.user.role === 'TEACHER') {
+      const student = await Student.findOne({
+        _id: studentId,
+        assignedTeacher: req.user._id,
+        schoolId: req.user.schoolId,
+        isActive: true
+      }).select('_id');
+      if (!student) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You do not have access to this student'
+        });
+      }
+    }
+    
     if (studentId) query.studentId = studentId;
     if (status) query.status = status;
     
@@ -46,8 +62,9 @@ router.get('/', auth, async (req, res) => {
     // Filter by classId if provided (use direct classId field for better performance)
     if (classId) {
       query.classId = classId;
-    } else if (req.user.role === 'TEACHER') {
-      // For teachers, filter by their assigned students
+    } else if (req.user.role === 'TEACHER' && !studentId) {
+      // For teachers, filter by their assigned students ONLY if no specific studentId is requested
+      // If studentId is provided, we should respect it (after verifying access in middleware if needed)
       const students = await Student.find({
         assignedTeacher: req.user._id,
         schoolId: req.user.schoolId,
@@ -353,34 +370,40 @@ router.post('/mark', auth, async (req, res) => {
       errors: errors.length > 0 ? errors : undefined
     });
 
-    // Process risk detection and alerts asynchronously (non-blocking)
+    // Process weekly attendance risk detection and alerts asynchronously (non-blocking)
     // Use setTimeout to ensure response is sent first
-    if (absentStudents.length > 0) {
+    // Get unique students who had attendance marked this week
+    const uniqueStudents = [...new Set(records.map(r => r.studentId))];
+    
+    if (uniqueStudents.length > 0) {
       setTimeout(async () => {
-        for (const absent of absentStudents) {
+        for (const studentId of uniqueStudents) {
           try {
-            // Run risk detection (non-blocking, don't await)
-            riskDetectionService.detectRisksForStudent(
-              absent.studentId,
+            // Run weekly attendance risk detection (current week, 5 days)
+            riskDetectionService.detectWeeklyAttendanceRisks(
+              studentId,
               req.user.schoolId,
               req.user._id
             ).catch(err => {
-              logger.error(`Risk detection failed for student ${absent.studentId}:`, err);
+              logger.error(`Weekly attendance risk detection failed for student ${studentId}:`, err);
             });
 
-            // Send absence alert (non-blocking, don't await)
-            messageService.sendAbsenceAlert(
-              absent.studentId,
-              absent.date,
-              req.user._id
-            ).catch(msgError => {
-              // Silently fail - don't log every template error
-              if (!msgError.message?.includes('Template')) {
-                logger.error('Failed to send absence alert:', msgError);
-              }
-            });
+            // Send absence alerts for absent students (non-blocking, don't await)
+            const absentForStudent = absentStudents.filter(a => a.studentId.toString() === studentId.toString());
+            for (const absent of absentForStudent) {
+              messageService.sendAbsenceAlert(
+                absent.studentId,
+                absent.date,
+                req.user._id
+              ).catch(msgError => {
+                // Silently fail - don't log every template error
+                if (!msgError.message?.includes('Template')) {
+                  logger.error('Failed to send absence alert:', msgError);
+                }
+              });
+            }
           } catch (error) {
-            logger.error(`Error processing absence for student ${absent.studentId}:`, error);
+            logger.error(`Error processing attendance for student ${studentId}:`, error);
           }
         }
       }, 100); // Small delay to ensure response is sent

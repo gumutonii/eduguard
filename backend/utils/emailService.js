@@ -330,26 +330,40 @@ const sendParentRiskAlert = async (parentEmail, parentName, studentName, riskLev
   }
 };
 
-// Send SMS notification (placeholder - would integrate with SMS service)
+// Send SMS notification using Twilio SMS service
 const sendParentRiskAlertSMS = async (parentPhone, studentName, riskLevel, schoolName) => {
   try {
-    // This would integrate with an SMS service like Twilio
-    // For now, we'll just log the SMS content
+    const smsService = require('./smsService');
+    
+    // Check if SMS service is configured
+    if (!smsService.isEnabled()) {
+      console.warn('SMS service not configured, skipping SMS notification');
+      return { success: false, error: 'SMS service not configured' };
+    }
+    
     const message = `EduGuard Alert: ${studentName} has been flagged as ${riskLevel} risk at ${schoolName}. Please contact the school for details.`;
     
-    console.log('SMS would be sent to:', parentPhone);
+    console.log('Sending SMS to:', parentPhone);
     console.log('SMS content:', message);
     
-    // In a real implementation, you would use a service like Twilio:
-    // const twilio = require('twilio');
-    // const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
-    // const result = await client.messages.create({
-    //   body: message,
-    //   from: process.env.TWILIO_PHONE,
-    //   to: parentPhone
-    // });
+    // Use the SMS service to send the message
+    const result = await smsService.sendSMS(parentPhone, message);
     
-    return { success: true, message: 'SMS notification logged (SMS service not configured)' };
+    if (result.success) {
+      console.log(`✅ SMS sent successfully to ${parentPhone}, SID: ${result.sid}`);
+      return { 
+        success: true, 
+        sid: result.sid,
+        status: result.status,
+        message: 'SMS notification sent successfully' 
+      };
+    } else {
+      console.error(`❌ Failed to send SMS to ${parentPhone}:`, result.error);
+      return { 
+        success: false, 
+        error: result.error || 'Failed to send SMS' 
+      };
+    }
   } catch (error) {
     console.error('Error sending parent risk alert SMS:', error);
     return { success: false, error: error.message };

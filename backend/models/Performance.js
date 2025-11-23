@@ -81,14 +81,15 @@ performanceSchema.index({ studentId: 1, subject: 1 });
 performanceSchema.index({ schoolId: 1, classId: 1, academicYear: 1, term: 1 });
 
 // Auto-calculate grade before saving
+// Grade scale: A: 80-100, B: 70-79.9, C: 60-69.9, D: 50-59.9, E: 40-49.9, F: 0-39.9
 performanceSchema.pre('save', function(next) {
   const percentage = (this.score / this.maxScore) * 100;
   
-  if (percentage >= 90) this.grade = 'A';
-  else if (percentage >= 80) this.grade = 'B';
-  else if (percentage >= 70) this.grade = 'C';
-  else if (percentage >= 60) this.grade = 'D';
-  else if (percentage >= 50) this.grade = 'E';
+  if (percentage >= 80) this.grade = 'A';
+  else if (percentage >= 70) this.grade = 'B';
+  else if (percentage >= 60) this.grade = 'C';
+  else if (percentage >= 50) this.grade = 'D';
+  else if (percentage >= 40) this.grade = 'E';
   else this.grade = 'F';
   
   next();

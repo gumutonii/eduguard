@@ -103,7 +103,7 @@ export function TeacherDashboardPage() {
               <span className="sm:hidden">Students</span>
             </Button>
           </Link>
-          <Link to="/students" className="w-full sm:w-auto">
+          <Link to="/attendance-performance" className="w-full sm:w-auto">
             <Button variant="primary" className="w-full sm:w-auto min-h-[44px]">
               <ClipboardDocumentCheckIcon className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Take Attendance</span>
@@ -147,31 +147,35 @@ export function TeacherDashboardPage() {
           </Card>
         </Link>
 
-        <Card className="h-32">
-          <CardContent className="p-6 h-full">
-            <div className="flex items-center justify-between h-full">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-neutral-600">Attendance Rate</p>
-                <p className="text-3xl font-bold text-green-600">{attendance.rate || 0}%</p>
-                <p className="text-xs text-neutral-500">Last 30 days</p>
+        <Link to="/attendance-performance">
+          <Card className="h-32 hover:shadow-lg transition-shadow cursor-pointer">
+            <CardContent className="p-6 h-full">
+              <div className="flex items-center justify-between h-full">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-neutral-600">Attendance Rate</p>
+                  <p className="text-3xl font-bold text-green-600">{attendance.rate || 0}%</p>
+                  <p className="text-xs text-neutral-500">Last 30 days</p>
+                </div>
+                <ClipboardDocumentCheckIcon className="h-12 w-12 text-green-500 opacity-75" />
               </div>
-              <ClipboardDocumentCheckIcon className="h-12 w-12 text-green-500 opacity-75" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card className="h-32">
-          <CardContent className="p-6 h-full">
-            <div className="flex items-center justify-between h-full">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-neutral-600">Avg Performance</p>
-                <p className="text-3xl font-bold text-purple-600">{performance.averageScore || 0}%</p>
-                <p className="text-xs text-neutral-500">{performance.passingRate || 0}% passing</p>
+        <Link to="/attendance-performance">
+          <Card className="h-32 hover:shadow-lg transition-shadow cursor-pointer">
+            <CardContent className="p-6 h-full">
+              <div className="flex items-center justify-between h-full">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-neutral-600">Avg Performance</p>
+                  <p className="text-3xl font-bold text-purple-600">{performance.averageScore || 0}%</p>
+                  <p className="text-xs text-neutral-500">{performance.passingRate || 0}% passing</p>
+                </div>
+                <ChartBarIcon className="h-12 w-12 text-purple-500 opacity-75" />
               </div>
-              <ChartBarIcon className="h-12 w-12 text-purple-500 opacity-75" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Additional Metrics Row */}

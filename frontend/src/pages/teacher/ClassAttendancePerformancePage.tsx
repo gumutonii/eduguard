@@ -117,18 +117,33 @@ export function ClassAttendancePerformancePage() {
     }
   }, [attendanceRecords, students, selectedWeek])
 
-  // Get existing performance records
+  // Get existing performance records for selected term
   const { data: performanceRecords, refetch: refetchPerformance } = useQuery({
     queryKey: ['class-performance', id, selectedTerm],
     queryFn: async () => {
       const currentYear = new Date().getFullYear()
       const academicYear = `${currentYear}-${currentYear + 1}`
-      const response = await apiClient.getPerformance({ 
-        classId: id,
-        term: selectedTerm,
-        academicYear
-      })
-      return response.data || []
+      
+      // If Annual is selected, fetch all 3 terms
+      if (selectedTerm === 'ANNUAL') {
+        const [term1, term2, term3] = await Promise.all([
+          apiClient.getPerformance({ classId: id, term: 'TERM_1', academicYear }),
+          apiClient.getPerformance({ classId: id, term: 'TERM_2', academicYear }),
+          apiClient.getPerformance({ classId: id, term: 'TERM_3', academicYear })
+        ])
+        return {
+          TERM_1: term1.data || [],
+          TERM_2: term2.data || [],
+          TERM_3: term3.data || []
+        }
+      } else {
+        const response = await apiClient.getPerformance({ 
+          classId: id,
+          term: selectedTerm,
+          academicYear
+        })
+        return response.data || []
+      }
     },
     enabled: !!id && activeTab === 'performance' && students.length > 0
   })
@@ -137,17 +152,51 @@ export function ClassAttendancePerformancePage() {
   useEffect(() => {
     if (performanceRecords && students.length > 0) {
       const initialData: Record<string, { term: string; score: number }> = {}
-      students.forEach((student: any) => {
-        const record = performanceRecords.find((r: any) => 
-          (r.studentId?._id || r.studentId) === student._id
-        )
-        if (record) {
-          initialData[student._id] = {
-            term: selectedTerm,
-            score: record.score || 0
+      
+      if (selectedTerm === 'ANNUAL') {
+        // Calculate annual average from all 3 terms: (Term 1 + Term 2 + Term 3) / 3
+        students.forEach((student: any) => {
+          const studentId = student._id
+          const term1Record = (performanceRecords as any).TERM_1?.find((r: any) => 
+            (r.studentId?._id || r.studentId) === studentId
+          )
+          const term2Record = (performanceRecords as any).TERM_2?.find((r: any) => 
+            (r.studentId?._id || r.studentId) === studentId
+          )
+          const term3Record = (performanceRecords as any).TERM_3?.find((r: any) => 
+            (r.studentId?._id || r.studentId) === studentId
+          )
+          
+          // Get scores, treating missing terms as 0
+          const term1Score = term1Record?.score ?? 0
+          const term2Score = term2Record?.score ?? 0
+          const term3Score = term3Record?.score ?? 0
+          
+          // Calculate average: (Term 1 + Term 2 + Term 3) / 3
+          const average = (term1Score + term2Score + term3Score) / 3
+          
+          initialData[studentId] = {
+            term: 'ANNUAL',
+            score: Math.round(average * 10) / 10 // Round to 1 decimal place
           }
-        }
-      })
+        })
+      } else {
+        // Regular term data
+        const records = Array.isArray(performanceRecords) ? performanceRecords : []
+        students.forEach((student: any) => {
+          const record = records.find((r: any) => 
+            (r.studentId?._id || r.studentId) === student._id
+          )
+          if (record) {
+            // Include 0% scores (record.score can be 0)
+            initialData[student._id] = {
+              term: selectedTerm,
+              score: record.score !== undefined && record.score !== null ? record.score : 0
+            }
+          }
+        })
+      }
+      
       setPerformanceData(initialData)
     }
   }, [performanceRecords, students, selectedTerm])
@@ -210,17 +259,13 @@ export function ClassAttendancePerformancePage() {
         })
       }
       
-      // Invalidate related queries to ensure consistency
+      // Invalidate and refetch to ensure consistency (similar to performance mutation)
       queryClient.invalidateQueries({ queryKey: ['class-attendance'] })
       queryClient.invalidateQueries({ queryKey: ['teacher-stats'] })
       queryClient.invalidateQueries({ queryKey: ['student-attendance'] })
       
-      // Refetch attendance data to ensure UI is up-to-date
-      try {
-        await refetchAttendance()
-      } catch (error) {
-        console.error('Error refetching attendance:', error)
-      }
+      // Silently refetch in background (non-blocking, like performance)
+      refetchAttendance().catch(() => {})
       
       // Show success message
       if (response.success) {
@@ -241,13 +286,19 @@ export function ClassAttendancePerformancePage() {
   // Save performance mutation with optimistic updates and bulk endpoint
   const savePerformanceMutation = useMutation({
     mutationFn: async () => {
+      // Don't allow saving annual performance (it's auto-calculated)
+      if (selectedTerm === 'ANNUAL') {
+        throw new Error('Annual performance is auto-calculated and cannot be saved directly. Please save individual term performances.')
+      }
+      
       const records: any[] = []
       const currentYear = new Date().getFullYear()
       const academicYear = `${currentYear}-${currentYear + 1}`
       
       students.forEach((student: any) => {
         const perf = performanceData[student._id]
-        if (perf && perf.score > 0) {
+        // Allow 0% scores to be saved (score >= 0 instead of score > 0)
+        if (perf && perf.score >= 0 && perf.score <= 100) {
           records.push({
             studentId: student._id,
             classId: id,
@@ -350,6 +401,11 @@ export function ClassAttendancePerformancePage() {
   }
 
   const handlePerformanceChange = (studentId: string, score: number) => {
+    // Don't allow editing annual performance (it's auto-calculated)
+    if (selectedTerm === 'ANNUAL') {
+      return
+    }
+    
     setPerformanceData(prev => ({
       ...prev,
       [studentId]: {
@@ -551,9 +607,13 @@ export function ClassAttendancePerformancePage() {
             <div className="flex flex-col space-y-3">
             <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Overall Term Performance</CardTitle>
+                  <CardTitle>
+                    {selectedTerm === 'ANNUAL' ? 'Annual Performance' : 'Overall Term Performance'}
+                  </CardTitle>
                   <p className="text-sm text-gray-600 mt-1">
-                    Record overall grades per term (Rwanda: 3 terms per year). Enter percentage scores (0-100%) for each student.
+                    {selectedTerm === 'ANNUAL' 
+                      ? 'Annual performance is automatically calculated as the average of Term 1, Term 2, and Term 3 percentages.'
+                      : 'Enter percentage scores (0-100%) for each student.'}
                   </p>
                 </div>
               <div className="flex items-center space-x-2">
@@ -566,6 +626,7 @@ export function ClassAttendancePerformancePage() {
                   <option value="TERM_1">Term 1</option>
                   <option value="TERM_2">Term 2</option>
                   <option value="TERM_3">Term 3</option>
+                  <option value="ANNUAL">Annual</option>
                 </select>
                 </div>
               </div>
@@ -597,7 +658,8 @@ export function ClassAttendancePerformancePage() {
                     {students.map((student: any) => {
                       const perf = performanceData[student._id]
                       const score = perf?.score || 0
-                      const grade = score >= 90 ? 'A' : score >= 80 ? 'B' : score >= 70 ? 'C' : score >= 60 ? 'D' : score >= 50 ? 'E' : 'F'
+                      // Grade calculation: A: 80-100, B: 70-79.9, C: 60-69.9, D: 50-59.9, E: 40-49.9, F: 0-39.9
+                      const grade = score >= 80 ? 'A' : score >= 70 ? 'B' : score >= 60 ? 'C' : score >= 50 ? 'D' : score >= 40 ? 'E' : 'F'
                       const gradeColor = grade === 'A' || grade === 'B' ? 'success' : grade === 'C' || grade === 'D' ? 'warning' : 'error'
 
                       return (
@@ -627,16 +689,33 @@ export function ClassAttendancePerformancePage() {
                           </td>
                           <td className="px-4 py-4">
                             <div className="flex items-center justify-center space-x-2">
-                              <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={score}
-                                onChange={(e) => handlePerformanceChange(student._id, parseFloat(e.target.value) || 0)}
-                                className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                                placeholder="0-100"
-                              />
-                              <span className="text-gray-600">%</span>
+                              {selectedTerm === 'ANNUAL' ? (
+                                <>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    value={score}
+                                    readOnly
+                                    className="w-24 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed"
+                                    placeholder="0-100"
+                                  />
+                                  <span className="text-gray-600">%</span>
+                                </>
+                              ) : (
+                                <>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    value={score}
+                                    onChange={(e) => handlePerformanceChange(student._id, parseFloat(e.target.value) || 0)}
+                                    className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                    placeholder="0-100"
+                                  />
+                                  <span className="text-gray-600">%</span>
+                                </>
+                              )}
                             </div>
                           </td>
                           <td className="px-4 py-4 text-center">
@@ -651,14 +730,24 @@ export function ClassAttendancePerformancePage() {
                 </table>
                 <div className="mt-4 flex items-center justify-between">
                   <p className="text-sm text-gray-600">
-                    <strong>Note:</strong> This saves the overall grade for <strong>{selectedTerm === 'TERM_1' ? 'Term 1' : selectedTerm === 'TERM_2' ? 'Term 2' : 'Term 3'}</strong> for all students. Each student can have one overall grade per term.
+                    {selectedTerm === 'ANNUAL' ? (
+                      <>
+                        <strong>Note:</strong> Annual performance is automatically calculated as the average of Term 1, Term 2, and Term 3 percentages. It cannot be edited directly.
+                      </>
+                    ) : (
+                      <>
+                        <strong>Note:</strong> This saves the overall grade for <strong>{selectedTerm === 'TERM_1' ? 'Term 1' : selectedTerm === 'TERM_2' ? 'Term 2' : 'Term 3'}</strong> for all students. Each student can have one overall grade per term.
+                      </>
+                    )}
                   </p>
-                  <Button 
-                    onClick={() => savePerformanceMutation.mutate()}
-                    disabled={savePerformanceMutation.isPending}
-                  >
-                    {savePerformanceMutation.isPending ? 'Saving...' : `Save ${selectedTerm === 'TERM_1' ? 'Term 1' : selectedTerm === 'TERM_2' ? 'Term 2' : 'Term 3'} Performance`}
-                  </Button>
+                  {selectedTerm !== 'ANNUAL' && (
+                    <Button 
+                      onClick={() => savePerformanceMutation.mutate()}
+                      disabled={savePerformanceMutation.isPending}
+                    >
+                      {savePerformanceMutation.isPending ? 'Saving...' : `Save ${selectedTerm === 'TERM_1' ? 'Term 1' : selectedTerm === 'TERM_2' ? 'Term 2' : 'Term 3'} Performance`}
+                    </Button>
+                  )}
                 </div>
               </div>
             )}

@@ -7,7 +7,246 @@ const logger = require('../utils/logger');
 
 class RiskDetectionService {
   /**
-   * Run risk detection for a specific student
+   * Detect socio-economic and family-based risks (triggered after student registration)
+   */
+  async detectSocioeconomicRisks(studentId, schoolId, userId) {
+    try {
+      const student = await Student.findById(studentId);
+      if (!student) {
+        throw new Error('Student not found');
+      }
+
+      const settings = await Settings.getOrCreateForSchool(schoolId);
+      const risks = [];
+
+      // Check socioeconomic risks
+      if (settings.riskRules.socioeconomic.enabled) {
+        const socioeconomicRisk = await this.checkSocioeconomicRisk(student, settings.riskRules.socioeconomic);
+        if (socioeconomicRisk) {
+          risks.push(socioeconomicRisk);
+        }
+      }
+
+      // Check distance to school risks
+      const distanceRisk = await this.checkDistanceRisk(student);
+      if (distanceRisk) {
+        risks.push(distanceRisk);
+      }
+
+      // Create risk flags for new risks
+      return await this.createRiskFlags(studentId, schoolId, userId, risks);
+    } catch (error) {
+      logger.error(`Socioeconomic risk detection failed for student ${studentId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Detect weekly attendance risks (triggered after weekly attendance is saved)
+   */
+  async detectWeeklyAttendanceRisks(studentId, schoolId, userId) {
+    try {
+      const student = await Student.findById(studentId);
+      if (!student) {
+        throw new Error('Student not found');
+      }
+
+      const settings = await Settings.getOrCreateForSchool(schoolId);
+      const risks = [];
+
+      // Check weekly attendance risks (current week, 5 days)
+      if (settings.riskRules.attendance.enabled) {
+        const attendanceRisk = await this.checkWeeklyAttendanceRisk(studentId, settings.riskRules.attendance);
+        if (attendanceRisk) {
+          risks.push(attendanceRisk);
+        }
+      }
+
+      // Create risk flags for new risks
+      return await this.createRiskFlags(studentId, schoolId, userId, risks);
+    } catch (error) {
+      logger.error(`Weekly attendance risk detection failed for student ${studentId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Detect term-based performance risks (triggered after term performance is saved)
+   */
+  async detectTermPerformanceRisks(studentId, schoolId, userId) {
+    try {
+      const student = await Student.findById(studentId);
+      if (!student) {
+        throw new Error('Student not found');
+      }
+
+      const settings = await Settings.getOrCreateForSchool(schoolId);
+      const risks = [];
+
+      // Check term-based performance risks (current term)
+      if (settings.riskRules.performance.enabled) {
+        const performanceRisk = await this.checkTermPerformanceRisk(studentId, settings.riskRules.performance);
+        if (performanceRisk) {
+          risks.push(performanceRisk);
+        }
+      }
+
+      // Create risk flags for new risks
+      return await this.createRiskFlags(studentId, schoolId, userId, risks);
+    } catch (error) {
+      logger.error(`Term performance risk detection failed for student ${studentId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Helper method to create risk flags from detected risks
+   * Smart logic: Only one active flag per type per student
+   * - If flag exists, update it with latest/most severe information
+   * - If flag doesn't exist, create new one
+   */
+  async createRiskFlags(studentId, schoolId, userId, risks) {
+    const createdFlags = [];
+    const updatedFlags = [];
+    
+    // Group risks by type to handle multiple risks of the same type
+    const risksByType = {};
+    for (const risk of risks) {
+      if (!risksByType[risk.type]) {
+        risksByType[risk.type] = [];
+      }
+      risksByType[risk.type].push(risk);
+    }
+
+    // Process each risk type (ensuring only one flag per type per student)
+    for (const [riskType, typeRisks] of Object.entries(risksByType)) {
+      // Find existing active flag of this type for this student
+      const existingFlag = await RiskFlag.findOne({
+        studentId,
+        type: riskType,
+        isActive: true,
+        isResolved: false
+      });
+
+      // Determine the most severe risk for this type
+      const severityOrder = { 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4 };
+      const mostSevereRisk = typeRisks.reduce((prev, current) => {
+        return severityOrder[current.severity] > severityOrder[prev.severity] ? current : prev;
+      });
+
+      if (existingFlag) {
+        // Update existing flag with latest/most severe information
+        const severityChanged = existingFlag.severity !== mostSevereRisk.severity;
+        const wasLowerSeverity = severityOrder[existingFlag.severity] < severityOrder[mostSevereRisk.severity];
+
+        // Update the flag with new information
+        existingFlag.title = mostSevereRisk.title;
+        existingFlag.description = mostSevereRisk.description;
+        existingFlag.severity = mostSevereRisk.severity;
+        existingFlag.data = mostSevereRisk.data;
+        existingFlag.updatedAt = new Date();
+        
+        await existingFlag.save();
+        updatedFlags.push(existingFlag);
+
+        // Deactivate any other active flags of the same type (shouldn't happen, but safety check)
+        await RiskFlag.updateMany(
+          {
+            studentId,
+            type: riskType,
+            isActive: true,
+            isResolved: false,
+            _id: { $ne: existingFlag._id }
+          },
+          {
+            isActive: false,
+            isResolved: true,
+            resolvedAt: new Date(),
+            resolvedBy: userId,
+            resolutionNotes: 'Auto-resolved: Replaced by updated risk flag of the same type'
+          }
+        );
+
+        // Notify if severity increased to HIGH or CRITICAL
+        if (wasLowerSeverity && ['HIGH', 'CRITICAL'].includes(mostSevereRisk.severity)) {
+          const { notifyAdminOfStudentRisk } = require('../utils/adminNotificationService');
+          await notifyAdminOfStudentRisk(
+            studentId,
+            mostSevereRisk.severity,
+            `Risk flag severity increased: ${mostSevereRisk.title}. ${mostSevereRisk.description}`,
+            riskType
+          );
+
+          // Notify parents if severity increased to HIGH or CRITICAL
+          const { notifyParentsOfRisk } = require('../utils/notificationService');
+          const riskDescription = `${mostSevereRisk.title}. ${mostSevereRisk.description}`;
+          notifyParentsOfRisk(studentId, mostSevereRisk.severity, riskDescription).catch(err => {
+            logger.error('Error notifying parents of risk flag update:', err);
+          });
+        }
+      } else {
+        // Safety check: Deactivate any other active flags of the same type (shouldn't happen, but handles race conditions)
+        await RiskFlag.updateMany(
+          {
+            studentId,
+            type: riskType,
+            isActive: true,
+            isResolved: false
+          },
+          {
+            isActive: false,
+            isResolved: true,
+            resolvedAt: new Date(),
+            resolvedBy: userId,
+            resolutionNotes: 'Auto-resolved: Replaced by new risk flag of the same type'
+          }
+        );
+
+        // Create new flag for this type
+        const flag = await RiskFlag.create({
+          studentId,
+          schoolId,
+          ...mostSevereRisk,
+          createdBy: userId,
+          autoGenerated: true
+        });
+        createdFlags.push(flag);
+
+        // Notify admins immediately for HIGH and CRITICAL risk flags
+        if (['HIGH', 'CRITICAL'].includes(mostSevereRisk.severity)) {
+          const { notifyAdminOfStudentRisk } = require('../utils/adminNotificationService');
+          await notifyAdminOfStudentRisk(
+            studentId,
+            mostSevereRisk.severity,
+            `New ${mostSevereRisk.severity} risk flag detected: ${mostSevereRisk.title}. ${mostSevereRisk.description}`,
+            riskType
+          );
+
+          // Automatically notify parents/guardians for HIGH and CRITICAL risk flags
+          const { notifyParentsOfRisk } = require('../utils/notificationService');
+          const riskDescription = `${mostSevereRisk.title}. ${mostSevereRisk.description}`;
+          notifyParentsOfRisk(studentId, mostSevereRisk.severity, riskDescription).catch(err => {
+            logger.error('Error notifying parents of new risk flag:', err);
+          });
+        }
+      }
+    }
+
+    // Update student risk level if flags were created or updated
+    if (createdFlags.length > 0 || updatedFlags.length > 0) {
+      await this.updateStudentRiskLevel(studentId);
+    }
+
+    return {
+      risksDetected: risks.length,
+      flagsCreated: createdFlags.length,
+      flagsUpdated: updatedFlags.length,
+      flags: [...createdFlags, ...updatedFlags]
+    };
+  }
+
+  /**
+   * Run risk detection for a specific student (legacy method - kept for backward compatibility)
    */
   async detectRisksForStudent(studentId, schoolId, userId) {
     try {
@@ -58,59 +297,7 @@ class RiskDetectionService {
       }
 
       // Create risk flags for new risks
-      const createdFlags = [];
-      for (const risk of risks) {
-        // Check if similar flag already exists
-        const existingFlag = await RiskFlag.findOne({
-          studentId,
-          type: risk.type,
-          isActive: true,
-          severity: risk.severity
-        });
-
-        if (!existingFlag) {
-          const flag = await RiskFlag.create({
-            studentId,
-            schoolId,
-            ...risk,
-            createdBy: userId,
-            autoGenerated: true
-          });
-          createdFlags.push(flag);
-
-          // Notify admins immediately for HIGH and CRITICAL risk flags
-          if (['HIGH', 'CRITICAL'].includes(risk.severity)) {
-            const { notifyAdminOfStudentRisk } = require('../utils/adminNotificationService');
-            await notifyAdminOfStudentRisk(
-              studentId,
-              risk.severity,
-              `New ${risk.severity} risk flag detected: ${risk.title}. ${risk.description}`,
-              risk.type
-            );
-
-            // Automatically notify parents/guardians for HIGH and CRITICAL risk flags
-            const { notifyParentsOfRisk } = require('../utils/notificationService');
-            const riskDescription = `${risk.title}. ${risk.description}`;
-            notifyParentsOfRisk(studentId, risk.severity, riskDescription).catch(err => {
-              logger.error('Error notifying parents of new risk flag:', err);
-            });
-          }
-        }
-      }
-
-      // Update student risk level (this will also notify admins if overall risk is at-risk)
-      await this.updateStudentRiskLevel(studentId);
-
-      logger.info(`Risk detection completed for student ${studentId}`, {
-        risksDetected: risks.length,
-        flagsCreated: createdFlags.length
-      });
-
-      return {
-        risksDetected: risks.length,
-        flagsCreated: createdFlags.length,
-        flags: createdFlags
-      };
+      return await this.createRiskFlags(studentId, schoolId, userId, risks);
     } catch (error) {
       logger.error(`Risk detection failed for student ${studentId}:`, error);
       throw error;
@@ -118,7 +305,103 @@ class RiskDetectionService {
   }
 
   /**
-   * Check attendance-based risks
+   * Check attendance-based risks for current week (5 days)
+   * Weekly attendance risk detection: flags students with poor attendance in the current week
+   */
+  async checkWeeklyAttendanceRisk(studentId, rules) {
+    // Get current week (Monday to Friday - 5 days)
+    const today = new Date();
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+    const monday = new Date(today.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+    
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4); // Friday (5 days total)
+    friday.setHours(23, 59, 59, 999);
+
+    // Get attendance records for current week (5 days)
+    const weekAttendance = await Attendance.find({
+      studentId,
+      date: { $gte: monday, $lte: friday }
+    }).sort({ date: -1 });
+
+    // Count absences in current week
+    const absences = weekAttendance.filter(a => a.status === 'ABSENT').length;
+    const totalDays = weekAttendance.length;
+    
+    // Expected: 5 days in a week
+    const expectedDays = 5;
+    
+    // Risk thresholds for weekly attendance (5 days):
+    // CRITICAL: 4-5 absences (80-100% absence rate)
+    // HIGH: 3 absences (60% absence rate)
+    // MEDIUM: 2 absences (40% absence rate)
+    
+    if (absences >= 4) {
+      const absenceRate = totalDays > 0 ? ((absences / totalDays) * 100).toFixed(1) : ((absences / expectedDays) * 100).toFixed(1);
+      return {
+        type: 'ATTENDANCE',
+        severity: 'CRITICAL',
+        title: `Critical Weekly Absenteeism: ${absences} absences out of ${totalDays || expectedDays} days this week`,
+        description: `Student has been absent ${absences} out of ${totalDays || expectedDays} school days this week (${absenceRate}% absence rate). This is a critical attendance issue requiring immediate attention.`,
+        data: {
+          attendanceData: {
+            absences: absences,
+            totalSchoolDays: totalDays || expectedDays,
+            absenceRate: absenceRate,
+            period: 'Current week (5 days)',
+            weekStart: monday,
+            weekEnd: friday,
+            dates: weekAttendance.filter(a => a.status === 'ABSENT').map(a => a.date)
+          }
+        }
+      };
+    } else if (absences >= 3) {
+      const absenceRate = totalDays > 0 ? ((absences / totalDays) * 100).toFixed(1) : ((absences / expectedDays) * 100).toFixed(1);
+      return {
+        type: 'ATTENDANCE',
+        severity: 'HIGH',
+        title: `High Weekly Absenteeism: ${absences} absences out of ${totalDays || expectedDays} days this week`,
+        description: `Student has been absent ${absences} out of ${totalDays || expectedDays} school days this week (${absenceRate}% absence rate). This indicates high dropout risk.`,
+        data: {
+          attendanceData: {
+            absences: absences,
+            totalSchoolDays: totalDays || expectedDays,
+            absenceRate: absenceRate,
+            period: 'Current week (5 days)',
+            weekStart: monday,
+            weekEnd: friday,
+            dates: weekAttendance.filter(a => a.status === 'ABSENT').map(a => a.date)
+          }
+        }
+      };
+    } else if (absences >= 2) {
+      const absenceRate = totalDays > 0 ? ((absences / totalDays) * 100).toFixed(1) : ((absences / expectedDays) * 100).toFixed(1);
+      return {
+        type: 'ATTENDANCE',
+        severity: 'MEDIUM',
+        title: `Moderate Weekly Absenteeism: ${absences} absences out of ${totalDays || expectedDays} days this week`,
+        description: `Student has been absent ${absences} out of ${totalDays || expectedDays} school days this week (${absenceRate}% absence rate). Monitor attendance patterns closely.`,
+        data: {
+          attendanceData: {
+            absences: absences,
+            totalSchoolDays: totalDays || expectedDays,
+            absenceRate: absenceRate,
+            period: 'Current week (5 days)',
+            weekStart: monday,
+            weekEnd: friday,
+            dates: weekAttendance.filter(a => a.status === 'ABSENT').map(a => a.date)
+          }
+        }
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Check attendance-based risks (legacy method - kept for backward compatibility)
    * Refined: Only flag as CRITICAL/HIGH if absent 10+ days out of 20 school days (2 weeks out of 4 weeks)
    * This is 50% absence rate over a month (assuming 5 days per week)
    */
@@ -195,7 +478,109 @@ class RiskDetectionService {
   }
 
   /**
-   * Check performance-based risks
+   * Check performance-based risks for current term
+   * Term-based performance risk detection: flags students with poor performance in the current term
+   */
+  async checkTermPerformanceRisk(studentId, rules) {
+    // Get current academic year and term
+    const currentYear = new Date().getFullYear();
+    const academicYear = `${currentYear}-${currentYear + 1}`;
+    
+    // Determine current term based on date (Rwanda: 3 terms per year)
+    // Term 1: Jan-Apr, Term 2: May-Aug, Term 3: Sep-Dec
+    const currentMonth = new Date().getMonth() + 1; // 1-12
+    let currentTerm = 'TERM_1';
+    if (currentMonth >= 5 && currentMonth <= 8) {
+      currentTerm = 'TERM_2';
+    } else if (currentMonth >= 9 || currentMonth <= 4) {
+      currentTerm = currentMonth >= 9 ? 'TERM_3' : 'TERM_1';
+    }
+
+    // Get performance records for current term (Overall subject only)
+    const termPerformances = await Performance.find({
+      studentId,
+      academicYear,
+      term: currentTerm,
+      subject: 'Overall'
+    }).sort({ createdAt: -1 });
+
+    if (termPerformances.length === 0) {
+      return null;
+    }
+
+    // Get the most recent overall performance for current term
+    const latestPerformance = termPerformances[0];
+    const score = latestPerformance.score || 0;
+    const maxScore = latestPerformance.maxScore || 100;
+    const percentage = (score / maxScore) * 100;
+    const percentageRounded = parseFloat(percentage.toFixed(1));
+
+    // Risk thresholds based on grade scale:
+    // F: 0-39.9% (CRITICAL: 0-29.9%, HIGH: 30-39.9%)
+    // E: 40-49.9% (MEDIUM)
+    // D: 50-59.9% (LOW/MEDIUM)
+    
+    if (percentageRounded <= 29.9) {
+      return {
+        type: 'PERFORMANCE',
+        severity: 'CRITICAL',
+        title: `Critical Term Performance: ${percentageRounded}% (F grade) in ${currentTerm.replace('_', ' ')}`,
+        description: `Student's overall performance in ${currentTerm.replace('_', ' ')} is ${percentageRounded}% (F grade), which is critically below the passing threshold. This indicates critical academic risk requiring immediate intervention.`,
+        data: {
+          performanceData: {
+            term: currentTerm,
+            academicYear: academicYear,
+            overallScore: percentageRounded,
+            score: score,
+            maxScore: maxScore,
+            grade: 'F',
+            threshold: 40
+          }
+        }
+      };
+    } else if (percentageRounded <= 39.9) {
+      return {
+        type: 'PERFORMANCE',
+        severity: 'HIGH',
+        title: `High Term Performance Risk: ${percentageRounded}% (F grade) in ${currentTerm.replace('_', ' ')}`,
+        description: `Student's overall performance in ${currentTerm.replace('_', ' ')} is ${percentageRounded}% (F grade), which is significantly below the passing threshold. This indicates high academic risk requiring immediate attention.`,
+        data: {
+          performanceData: {
+            term: currentTerm,
+            academicYear: academicYear,
+            overallScore: percentageRounded,
+            score: score,
+            maxScore: maxScore,
+            grade: 'F',
+            threshold: 40
+          }
+        }
+      };
+    } else if (percentageRounded <= 49.9) {
+      return {
+        type: 'PERFORMANCE',
+        severity: 'MEDIUM',
+        title: `Moderate Term Performance Risk: ${percentageRounded}% (E grade) in ${currentTerm.replace('_', ' ')}`,
+        description: `Student's overall performance in ${currentTerm.replace('_', ' ')} is ${percentageRounded}% (E grade), which is below average. Monitor progress closely.`,
+        data: {
+          performanceData: {
+            term: currentTerm,
+            academicYear: academicYear,
+            overallScore: percentageRounded,
+            score: score,
+            maxScore: maxScore,
+            grade: 'E',
+            threshold: 50
+          }
+        }
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Check performance-based risks (legacy method - kept for backward compatibility)
    * Refined: Only flag as CRITICAL/HIGH if overall average performance is 39% (F grade) or below
    * This prevents flagging students with minor performance issues as high risk
    */
