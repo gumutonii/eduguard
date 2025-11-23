@@ -65,16 +65,16 @@ jobs:
       
       - name: Verify package.json
         run: |
-          echo "✅ Package.json validated"
-          npm list --depth=0 || echo "⚠️ Some dependencies may be missing"
+          echo "Package.json validated"
+          npm list --depth=0 || echo "Some dependencies may be missing"
         continue-on-error: true
       
       - name: Run linter (if configured)
-        run: npm run lint || echo "ℹ️ No lint script configured"
+        run: npm run lint || echo "No lint script configured"
         continue-on-error: true
       
       - name: Run tests (if configured)
-        run: npm test || echo "ℹ️ No tests configured"
+        run: npm test || echo "No tests configured"
         continue-on-error: true
       
       - name: Validate server.js syntax
@@ -107,11 +107,11 @@ jobs:
         continue-on-error: false
       
       - name: Run linter
-        run: npm run lint || echo "ℹ️ Linting skipped"
+        run: npm run lint || echo "Linting skipped"
         continue-on-error: true
       
       - name: TypeScript type check
-        run: npx tsc --noEmit || echo "ℹ️ TypeScript check skipped if no tsconfig"
+        run: npx tsc --noEmit || echo "TypeScript check skipped if no tsconfig"
         continue-on-error: true
       
       - name: Build frontend (validate production build)
@@ -125,10 +125,10 @@ jobs:
       - name: Verify build output
         run: |
           if [ -d "dist" ] && [ "$(ls -A dist)" ]; then
-            echo "✅ Build output verified"
+            echo "Build output verified"
             ls -lah dist/
           else
-            echo "❌ Build output directory is empty or missing"
+            echo "Build output directory is empty or missing"
             exit 1
           fi
 
@@ -142,20 +142,20 @@ jobs:
       - name: Check job results
         run: |
           if [ "${{ needs.backend-validation.result }}" == "success" ] && [ "${{ needs.frontend-validation.result }}" == "success" ]; then
-            echo "✅ All validations passed!"
-            echo "🚀 Code is ready for deployment"
-            echo "ℹ️  Render and Vercel will auto-deploy via webhooks"
+            echo "All validations passed!"
+            echo "Code is ready for deployment"
+            echo "Render and Vercel will auto-deploy via webhooks"
             exit 0
           elif [ "${{ needs.backend-validation.result }}" == "failure" ]; then
-            echo "❌ Backend validation failed"
-            echo "⚠️  Check backend-validation job logs"
+            echo "Backend validation failed"
+            echo "Check backend-validation job logs"
             exit 1
           elif [ "${{ needs.frontend-validation.result }}" == "failure" ]; then
-            echo "❌ Frontend validation failed"
-            echo "⚠️  Check frontend-validation job logs"
+            echo "Frontend validation failed"
+            echo "Check frontend-validation job logs"
             exit 1
           else
-            echo "⚠️  Some validations had issues (non-blocking)"
-            echo "ℹ️  Render and Vercel deployments proceed independently"
+            echo "Some validations had issues (non-blocking)"
+            echo "Render and Vercel deployments proceed independently"
             exit 0
           fi
