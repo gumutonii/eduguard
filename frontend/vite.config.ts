@@ -9,6 +9,46 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Vendor chunks
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+              return 'react-vendor'
+            }
+            if (id.includes('@tanstack/react-query')) {
+              return 'query-vendor'
+            }
+            if (id.includes('recharts')) {
+              return 'chart-vendor'
+            }
+            if (id.includes('@headlessui') || id.includes('@heroicons')) {
+              return 'ui-vendor'
+            }
+            // Other node_modules
+            return 'vendor'
+          }
+          
+          // Feature chunks by role
+          if (id.includes('/pages/admin/')) {
+            if (id.includes('SuperAdminDashboardPage') || id.includes('AllSchoolsPage') || 
+                id.includes('SchoolDetailPage') || id.includes('AllUsersPage') || 
+                id.includes('UserDetailPage') || id.includes('UserEditPage')) {
+              return 'super-admin-pages'
+            }
+            return 'admin-pages'
+          }
+          
+          if (id.includes('/pages/teacher/')) {
+            return 'teacher-pages'
+          }
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000, // Increase limit to 1000 KB
+  },
   server: {
     port: 5173,
     host: true, // Allow external connections
