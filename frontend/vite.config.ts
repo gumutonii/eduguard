@@ -10,7 +10,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['recharts'],
+    include: ['recharts', 'react', 'react-dom', 'react-router-dom'],
     esbuildOptions: {
       target: 'es2020',
     },
@@ -20,40 +20,19 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          // Exclude recharts from manual chunking to avoid circular dependency issues
-          // Vite will handle it automatically with its default chunking strategy
-          if (id.includes('recharts')) {
-            return undefined
-          }
-          
-          // Vendor chunks
+          // Simplified chunking strategy to avoid circular dependencies
+          // Only chunk the most stable core dependencies
           if (id.includes('node_modules')) {
+            // Core React ecosystem - most stable, least likely to cause issues
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
               return 'react-vendor'
             }
-            if (id.includes('@tanstack/react-query')) {
-              return 'query-vendor'
-            }
-            if (id.includes('@headlessui') || id.includes('@heroicons')) {
-              return 'ui-vendor'
-            }
-            // Other node_modules
+            // Everything else goes into a single vendor chunk
+            // This avoids circular dependencies from complex chunking strategies
             return 'vendor'
           }
-          
-          // Feature chunks by role
-          if (id.includes('/pages/admin/')) {
-            if (id.includes('SuperAdminDashboardPage') || id.includes('AllSchoolsPage') || 
-                id.includes('SchoolDetailPage') || id.includes('AllUsersPage') || 
-                id.includes('UserDetailPage') || id.includes('UserEditPage')) {
-              return 'super-admin-pages'
-            }
-            return 'admin-pages'
-          }
-          
-          if (id.includes('/pages/teacher/')) {
-            return 'teacher-pages'
-          }
+          // Don't manually chunk source code - let Vite handle it automatically
+          // This prevents circular dependencies between pages and shared components
         },
       },
     },
