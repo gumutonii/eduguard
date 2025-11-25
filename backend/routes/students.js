@@ -559,6 +559,10 @@ router.put('/:id/risk-flags/:flagId/resolve', [
 
     await student.resolveRiskFlag(flagId, req.user._id);
 
+    // Update student risk level (will automatically set to LOW if all flags resolved)
+    const riskDetectionService = require('../services/riskDetectionService');
+    await riskDetectionService.updateStudentRiskLevel(id);
+
     const updatedStudent = await Student.findById(id)
       .populate('assignedTeacher', 'name email')
       .populate('riskFlags.resolvedBy', 'name');

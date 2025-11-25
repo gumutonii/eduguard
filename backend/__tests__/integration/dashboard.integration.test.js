@@ -98,11 +98,15 @@ describe('Dashboard Statistics Routes - Integration Tests', () => {
     await Class.deleteMany({});
     await User.deleteMany({});
     await School.deleteMany({});
+    
+    // Wait a bit to ensure cleanup is complete
+    await new Promise(resolve => setTimeout(resolve, 50));
 
     // Create test school with unique name
     const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 9);
     testSchool = await School.create({
-      name: `Test School ${timestamp}`,
+      name: `Test School ${timestamp}-${randomSuffix}`,
       district: 'Kigali',
       sector: 'Nyarugenge',
       isActive: true
@@ -130,9 +134,9 @@ describe('Dashboard Statistics Routes - Integration Tests', () => {
       isActive: true
     });
 
-    // Generate auth token
+    // Generate auth token (must match middleware default)
     const jwt = require('jsonwebtoken');
-    authToken = jwt.sign({ userId: testUser._id }, process.env.JWT_SECRET || 'test-secret');
+    authToken = jwt.sign({ userId: testUser._id }, process.env.JWT_SECRET || 'test-jwt-secret-key-for-testing-only');
   });
 
   describe('GET /api/dashboard/school-admin-stats - Integration Tests', () => {
@@ -184,12 +188,26 @@ describe('Dashboard Statistics Routes - Integration Tests', () => {
 
       // Refresh user from database to ensure it exists
       const User = require('../../models/User');
-      const refreshedUser = await User.findById(testUser._id);
+      let refreshedUser = await User.findById(testUser._id);
+      
+      // If user doesn't exist, recreate it
+      if (!refreshedUser) {
+        refreshedUser = await User.create({
+          email: testUser.email,
+          password: 'password123',
+          name: testUser.name,
+          role: testUser.role,
+          schoolId: testSchool._id,
+          isApproved: true,
+          isActive: true
+        });
+      }
+      
       expect(refreshedUser).not.toBeNull();
 
-      // Regenerate token to ensure it's valid
+      // Regenerate token to ensure it's valid (must match middleware default)
       const jwt = require('jsonwebtoken');
-      const freshToken = jwt.sign({ userId: refreshedUser._id }, process.env.JWT_SECRET || 'test-secret');
+      const freshToken = jwt.sign({ userId: refreshedUser._id }, process.env.JWT_SECRET || 'test-jwt-secret-key-for-testing-only');
 
       const response = await request(app)
         .get('/api/dashboard/school-admin-stats')
@@ -225,10 +243,10 @@ describe('Dashboard Statistics Routes - Integration Tests', () => {
         });
       }
 
-      // Regenerate token to ensure it's valid
+      // Regenerate token to ensure it's valid (must match middleware default)
       const jwt = require('jsonwebtoken');
       const userId = refreshedUser ? refreshedUser._id : testUser._id;
-      const freshToken = jwt.sign({ userId: userId }, process.env.JWT_SECRET || 'test-secret');
+      const freshToken = jwt.sign({ userId: userId }, process.env.JWT_SECRET || 'test-jwt-secret-key-for-testing-only');
 
       const testStudent = await createValidStudent({
         firstName: 'Risk',
@@ -275,7 +293,7 @@ describe('Dashboard Statistics Routes - Integration Tests', () => {
       });
 
       const jwt = require('jsonwebtoken');
-      teacherToken = jwt.sign({ userId: teacher._id }, process.env.JWT_SECRET || 'test-secret');
+      teacherToken = jwt.sign({ userId: teacher._id }, process.env.JWT_SECRET || 'test-jwt-secret-key-for-testing-only');
     });
 
     test('should return teacher dashboard statistics', async () => {
@@ -297,9 +315,9 @@ describe('Dashboard Statistics Routes - Integration Tests', () => {
     });
 
     test('should calculate class average score correctly', async () => {
-      // Regenerate teacher token to ensure it's valid
+      // Regenerate teacher token to ensure it's valid (must match middleware default)
       const jwt = require('jsonwebtoken');
-      const freshTeacherToken = jwt.sign({ userId: teacher._id }, process.env.JWT_SECRET || 'test-secret');
+      const freshTeacherToken = jwt.sign({ userId: teacher._id }, process.env.JWT_SECRET || 'test-jwt-secret-key-for-testing-only');
 
       // Create student assigned to teacher
       const student = await createValidStudent({

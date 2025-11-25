@@ -126,14 +126,14 @@ describe('Student Management Routes - Integration Tests', () => {
 
     // Generate auth token
     const jwt = require('jsonwebtoken');
-    authToken = jwt.sign({ userId: testUser._id }, process.env.JWT_SECRET || 'test-secret');
+    authToken = jwt.sign({ userId: testUser._id }, process.env.JWT_SECRET || 'test-jwt-secret-key-for-testing-only');
   });
 
   describe('GET /api/students - Integration Tests', () => {
     test('should return list of students for authenticated admin', async () => {
       // Regenerate token to ensure it's valid
       const jwt = require('jsonwebtoken');
-      const freshToken = jwt.sign({ userId: testUser._id }, process.env.JWT_SECRET || 'test-secret');
+      const freshToken = jwt.sign({ userId: testUser._id }, process.env.JWT_SECRET || 'test-jwt-secret-key-for-testing-only');
 
       // Create test student with all required fields
       testStudent = await createValidStudent();

@@ -25,6 +25,7 @@ module.exports = {
     '!**/logs/**'
   ],
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
-  testTimeout: 30000
+  testTimeout: 30000,
+  maxWorkers: 1 // Run tests sequentially to avoid database interference between tests
 }
 

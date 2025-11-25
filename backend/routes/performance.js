@@ -242,6 +242,58 @@ router.post('/', auth, async (req, res) => {
         }
       });
     }
+    
+    // Check if student needs re-evaluation after a term of performance recording
+    setImmediate(async () => {
+      try {
+        const student = await Student.findById(performance.studentId);
+        if (student && student.lastAllFlagsResolvedAt) {
+          // Check if this is a new term performance record
+          // If all flags were resolved and we're recording performance for a new term, re-evaluate
+          const currentYear = new Date().getFullYear();
+          const academicYear = `${currentYear}-${currentYear + 1}`;
+          const currentMonth = new Date().getMonth() + 1;
+          let currentTerm = 'TERM_1';
+          if (currentMonth >= 5 && currentMonth <= 8) {
+            currentTerm = 'TERM_2';
+          } else if (currentMonth >= 9 || currentMonth <= 4) {
+            currentTerm = currentMonth >= 9 ? 'TERM_3' : 'TERM_1';
+          }
+          
+          // Check if performance record is for current term and subject is "Overall"
+          if (performance.term === currentTerm && 
+              performance.academicYear === academicYear && 
+              performance.subject === 'Overall') {
+            
+            // Check if we have a performance record for this term (means term has been completed)
+            const termPerformances = await Performance.find({
+              studentId: performance.studentId,
+              academicYear: academicYear,
+              term: currentTerm,
+              subject: 'Overall'
+            });
+            
+            // If we have at least one performance record for this term, re-evaluate
+            if (termPerformances.length >= 1) {
+              logger.info(`Re-evaluating risk level for student ${performance.studentId} after term performance recording`);
+              await riskDetectionService.detectTermPerformanceRisks(
+                performance.studentId,
+                req.user.schoolId,
+                req.user._id
+              ).catch(err => {
+                logger.error(`Term performance re-evaluation failed for student ${performance.studentId}:`, err);
+              });
+              
+              // Clear the lastAllFlagsResolvedAt since we've re-evaluated
+              student.lastAllFlagsResolvedAt = null;
+              await student.save();
+            }
+          }
+        }
+      } catch (error) {
+        logger.error(`Error checking re-evaluation for student ${performance.studentId}:`, error);
+      }
+    });
   } catch (error) {
     logger.error('Error creating performance record:', error);
     res.status(500).json({

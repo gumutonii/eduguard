@@ -379,6 +379,42 @@ router.post('/mark', auth, async (req, res) => {
       setTimeout(async () => {
         for (const studentId of uniqueStudents) {
           try {
+            // Check if student needs re-evaluation after a week of attendance recording
+            const student = await Student.findById(studentId);
+            if (student && student.lastAllFlagsResolvedAt) {
+              const oneWeekAgo = new Date();
+              oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+              
+              // If all flags were resolved more than a week ago, re-evaluate risk level
+              if (new Date(student.lastAllFlagsResolvedAt) <= oneWeekAgo) {
+                // Check if student has at least 5 days of attendance in the last week
+                const weekStart = new Date();
+                weekStart.setDate(weekStart.getDate() - 7);
+                weekStart.setHours(0, 0, 0, 0);
+                
+                const weekAttendance = await Attendance.find({
+                  studentId,
+                  date: { $gte: weekStart }
+                });
+                
+                // If student has at least 5 days of attendance records in the past week, re-evaluate
+                if (weekAttendance.length >= 5) {
+                  logger.info(`Re-evaluating risk level for student ${studentId} after a week of attendance recording`);
+                  await riskDetectionService.detectWeeklyAttendanceRisks(
+                    studentId,
+                    req.user.schoolId,
+                    req.user._id
+                  ).catch(err => {
+                    logger.error(`Re-evaluation failed for student ${studentId}:`, err);
+                  });
+                  
+                  // Clear the lastAllFlagsResolvedAt since we've re-evaluated
+                  student.lastAllFlagsResolvedAt = null;
+                  await student.save();
+                }
+              }
+            }
+            
             // Run weekly attendance risk detection (current week, 5 days)
             riskDetectionService.detectWeeklyAttendanceRisks(
               studentId,

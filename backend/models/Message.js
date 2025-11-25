@@ -225,10 +225,18 @@ messageSchema.statics.getPendingMessages = async function(limit = 100) {
 };
 
 // Static method to get delivery statistics
+// Only counts messages that were actually sent (have SMS SID or Email ID)
 messageSchema.statics.getDeliveryStats = async function(schoolName, schoolDistrict, startDate, endDate) {
   const messages = await this.find({
-    schoolName, schoolDistrict,
-    createdAt: { $gte: startDate, $lte: endDate }
+    schoolName, 
+    schoolDistrict,
+    createdAt: { $gte: startDate, $lte: endDate },
+    // Only count messages that were actually sent (have SMS SID or Email ID)
+    $or: [
+      { smsSid: { $exists: true, $ne: null, $ne: '' } },
+      { emailMessageId: { $exists: true, $ne: null, $ne: '' } },
+      { status: { $in: ['SENT', 'DELIVERED'] } }
+    ]
   });
 
   return {

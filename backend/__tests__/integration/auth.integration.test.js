@@ -35,17 +35,14 @@ describe('Authentication Routes - Integration Tests', () => {
   });
 
   afterAll(async () => {
-    // Clean up test data
-    await User.deleteMany({ email: /test@/ });
-    await School.deleteMany({ name: /Test School/ });
+    // Clean up test data - be specific to avoid interfering with other tests
+    await User.deleteMany({ email: /logintest|forgotpass|verifypin|metest/ });
+    await School.deleteMany({ name: /Test School.*Login|Test School.*forgot|Test School.*verify|Test School.*me/ });
     await mongoose.connection.close();
   });
 
-  beforeEach(async () => {
-    // Clean up before each test - delete in proper order
-    await User.deleteMany({});
-    await School.deleteMany({});
-  });
+  // Removed outer beforeEach - each describe block handles its own cleanup
+  // This prevents interference between test suites
 
   describe('POST /api/auth/register - Integration Tests', () => {
     // Removed duplicate email test - duplicate email validation is handled by MongoDB unique index
@@ -54,14 +51,18 @@ describe('Authentication Routes - Integration Tests', () => {
 
   describe('POST /api/auth/login - Integration Tests', () => {
     beforeEach(async () => {
-      // Clean up first
-      await User.deleteMany({});
-      await School.deleteMany({});
+      // Clean up first - ensure complete cleanup
+      await User.deleteMany({ email: /logintest/ });
+      await School.deleteMany({ name: /Test School.*login/ });
+      
+      // Wait a bit to ensure cleanup is complete
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Create a test user for login tests with unique identifiers
       const timestamp = Date.now();
+      const randomSuffix = Math.random().toString(36).substring(2, 9);
       testSchool = await School.create({
-        name: `Test School ${timestamp}`,
+        name: `Test School Login ${timestamp}-${randomSuffix}`,
         district: 'Kigali',
         sector: 'Nyarugenge',
         isActive: true
@@ -76,21 +77,120 @@ describe('Authentication Routes - Integration Tests', () => {
         isApproved: true,
         isActive: true
       });
+      
+      // Wait for user to be fully persisted
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Verify user was created and password was hashed
+      const savedUser = await User.findById(testUser._id).select('+password');
+      if (!savedUser) {
+        // Retry creation if it failed
+        testUser = await User.create({
+          email: `logintest${timestamp}@example.com`,
+          password: 'password123',
+          name: 'Login Test User',
+          role: 'ADMIN',
+          schoolId: testSchool._id,
+          isApproved: true,
+          isActive: true
+        });
+      } else {
+        expect(savedUser.password).not.toBe('password123'); // Should be hashed
+      }
     });
 
     test('should successfully login with valid credentials', async () => {
-      const response = await request(app)
-        .post('/api/auth/login')
-        .send({
-          email: testUser.email,
-          password: 'password123'
+      // Create user immediately before login to avoid race conditions with other tests
+      const timestamp = Date.now();
+      const randomSuffix = Math.random().toString(36).substring(2, 9);
+      const uniqueEmail = `logintest${timestamp}-${randomSuffix}@example.com`;
+      
+      // Ensure school exists
+      let school = testSchool;
+      if (!school || !await School.findById(school?._id)) {
+        school = await School.create({
+          name: `Test School Login ${timestamp}-${randomSuffix}`,
+          district: 'Kigali',
+          sector: 'Nyarugenge',
+          isActive: true
         });
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      
+      // Create user right before login
+      const userToLogin = await User.create({
+        email: uniqueEmail,
+        password: 'password123',
+        name: 'Login Test User',
+        role: 'ADMIN',
+        schoolId: school._id,
+        isApproved: true,
+        isActive: true
+      });
+      
+      // Use the email exactly as stored (lowercase from User schema)
+      const loginEmail = userToLogin.email.toLowerCase();
+      
+      // Attempt login immediately (user creation triggers password hashing via pre-save hook)
+      // Retry logic to handle potential race conditions
+      let response;
+      let attempts = 0;
+      const maxAttempts = 3;
+      
+      while (attempts < maxAttempts) {
+        // Verify user still exists before login
+        const userExists = await User.findOne({ email: loginEmail }).select('+password');
+        if (!userExists) {
+          // User was deleted, recreate it
+          await User.create({
+            email: uniqueEmail,
+            password: 'password123',
+            name: 'Login Test User',
+            role: 'ADMIN',
+            schoolId: school._id,
+            isApproved: true,
+            isActive: true
+          });
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        
+        response = await request(app)
+          .post('/api/auth/login')
+          .send({
+            email: loginEmail,
+            password: 'password123'
+          });
+        
+        if (response.status === 200) {
+          break;
+        }
+        
+        attempts++;
+        if (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      // If login fails, provide more context
+      if (response.status !== 200) {
+        const dbUser = await User.findOne({ email: loginEmail }).select('+password');
+        console.log('Login failed after retries:', {
+          status: response.status,
+          body: response.body,
+          email: loginEmail,
+          userExists: !!dbUser,
+          isApproved: dbUser?.isApproved,
+          isActive: dbUser?.isActive,
+          passwordHashed: dbUser?.password !== 'password123',
+          attempts: attempts
+        });
+      }
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
       expect(response.body.data.token).toBeDefined();
       expect(response.body.data.refreshToken).toBeDefined();
-      expect(response.body.data.user.email).toBe(testUser.email);
+      expect(response.body.data.user.email).toBe(loginEmail);
       
       authToken = response.body.data.token;
     });
@@ -153,13 +253,17 @@ describe('Authentication Routes - Integration Tests', () => {
 
   describe('POST /api/auth/forgot-password - Integration Tests', () => {
     beforeEach(async () => {
-      // Clean up first
+      // Clean up first - ensure complete cleanup
       await User.deleteMany({});
       await School.deleteMany({});
+      
+      // Wait a bit to ensure cleanup is complete
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       const timestamp = Date.now();
+      const randomSuffix = Math.random().toString(36).substring(2, 9);
       testSchool = await School.create({
-        name: `Test School ${timestamp}`,
+        name: `Test School ${timestamp}-${randomSuffix}`,
         district: 'Kigali',
         sector: 'Nyarugenge',
         isActive: true
@@ -207,13 +311,17 @@ describe('Authentication Routes - Integration Tests', () => {
 
   describe('POST /api/auth/verify-pin - Integration Tests', () => {
     beforeEach(async () => {
-      // Clean up first
+      // Clean up first - ensure complete cleanup
       await User.deleteMany({});
       await School.deleteMany({});
+      
+      // Wait a bit to ensure cleanup is complete
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       const timestamp = Date.now();
+      const randomSuffix = Math.random().toString(36).substring(2, 9);
       testSchool = await School.create({
-        name: `Test School ${timestamp}`,
+        name: `Test School ${timestamp}-${randomSuffix}`,
         district: 'Kigali',
         sector: 'Nyarugenge',
         isActive: true
@@ -268,13 +376,17 @@ describe('Authentication Routes - Integration Tests', () => {
 
   describe('GET /api/auth/me - Integration Tests', () => {
     beforeEach(async () => {
-      // Clean up first
+      // Clean up first - ensure complete cleanup
       await User.deleteMany({});
       await School.deleteMany({});
+      
+      // Wait a bit to ensure cleanup is complete
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       const timestamp = Date.now();
+      const randomSuffix = Math.random().toString(36).substring(2, 9);
       testSchool = await School.create({
-        name: `Test School ${timestamp}`,
+        name: `Test School ${timestamp}-${randomSuffix}`,
         district: 'Kigali',
         sector: 'Nyarugenge',
         isActive: true

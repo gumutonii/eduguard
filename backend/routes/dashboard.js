@@ -630,9 +630,19 @@ router.get('/system-stats', authenticateToken, async (req, res) => {
 
     const interventions = interventionStats[0] || { total: 0, planned: 0, inProgress: 0, completed: 0, cancelled: 0 };
 
-    // Get messages data (last 30 days)
+    // Get messages data (last 30 days) - only count messages that were actually sent
     const messageStats = await Message.aggregate([
-      { $match: { sentAt: { $gte: thirtyDaysAgo } } },
+      { 
+        $match: { 
+          sentAt: { $gte: thirtyDaysAgo },
+          // Only count messages that were actually sent (have SMS SID or Email ID)
+          $or: [
+            { smsSid: { $exists: true, $ne: null, $ne: '' } },
+            { emailMessageId: { $exists: true, $ne: null, $ne: '' } },
+            { status: { $in: ['SENT', 'DELIVERED'] } }
+          ]
+        } 
+      },
       {
         $group: {
           _id: null,
@@ -1291,7 +1301,18 @@ router.get('/school-admin-stats', authenticateToken, async (req, res) => {
         }
       ]),
       Message.aggregate([
-        { $match: { schoolId, sentAt: { $gte: thirtyDaysAgo } } },
+        { 
+          $match: { 
+            schoolId, 
+            sentAt: { $gte: thirtyDaysAgo },
+            // Only count messages that were actually sent (have SMS SID or Email ID)
+            $or: [
+              { smsSid: { $exists: true, $ne: null, $ne: '' } },
+              { emailMessageId: { $exists: true, $ne: null, $ne: '' } },
+              { status: { $in: ['SENT', 'DELIVERED'] } }
+            ]
+          } 
+        },
         {
           $group: {
             _id: null,
@@ -1761,7 +1782,18 @@ router.get('/teacher-stats', authenticateToken, async (req, res) => {
         }
       ]),
       Message.aggregate([
-        { $match: { sentBy: teacherId, sentAt: { $gte: thirtyDaysAgo } } },
+        { 
+          $match: { 
+            sentBy: teacherId, 
+            sentAt: { $gte: thirtyDaysAgo },
+            // Only count messages that were actually sent (have SMS SID or Email ID)
+            $or: [
+              { smsSid: { $exists: true, $ne: null, $ne: '' } },
+              { emailMessageId: { $exists: true, $ne: null, $ne: '' } },
+              { status: { $in: ['SENT', 'DELIVERED'] } }
+            ]
+          } 
+        },
         {
           $group: {
             _id: null,

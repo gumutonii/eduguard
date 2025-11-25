@@ -586,10 +586,14 @@ class RiskDetectionService {
    */
   async checkPerformanceRisk(studentId, rules) {
     // Get recent performance records (last academic year)
-    const currentYear = new Date().getFullYear();
+    // Note: academicYear is stored as string (e.g., "2024-2025"), so we get all recent records
+    // and filter by date instead to ensure we get current/recent academic year records
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    
     const recentPerformances = await Performance.find({
       studentId,
-      academicYear: { $gte: currentYear - 1 }
+      createdAt: { $gte: oneYearAgo }
     }).sort({ createdAt: -1 });
 
     if (recentPerformances.length === 0) {
@@ -837,6 +841,7 @@ class RiskDetectionService {
 
   /**
    * Update student risk level based on active flags
+   * Automatically sets to LOW when all risk flags are resolved
    */
   async updateStudentRiskLevel(studentId) {
     const summary = await RiskFlag.getStudentSummary(studentId);
@@ -844,6 +849,38 @@ class RiskDetectionService {
     
     if (student) {
       const previousRiskLevel = student.riskLevel;
+      
+      // Check if all risk flags are resolved
+      const activeFlags = await RiskFlag.find({ 
+        studentId, 
+        isActive: true, 
+        isResolved: false 
+      });
+      
+      // If no active flags, automatically set to LOW
+      if (activeFlags.length === 0) {
+        student.riskLevel = 'LOW';
+        // Track when all flags were resolved (for re-evaluation scheduling)
+        student.lastAllFlagsResolvedAt = new Date();
+        await student.save();
+        
+        logger.info(`Student ${studentId} risk level set to LOW - all risk flags resolved`);
+        
+        // If risk level changed from higher to LOW, notify
+        if (previousRiskLevel && previousRiskLevel !== 'LOW') {
+          const { notifyAdminOfStudentRisk } = require('../utils/adminNotificationService');
+          await notifyAdminOfStudentRisk(
+            studentId, 
+            'LOW', 
+            `Risk level automatically reduced to LOW - all risk flags have been resolved.`,
+            'GENERAL'
+          );
+        }
+        
+        return 'LOW';
+      }
+      
+      // If there are active flags, use the summary's overall risk
       student.riskLevel = summary.overallRisk;
       await student.save();
 
@@ -858,7 +895,6 @@ class RiskDetectionService {
         }
         
         // Determine risk type from flags
-        const activeFlags = await RiskFlag.find({ studentId, isActive: true, isResolved: false });
         const riskTypes = [...new Set(activeFlags.map(f => f.type))];
         const riskType = riskTypes.length > 0 ? riskTypes[0] : 'GENERAL';
         

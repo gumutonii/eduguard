@@ -194,6 +194,10 @@ const studentSchema = new mongoose.Schema({
     enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
     default: 'LOW'
   },
+  // Track when all risk flags were last resolved (for re-evaluation scheduling)
+  lastAllFlagsResolvedAt: {
+    type: Date
+  },
   
   // Risk flags (embedded for quick access)
   riskFlags: [{

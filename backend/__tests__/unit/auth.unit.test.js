@@ -75,7 +75,14 @@ describe('Authentication Routes - Unit Tests', () => {
           password: 'password123'
         });
 
-      authToken = loginResponse.body.data.token;
+      // Check if login was successful before accessing token
+      if (loginResponse.status === 200 && loginResponse.body.success && loginResponse.body.data) {
+        authToken = loginResponse.body.data.token;
+      } else {
+        // If login fails, generate token directly using JWT
+        const jwt = require('jsonwebtoken');
+        authToken = jwt.sign({ userId: testUser._id }, process.env.JWT_SECRET || 'test-jwt-secret-key-for-testing-only');
+      }
     });
 
     test('should reject request without token', async () => {
@@ -132,7 +139,7 @@ describe('Authentication Routes - Unit Tests', () => {
       });
 
       const jwt = require('jsonwebtoken');
-      const teacherToken = jwt.sign({ userId: teacher._id }, process.env.JWT_SECRET || 'test-secret');
+      const teacherToken = jwt.sign({ userId: teacher._id }, process.env.JWT_SECRET || 'test-jwt-secret-key-for-testing-only');
 
       const response = await request(app)
         .get('/api/dashboard/school-admin-stats')

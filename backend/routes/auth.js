@@ -225,8 +225,11 @@ router.post('/login', [
 
     const { email, password } = req.body;
 
+    // Normalize email to lowercase to match database storage
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Find user with password
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
     if (!user) {
       return res.status(401).json({
         success: false,
