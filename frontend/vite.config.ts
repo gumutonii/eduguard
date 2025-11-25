@@ -9,10 +9,23 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  optimizeDeps: {
+    include: ['recharts'],
+    esbuildOptions: {
+      target: 'es2020',
+    },
+  },
   build: {
+    target: 'es2020',
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // Exclude recharts from manual chunking to avoid circular dependency issues
+          // Vite will handle it automatically with its default chunking strategy
+          if (id.includes('recharts')) {
+            return undefined
+          }
+          
           // Vendor chunks
           if (id.includes('node_modules')) {
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
@@ -20,9 +33,6 @@ export default defineConfig({
             }
             if (id.includes('@tanstack/react-query')) {
               return 'query-vendor'
-            }
-            if (id.includes('recharts')) {
-              return 'chart-vendor'
             }
             if (id.includes('@headlessui') || id.includes('@heroicons')) {
               return 'ui-vendor'
