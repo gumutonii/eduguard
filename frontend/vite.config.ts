@@ -3,38 +3,58 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react({
+      // Ensure React is properly transformed
+      jsxRuntime: 'automatic',
+    }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
   },
   optimizeDeps: {
-    include: ['recharts', 'react', 'react-dom', 'react-router-dom'],
+    include: ['react', 'react-dom', 'react-router-dom', 'recharts'],
     esbuildOptions: {
       target: 'es2020',
     },
   },
   build: {
     target: 'es2020',
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {
-          // Simplified chunking strategy to avoid circular dependencies
-          // Only chunk the most stable core dependencies
+          // Critical: React must be in its own chunk and loaded first
+          // This ensures React is always available before any code tries to use it
           if (id.includes('node_modules')) {
-            // Core React ecosystem - most stable, least likely to cause issues
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-              return 'react-vendor'
+            // React core - must be separate and load first
+            // Match exact React packages to avoid partial matches
+            if (
+              id.includes('node_modules/react/') ||
+              id === 'react' ||
+              id.includes('node_modules/react-dom/') ||
+              id === 'react-dom' ||
+              id.includes('node_modules/react-router/') ||
+              id.includes('node_modules/react-router-dom/')
+            ) {
+              return 'react-core'
             }
-            // Everything else goes into a single vendor chunk
-            // This avoids circular dependencies from complex chunking strategies
-            return 'vendor'
+            // Let Vite handle everything else automatically
+            // This prevents React from being undefined when useState is called
           }
-          // Don't manually chunk source code - let Vite handle it automatically
-          // This prevents circular dependencies between pages and shared components
         },
+        // Ensure proper chunk loading order
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
       },
+      // Ensure React is treated as a singleton
+      external: [],
     },
     chunkSizeWarningLimit: 1000, // Increase limit to 1000 KB
   },
